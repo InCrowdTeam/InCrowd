@@ -1,4 +1,4 @@
-import { ICredenziali } from "./Credenziali";
+import type { ICredenziali } from "./Credenziali";
 
 export interface IOperatore {
     nome: string;

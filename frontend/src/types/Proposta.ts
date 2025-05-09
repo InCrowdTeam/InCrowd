@@ -1,6 +1,6 @@
-import { IAllegato } from "./Allegato";
-import { IIndirizzo } from "./Indirizzo";
-import { IStatoProposta } from "./StatoProposta";
+import type { IAllegato } from "./Allegato";
+import type { IIndirizzo } from "./Indirizzo";
+import type { IStatoProposta } from "./StatoProposta";
 
 export interface IProposta {
     titolo: string;

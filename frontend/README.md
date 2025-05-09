@@ -1,58 +1,39 @@
-# Svelte library
+# frontend
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+This template should help get you started developing with Vue 3 in Vite.
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
+## Recommended IDE Setup
 
-## Creating a project
+[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Type Support for `.vue` Imports in TS
 
-```bash
-# create a new project in the current directory
-npx sv create
+TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
 
-# create a new project in my-app
-npx sv create my-app
+## Customize configuration
+
+See [Vite Configuration Reference](https://vite.dev/config/).
+
+## Project Setup
+
+```sh
+npm install
 ```
 
-## Developing
+### Compile and Hot-Reload for Development
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```bash
+```sh
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+### Type-Check, Compile and Minify for Production
 
-## Building
-
-To build your library:
-
-```bash
-npm run package
-```
-
-To create a production version of your showcase app:
-
-```bash
+```sh
 npm run build
 ```
 
-You can preview the production build with `npm run preview`.
+### Lint with [ESLint](https://eslint.org/)
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
-
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```bash
-npm publish
+```sh
+npm run lint
 ```

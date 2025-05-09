@@ -1,7 +1,8 @@
-import { IAllegato } from "./Allegato";
-import { ICredenziali } from "./Credenziali";
+import type { IAllegato } from "./Allegato";
+import type { ICredenziali } from "./Credenziali";
 
 export interface IUser {
+  _id: string
   tipo: "privato" | "ente";
   nome: string;
   cognome?: string;        // solo per "privato"
