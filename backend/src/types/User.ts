@@ -2,10 +2,8 @@ import { IAllegato } from "./Allegato";
 import { ICredenziali } from "./Credenziali";
 
 export interface IUser {
-  tipo: "privato" | "ente";
   nome: string;
-  cognome?: string;        // solo per "privato"
-  codiceFiscale?: string;  // solo per "ente"
+  cognome: string;       
   biografia: string;
   fotoProfilo: IAllegato;
   credenziali: ICredenziali;

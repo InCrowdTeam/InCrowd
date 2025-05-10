@@ -1,10 +1,9 @@
-import type { IAllegato } from "./Allegato";
-import type { ICredenziali } from "./Credenziali";
+import { IAllegato } from "./Allegato";
+import { ICredenziali } from "./Credenziali";
 
 export interface IUser {
-  _id: string
   nome: string;
-  cognome: string;        
+  codiceFiscale: string;  
   biografia: string;
   fotoProfilo: IAllegato;
   credenziali: ICredenziali;
