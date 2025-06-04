@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { allegatoSchema } from "./Allegato";
-import { indirzzoSchema } from "./Indirizzo";
+import { indirizzoSchema } from "./Indirizzo";
 import { statoPropostaSchema } from "./StatoProposta";
 
 const propostaSchema = new mongoose.Schema({
@@ -10,7 +10,7 @@ const propostaSchema = new mongoose.Schema({
   descrizione: {type: String, required: true},
   foto: {type: allegatoSchema},
   categoria: {type: String},
-  luogo: {type: indirzzoSchema},
+  luogo: {type: indirizzoSchema},
   dataIpotetica: {type: Date},
   listaHyper: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 }, { timestamps: true });
