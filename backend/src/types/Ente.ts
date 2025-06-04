@@ -1,9 +1,9 @@
 import { IAllegato } from "./Allegato";
 import { ICredenziali } from "./Credenziali";
 
-export interface IUser {
+export interface IEnte {
   nome: string;
-  codiceFiscale: string;  
+  codiceFiscale: string;
   biografia: string;
   fotoProfilo: IAllegato;
   credenziali: ICredenziali;
