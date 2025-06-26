@@ -3,6 +3,9 @@ import HomeView from '../views/HomeView.vue'
 import AboutView from '../views/AboutView.vue'
 import UserList from '../views/UserList.vue'
 import SignUp from '../views/SignupView.vue'
+import LoginView from '../views/LoginView.vue'
+import AddPropostaView from '../views/AddPropostaView.vue'
+import ProfiloView from '../views/ProfiloView.vue'
 
 const routes = [
   {
@@ -24,6 +27,21 @@ const routes = [
     path: '/addUser',
     name: 'addUser',
     component: SignUp,
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
+  },
+  {
+    path: '/addproposta',
+    name: 'addproposta',
+    component: AddPropostaView,
+  },
+  {
+    path: '/profilo',
+    name: 'profilo',
+    component: ProfiloView,
   }
 ]
 
