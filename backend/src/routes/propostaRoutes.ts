@@ -1,7 +1,8 @@
-import express from "express";
-import { getAllProposte, addProposta } from "../controllers/propostaController";
+import express, {Request, Response} from "express";
+import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta } from "../controllers/propostaController";
 import multer from "multer";
 import { Request, Response, NextFunction } from "express";
+
 
 
 const router = express.Router();
@@ -15,5 +16,15 @@ router.get("/", getAllProposte);
 
 // Rotta per creare una nuova proposta (con upload file)
 router.post("/", upload.single("foto"), addProposta);
+
+//Rotta per mettere hype a una proposta
+router.patch("/:titolo/hyper", hyperProposta as any);
+
+// Rotta per aggiungere un commento a una proposta
+router.post("/:titolo/commenti", aggiungiCommento as any);
+
+// Rotta per ottenere i commenti di una proposta
+router.get("/:titolo/commenti", getCommentiProposta as any);
+
 
 export default router;
