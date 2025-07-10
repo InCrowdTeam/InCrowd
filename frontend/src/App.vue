@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import HelloWorld from './components/HelloWorld.vue'
+import { useUserStore } from '@/stores/userStore'
+
+const userStore = useUserStore()
+const logout = () => {
+  userStore.logout()
+}
 </script>
 
 <template>
@@ -12,9 +18,11 @@ import HelloWorld from './components/HelloWorld.vue'
 
       <nav>
         <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
         <RouterLink to="/users">Utenti</RouterLink>
         <RouterLink to="/addUser">Aggiungi utente</RouterLink>
+        <RouterLink to="/addProposta">Aggiungi proposta</RouterLink>
+        <RouterLink to="/login">Login</RouterLink>
+        <button v-if="userStore.token" @click="logout">Logout</button>
       </nav>
     </div>
   </header>
