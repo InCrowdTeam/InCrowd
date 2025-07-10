@@ -6,8 +6,6 @@ import userRoutes from "./routes/userRoutes";
 import propostaRoutes from "./routes/propostaRoutes";
 import authRoutes from "./routes/authRoutes";
 
-
-
 dotenv.config();
 
 const app = express();
@@ -23,6 +21,7 @@ app.get("/ping", (req, res) => {
 
 app.use("/api/proposte", propostaRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/proposte", propostaRoutes);
 app.use("/api/auth", authRoutes);
 
 
