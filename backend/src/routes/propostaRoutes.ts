@@ -1,6 +1,8 @@
 import express from "express";
 import { getAllProposte, addProposta } from "../controllers/propostaController";
 import multer from "multer";
+import { Request, Response, NextFunction } from "express";
+
 
 const router = express.Router();
 
