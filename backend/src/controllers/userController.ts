@@ -15,7 +15,6 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log(req.body);
     const { nome, cognome, biografia, email, password } = req.body;
 
     // Hash della password
@@ -27,8 +26,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       cognome,
       biografia,
       fotoProfilo: {
-        data: req.file?.buffer, // Salva il buffer dell'immagine
-        contentType: req.file?.mimetype, // Salva il tipo MIME
+        data: req.file?.buffer,
+        contentType: req.file?.mimetype,
       },
       credenziali: {
         email,
@@ -41,5 +40,25 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   } catch (error) {
     console.error("Errore durante la creazione dell'utente:", error);
     res.status(500).json({ message: "Error creating user", error });
+  }
+};
+
+export const getUtente = async (req: Request, res: Response) => {
+  try {
+    const utente = await User.findById(req.params.id).select("nome biografia fotoProfilo");
+    if (!utente) return res.status(404).json({ message: "Utente non trovato" });
+
+    let fotoProfiloUrl = "";
+    if (utente.fotoProfilo && utente.fotoProfilo.data && utente.fotoProfilo.contentType) {
+      fotoProfiloUrl = `data:${utente.fotoProfilo.contentType};base64,${utente.fotoProfilo.data}`;
+    }
+
+    res.json({
+      nome: utente.nome,
+      biografia: utente.biografia,
+      fotoProfiloUrl
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Errore nel recupero utente" });
   }
 };
