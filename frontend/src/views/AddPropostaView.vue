@@ -95,6 +95,8 @@ export default {
   methods: {
     handleFileUpload(event) {
       const file = event.target.files[0];
+      // Qui passiamo direttamente il file, che è il comportamento corretto
+      // quando si usa FormData per caricare file binari
       this.form.foto.data = file;
     },
     async handleSubmit() {
@@ -108,8 +110,9 @@ export default {
         const formData = new FormData();
         formData.append("titolo", this.form.titolo);
         formData.append("descrizione", this.form.descrizione);
+        // FormData gestisce correttamente i file binari
         if (this.form.foto.data) {
-          formData.append("foto", this.form.foto.data); // campo file
+          formData.append("foto", this.form.foto.data);
         }
         formData.append("categoria", this.form.categoria);
         // Invia i dati dell'indirizzo come campi flat

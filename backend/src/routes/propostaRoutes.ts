@@ -1,7 +1,6 @@
-import express, {Request, Response} from "express";
+import express from "express";
 import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta } from "../controllers/propostaController";
 import multer from "multer";
-import { Request, Response, NextFunction } from "express";
 
 
 

@@ -4,6 +4,7 @@ import UserList from '../views/UserList.vue'
 import SignUp from '../views/SignupView.vue'
 import AddPropostaView from '@/views/AddPropostaView.vue'
 import LoginView from '@/views/LoginView.vue'
+import ProfiloView from '@/views/ProfiloView.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes = [
@@ -30,6 +31,11 @@ const routes = [
   { path: '/login',
     name: 'Login',
     component: LoginView },
+  {
+    path: '/profilo',
+    name: 'profilo',
+    component: ProfiloView
+  },
 ]
 
 const router = createRouter({

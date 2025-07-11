@@ -1,4 +1,4 @@
 export interface IAllegato {
-    url: string
-    descrizione?: string
+  data: string;
+  contentType: string;
 }
