@@ -5,16 +5,15 @@ import Commento from "../models/Commento";
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
     const proposte = await Proposta.find();
-    const proposteConFoto = proposte.map(p => ({
-      ...p.toObject(),
-      foto: p.foto && p.foto.data
-        ? {
-            data: p.foto.data,
-            contentType: p.foto.contentType
-          }
-        : null
-    }));
-    res.json(proposteConFoto);
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      // se è ancora Buffer lo converto, altrimenti lascio la stringa
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    res.json(proposteProcessate);
   } catch (error) {
     console.error("Errore nel recupero proposte:", error);
     res.status(500).json({ message: "Errore interno" });
@@ -22,7 +21,6 @@ export const getAllProposte = async (req: Request, res: Response) => {
 };
 
 export const addProposta = async (req: Request, res: Response): Promise<void> => {
-  
   try {
     // Ricostruisci l'indirizzo dall'input flat
     const luogo = {
@@ -31,10 +29,13 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
       via: req.body.indirizzo_via,
       civico: req.body.indirizzo_civico,
     };
+    
+    // Inizializza lo stato con valori predefiniti se non fornito
     const stato = typeof req.body.stato === "string"
-    ? JSON.parse(req.body.stato)
-    : req.body.stato;
+      ? JSON.parse(req.body.stato)
+      : req.body.stato || { stato: "in_approvazione", commento: "Nessun commento" };
 
+    // Assicurati che stato.commento sia definito
     if (!stato.commento) {
       stato.commento = "Nessun commento";
     }
@@ -43,11 +44,12 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
       titolo: req.body.titolo,
       descrizione: req.body.descrizione,
       foto: req.file
-      ? {
-          data: req.file.buffer.toString('base64'),
-          contentType: req.file.mimetype,
-        }
-      : undefined,
+        ? {
+            // salvo direttamente la stringa base64
+            data: req.file.buffer.toString('base64'),
+            contentType: req.file.mimetype,
+          }
+        : undefined,
       categoria: req.body.categoria,
       luogo,
       dataIpotetica: req.body.dataIpotetica,
@@ -55,13 +57,10 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
       stato,
     });
 
-    console.log("req.body:", req.body);
-    if (!newProposta.stato) {
-      newProposta.stato = { stato: "in_approvazione", commento: "Nessun commento" };
-    }
-
-    await newProposta.save();
-    res.status(201).json({ message: "Proposta created successfully", proposta: newProposta });
+    const propostaSalvata = await newProposta.save();
+    const propostaObj = propostaSalvata.toObject();
+    // non serve più convertire in base64 in risposta, è già stringa
+    res.status(201).json({ message: "Proposta created successfully", proposta: propostaObj });
   } catch (error) {
     console.error("Errore durante la creazione della proposta:", error);
     res.status(500).json({ message: "Error creating proposta", error });
@@ -75,7 +74,11 @@ export const hyperProposta = async (req: Request, res: Response) => {
   try {
     const proposta = await Proposta.findOne({ titolo: titoloDecoded });
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
-    if (!Array.isArray(proposta.listaHyper)) {
+    
+    // Inizializza listaHyper se non esiste
+    if (!proposta.listaHyper) {
+      proposta.listaHyper = [];
+    } else if (!Array.isArray(proposta.listaHyper)) {
       proposta.listaHyper = [];
     }
 
@@ -145,5 +148,63 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Errore nel recupero commenti:", err);
     res.status(500).json({ message: "Errore nel recupero dei commenti" });
+  }
+};
+
+export const getPropostaByTitolo = async (req: Request, res: Response) => {
+  try {
+    const titoloDecoded = decodeURIComponent(req.params.titolo);
+    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+
+    const propostaObj = proposta.toObject();
+    // se per qualche motivo fosse ancora Buffer lo converto
+    if (propostaObj.foto?.data && Buffer.isBuffer(propostaObj.foto.data)) {
+      propostaObj.foto.data = propostaObj.foto.data.toString('base64');
+    }
+    res.json(propostaObj);
+  } catch (error) {
+    console.error("Errore nel recupero proposta:", error);
+    res.status(500).json({ message: "Errore nel recupero della proposta" });
+  }
+};
+
+export const createProposta = async (req: Request, res: Response) => {
+  try {
+    // Ricostruisci l'indirizzo dall'input
+    const luogo = {
+      citta: req.body.indirizzo_citta,
+      cap: req.body.indirizzo_cap,
+      via: req.body.indirizzo_via,
+      civico: req.body.indirizzo_civico,
+    };
+    
+    const stato = typeof req.body.stato === "string"
+      ? JSON.parse(req.body.stato)
+      : req.body.stato || { stato: "in_approvazione", commento: "Nessun commento" };
+
+    const nuovaProposta = new Proposta({
+      titolo: req.body.titolo,
+      descrizione: req.body.descrizione,
+      categoria: req.body.categoria,
+      luogo,
+      dataIpotetica: req.body.dataIpotetica,
+      proponenteID: req.body.proponenteID,
+      stato,
+    });
+    
+    if (req.file) {
+      nuovaProposta.foto = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype
+      };
+    }
+    
+    const propostaSalvata = await nuovaProposta.save();
+    const propostaObj = propostaSalvata.toObject();
+    res.status(201).json(propostaObj);
+  } catch (error) {
+    console.error("Errore durante la creazione della proposta:", error);
+    res.status(500).json({ message: "Error creating proposta", error });
   }
 };

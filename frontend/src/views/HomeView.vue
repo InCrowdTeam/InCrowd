@@ -1,9 +1,35 @@
 <script setup lang="ts">
-  import { onMounted, ref, computed } from 'vue'
-  import axios from 'axios'
-  import type { IProposta } from "../types/Proposta"
-  import { useUserStore } from '@/stores/userStore'
+import { onMounted, ref, computed } from 'vue'
+import axios from 'axios'
+import type { IProposta } from "../types/Proposta"
+import { useUserStore } from '@/stores/userStore'
 
+// Funzione locale per gestire la visualizzazione delle immagini
+function processImageUrl(foto: any): string {
+  if (!foto || !foto.data) return '';
+  
+  // Gestione dei diversi tipi di dati che possono arrivare dal server
+  try {
+    // Se è già una stringa base64 valida
+    if (typeof foto.data === 'string') {
+      return `data:${foto.contentType || 'image/jpeg'};base64,${foto.data}`;
+    }
+    
+    // Se è un array di byte
+    if (Array.isArray(foto.data)) {
+      let binary = '';
+      const bytes = new Uint8Array(foto.data);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return `data:${foto.contentType || 'image/jpeg'};base64,${btoa(binary)}`;
+    }
+  } catch (e) {
+    console.error('Errore nella conversione dell\'immagine:', e);
+  }
+  
+  return '';
+}
 
   //CATEGORIE
   const categorie = [
@@ -79,24 +105,31 @@
   }
 
   //LOGICA PER IL BOTTONE HYPE
-  const isHyperUser = computed(() =>
-  propostaSelezionata.value?.listaHyper?.includes(userStore.user?._id)
-)
+  const isHyperUser = computed(() => {
+  const listaHyper = propostaSelezionata.value?.listaHyper;
+  return Array.isArray(listaHyper) && listaHyper.includes(userStore.user?._id);
+})
 
 async function handleHyper() {
   if (!propostaSelezionata.value || !userStore.user?._id) return;
-  // Chiamata PATCH per aggiungere l'utente alla listaHyper
+  console.log("Invio hyper per:", propostaSelezionata.value.titolo);
+  
   try {
+    // Codifica il titolo della proposta per gestire spazi e caratteri speciali nell'URL
     const res = await axios.patch(
-      `http://localhost:3000/api/proposte/${propostaSelezionata.value.titolo}/hyper`,
+      `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/hyper`,
       { userId: userStore.user._id }
     );
+    console.log("Risposta hyper:", res.data);
+    
     // Aggiorna la proposta selezionata con la risposta aggiornata
     propostaSelezionata.value = res.data;
-    // Aggiorna anche la lista proposte (opzionale)
+    
+    // Aggiorna anche la lista proposte
     const idx = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value?.titolo);
     if (idx !== -1) proposte.value[idx] = res.data;
   } catch (err) {
+    console.error("Errore hyper:", err);
     alert("Errore nell'aggiunta dell'hyper");
   }
 }
@@ -217,8 +250,8 @@ async function handleHyper() {
             style="cursor:pointer"
           >
               <img
-                v-if="proposta.foto && proposta.foto.data"
-                :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
+                v-if="proposta.foto"
+                :src="processImageUrl(proposta.foto)"
                 alt="Immagine proposta"
                 class="proposta-img"
               />
@@ -239,8 +272,8 @@ async function handleHyper() {
       >
           <button class="close-btn" @click="chiudiDettaglio">×</button>
           <img
-            v-if="propostaSelezionata.foto && propostaSelezionata.foto.data"
-            :src="`data:${propostaSelezionata.foto.contentType};base64,${propostaSelezionata.foto.data}`"
+            v-if="propostaSelezionata.foto"
+            :src="processImageUrl(propostaSelezionata.foto)"
             alt="Immagine proposta"
             class="side-panel-img"
           />

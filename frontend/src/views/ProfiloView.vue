@@ -30,7 +30,7 @@ onMounted(async () => {
   if (userId) {
     try{
       console.log("userId:", userId);
-      const res = await axios.get(`/api/utenti/${userId}`);
+      const res = await axios.get(`/api/users/${userId}`);
       console.log("Risposta utente:", res.data);
       userStore.user = { ...userStore.user, ...res.data };
     } catch (err) {
@@ -147,13 +147,13 @@ onMounted(async () => {
 .profile-user-name {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #eee;
+  color: var(--text-color);
   margin-bottom: 0.2rem;
 }
 
 .profile-user-bio {
   font-size: 1rem;
-  color: #eee;
+  color: var(--text-color);
   opacity: 0.85;
   margin-top: 0.1rem;
   max-width: 220px;
