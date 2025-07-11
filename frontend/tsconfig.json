@@ -1,4 +1,14 @@
 {
+  
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    // ...altre opzioni...  }
+  },
   "files": [],
   "references": [
     {

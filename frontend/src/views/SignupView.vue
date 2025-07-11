@@ -72,10 +72,6 @@ export default {
           body: formData, // Invia i dati come FormData
         });
 
-        for (let pair of formData.entries()) {
-          console.log(pair[0], pair[1]);
-        }
-
         if (!response.ok) throw new Error("Failed to create user");
         alert("User created successfully!");
       } catch (error) {
