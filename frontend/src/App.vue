@@ -24,7 +24,7 @@ const goToAddProposta = () => router.push('/addproposta')
       <nav class="top-nav">
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/users">Utenti</RouterLink>
-        <RouterLink to="/addUser">Aggiungi utente</RouterLink>
+        <RouterLink to="/addUser">Registrati</RouterLink>
         <RouterLink to="/addProposta">Aggiungi proposta</RouterLink>
         <RouterLink to="/profilo">Profilo</RouterLink>
         <RouterLink to="/login">Login</RouterLink>
