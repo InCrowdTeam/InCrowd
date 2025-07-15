@@ -15,6 +15,12 @@ InCrowd è la piattaforma di crowdfunding che mette al centro **le tue idee**. P
 - **Database:** MongoDB
 - **Linguaggi:** TypeScript
 
+## 🔐 Login con Google
+
+Per abilitare l'autenticazione con Google imposta la variabile d'ambiente `GOOGLE_CLIENT_ID` nel backend con l'ID OAuth 2.0 della tua applicazione.
+
+Nel frontend è stato aggiunto un esempio di pulsante "Sign in with Google" nella pagina di login. Al termine dell'autenticazione viene inviato l'`idToken` all'endpoint `/api/auth/google` esposto dal backend.
+
 
 ---
 > **InCrowd**: Dai forma alla tua città, un'idea alla volta. 🌟

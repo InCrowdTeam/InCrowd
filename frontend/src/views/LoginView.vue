@@ -12,6 +12,12 @@
       </div>
       <button type="submit">Login</button>
     </form>
+    <div id="g_id_onload"
+         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
     <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
   </div>
 </template>
@@ -49,6 +55,23 @@ const login = async () => {
     errorMessage.value = err.response?.data?.message || 'Errore durante il login';
   }
 };
+
+// Gestione risposta Google
+const handleCredentialResponse = async (response: any) => {
+  try {
+    const res = await axios.post('http://localhost:3000/api/auth/google', {
+      idToken: response.credential,
+    });
+    userStore.setToken(res.data.token);
+    userStore.setUser(res.data.user);
+    router.push('/');
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'Errore durante il login con Google';
+  }
+};
+
+// Rende la funzione disponibile globalmente per lo script Google
+(window as any).handleCredentialResponse = handleCredentialResponse;
 </script>
 
 <style scoped>
