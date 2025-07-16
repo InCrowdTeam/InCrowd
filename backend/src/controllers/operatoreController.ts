@@ -22,6 +22,7 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
   } catch (error) {
     console.error("Errore durante la creazione dell'operatore:", error);
     res.status(500).json({ message: "Error creating operatore", error });
+  }
 }
 
 export const getAllOperatori = async (_req: Request, res: Response): Promise<void> => {
@@ -42,7 +43,10 @@ export const updateOperatore = async (req: Request, res: Response): Promise<void
       updateData['credenziali.password'] = await bcrypt.hash(password, 10)
     }
     const updated = await Operatore.findByIdAndUpdate(id, updateData, { new: true })
-    if (!updated) return res.status(404).json({ message: 'Operatore not found' })
+    if (!updated) {
+      res.status(404).json({ message: 'Operatore not found' })
+      return
+    }
     res.json(updated)
   } catch (error) {
     res.status(500).json({ message: 'Error updating operatore', error })
@@ -53,7 +57,10 @@ export const deleteOperatore = async (req: Request, res: Response): Promise<void
   try {
     const { id } = req.params
     const deleted = await Operatore.findByIdAndDelete(id)
-    if (!deleted) return res.status(404).json({ message: 'Operatore not found' })
+    if (!deleted) {
+      res.status(404).json({ message: 'Operatore not found' })
+      return
+    }
     res.json({ message: 'Operatore deleted' })
   } catch (error) {
     res.status(500).json({ message: 'Error deleting operatore', error })

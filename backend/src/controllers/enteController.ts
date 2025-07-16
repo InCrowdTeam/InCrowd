@@ -28,4 +28,5 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     console.error("Errore durante la creazione dell'ente:", error);
     res.status(500).json({ message: "Error creating ente", error });
   }
+}
 

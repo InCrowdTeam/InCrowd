@@ -1,9 +1,9 @@
 import express from "express";
 import { createOperatore } from "../controllers/operatoreController";
-import { adminMiddleware } from "../middleware/admin";
+import { adminOnly } from "../middleware/admin";
 
 const router = express.Router();
 
-router.post("/", adminMiddleware, createOperatore);
+router.post("/", adminOnly, createOperatore);
 
 export default router;
