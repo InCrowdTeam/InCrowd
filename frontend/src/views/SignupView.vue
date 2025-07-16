@@ -85,32 +85,88 @@ export default {
 
 <style scoped>
 .signup {
-  max-width: 400px;
-  margin: 0 auto;
+  max-width: 430px;
+  margin: 2.5rem auto 0 auto;
+  padding: 2rem 2rem 1.5rem 2rem;
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
 }
-.signup div {
-  margin-bottom: 1rem;
+
+.signup h1 {
+  text-align: center;
+  color: #fe4654;
+  margin-bottom: 1.5rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
+
+.signup form > div {
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-direction: column;
+}
+
 .signup label {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+  color: #404149;
+  font-size: 1.05rem;
 }
-.signup input,
+
+.signup input[type="text"],
+.signup input[type="email"],
+.signup input[type="password"],
+.signup input[type="file"],
 .signup textarea {
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #fe4654;
+  border-radius: 2rem;
+  font-size: 1rem;
+  outline: none;
+  transition: border 0.2s;
+  background: #f8f7f3;
+}
+
+.signup input[type="file"] {
+  padding: 0.4rem 0.5rem;
+  border-radius: 1rem;
+  background: #f8f7f3;
+}
+
+.signup input:focus,
+.signup textarea:focus {
+  border-color: #404149;
+}
+
+.signup textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.signup button[type="submit"] {
   width: 100%;
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-.signup button {
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  background-color: #007bff;
-  color: white;
+  background: #fe4654;
+  color: #fff;
   border: none;
+  border-radius: 2rem;
+  padding: 0.7rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
   cursor: pointer;
+  margin-top: 0.7rem;
+  transition: background 0.2s;
+  box-shadow: 0 1px 6px rgba(254,70,84,0.07);
 }
-.signup button:hover {
-  background-color: #0056b3;
+
+.signup button[type="submit"]:hover {
+  background: #404149;
+}
+
+@media (max-width: 600px) {
+  .signup {
+    padding: 1rem 0.5rem;
+  }
 }
 </style>
