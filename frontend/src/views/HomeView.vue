@@ -59,35 +59,56 @@ function processImageUrl(foto: any): string {
   const nuovoCommento = ref("");
 
   async function caricaCommenti() {
-    console.log("Caricamento commenti per proposta:", propostaSelezionata.value);
     if (!propostaSelezionata.value) return;
+    
     try {
       const res = await axios.get(
-        `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/commenti`
+        `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/commenti`,
+        {
+          headers: {
+            Authorization: `Bearer ${userStore.token}`
+          }
+        }
       );
       commentiProposta.value = res.data.commenti;
       console.log("Commenti caricati in caricaCommenti:", commentiProposta.value);
 
     } catch (err) {
-      commentiProposta.value = [];
+      console.error("Errore nel caricamento commenti:", err);
+      if (err.response?.status === 401) {
+        console.log("Utente non autenticato per visualizzare i commenti");
+      }
     }
   }
 
   async function inviaCommento() {
   if (!nuovoCommento.value.trim() || !propostaSelezionata.value || !userStore.user?._id) return;
+  console.log("Invio commento per:", propostaSelezionata.value.titolo);
+  console.log("Token presente:", userStore.token);
+  
   try {
     await axios.post(
       `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/commenti`,
       {
         contenuto: nuovoCommento.value,
         userId: userStore.user._id,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${userStore.token}`
+        }
       }
     );
+    
     nuovoCommento.value = "";
     await caricaCommenti();
-    console.log("Commenti caricati_1:", commentiProposta.value);
   } catch (err) {
-    alert("Errore nell'invio del commento");
+    console.error("Errore commento:", err);
+    if (err.response?.status === 401) {
+      alert("Sessione scaduta. Effettua nuovamente il login.");
+    } else {
+      alert("Errore nell'invio del commento");
+    }
   }
 }
 
@@ -113,24 +134,34 @@ function processImageUrl(foto: any): string {
 async function handleHyper() {
   if (!propostaSelezionata.value || !userStore.user?._id) return;
   console.log("Invio hyper per:", propostaSelezionata.value.titolo);
+  console.log("Token presente:", userStore.token);
   
   try {
-    // Codifica il titolo della proposta per gestire spazi e caratteri speciali nell'URL
     const res = await axios.patch(
       `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/hyper`,
-      { userId: userStore.user._id }
+      { userId: userStore.user._id },
+      {
+        headers: {
+          Authorization: `Bearer ${userStore.token}`
+        }
+      }
     );
-    console.log("Risposta hyper:", res.data);
     
-    // Aggiorna la proposta selezionata con la risposta aggiornata
+    console.log("Risposta hyper:", res.data);
     propostaSelezionata.value = res.data;
     
-    // Aggiorna anche la lista proposte
-    const idx = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value?.titolo);
-    if (idx !== -1) proposte.value[idx] = res.data;
+    // Aggiorna anche la proposta nella lista
+    const index = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value.titolo);
+    if (index !== -1) {
+      proposte.value[index] = res.data;
+    }
   } catch (err) {
     console.error("Errore hyper:", err);
-    alert("Errore nell'aggiunta dell'hyper");
+    if (err.response?.status === 401) {
+      alert("Sessione scaduta. Effettua nuovamente il login.");
+    } else {
+      alert("Errore nell'aggiunta dell'hyper");
+    }
   }
 }
 

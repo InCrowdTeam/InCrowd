@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { Request, Response } from "express";
 import User from "../models/User";
 import Ente from "../models/Ente";
@@ -78,6 +79,9 @@ export const googleLogin = async (req: Request, res: Response) => {
   const { idToken } = req.body;
   if (!idToken) return res.status(400).json({ message: 'Token mancante' });
   try {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error("GOOGLE_CLIENT_ID not set in environment");
+    }
     const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.sub) {

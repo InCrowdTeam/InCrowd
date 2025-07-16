@@ -72,8 +72,11 @@ const login = async () => {
 };
 
 const loginWithGoogle = () => {
+  console.log("Google Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
+
   // Inizializza Google Identity Services
   // @ts-ignore
+  
   google.accounts.id.initialize({
     client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
     callback: async (resp: any) => {
