@@ -1,0 +1,465 @@
+openapi: 3.0.0
+info:
+  version: '1.0'
+  title: 'InCrowd OpenAPI 3.0'
+  description: API for managing InCrowd social proposals system.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Localhost
+
+paths:
+  /users:
+    get:
+      description: >-
+        Gets the list of users.
+        It is possible to show users by their role /users?role={role}
+      summary: View all users
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [user, poweruser, admin]
+      responses:
+        '200':
+          description: 'Collection of users'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      description: >-
+        Creates a new user in the system.
+      summary: Register a new user
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - nome
+                - cognome
+                - biografia
+                - email
+                - password
+              properties:
+                nome:
+                  type: string
+                  description: 'First name of the user'
+                cognome:
+                  type: string
+                  description: 'Last name of the user'
+                biografia:
+                  type: string
+                  description: 'Biography of the user'
+                email:
+                  type: string
+                  description: 'Email address of the user'
+                password:
+                  type: string
+                  description: 'Password for the user account'
+                fotoProfilo:
+                  type: string
+                  format: byte
+                  description: 'Profile photo of the user (base64 encoded)'
+      responses:
+        '201':
+          description: 'User created. Link in the Location header'
+          headers:
+            'Location':
+              schema:
+                type: string
+                description: Link to the newly created user.
+
+  /users/{id}:
+    get:
+      description: >-
+        Gets a specific user by ID.
+      summary: Get user by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: 'ID of the user'
+      responses:
+        '200':
+          description: 'User details'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: 'User not found'
+
+  /proposte:
+    get:
+      description: >-
+        Gets the list of all proposals.
+      summary: View all proposals
+      responses:
+        '200':
+          description: 'Collection of proposals'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Proposta'
+    post:
+      description: >-
+        Creates a new proposal.
+      summary: Create a new proposal
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - titolo
+                - descrizione
+                - proponenteID
+              properties:
+                titolo:
+                  type: string
+                  description: 'Title of the proposal'
+                descrizione:
+                  type: string
+                  description: 'Description of the proposal'
+                proponenteID:
+                  type: string
+                  description: 'ID of the user creating the proposal'
+                categoria:
+                  type: string
+                  description: 'Category of the proposal'
+                foto:
+                  type: string
+                  format: byte
+                  description: 'Photo for the proposal (base64 encoded)'
+                dataIpotetica:
+                  type: string
+                  format: date
+                  description: 'Hypothetical date for the proposal'
+                indirizzo_citta:
+                  type: string
+                  description: 'City of the location'
+                indirizzo_cap:
+                  type: string
+                  description: 'ZIP code of the location'
+                indirizzo_via:
+                  type: string
+                  description: 'Street of the location'
+                indirizzo_civico:
+                  type: string
+                  description: 'Street number of the location'
+      responses:
+        '201':
+          description: 'Proposal created. Link in the Location header'
+          headers:
+            'Location':
+              schema:
+                type: string
+                description: Link to the newly created proposal.
+
+  /proposte/{titolo}/hyper:
+    patch:
+      description: >-
+        Add or remove hype from a proposal.
+      summary: Hype a proposal
+      parameters:
+        - in: path
+          name: titolo
+          required: true
+          schema:
+            type: string
+            description: 'Title of the proposal'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userID
+              properties:
+                userID:
+                  type: string
+                  description: 'ID of the user hyping the proposal'
+      responses:
+        '200':
+          description: 'Proposal hype updated successfully'
+        '404':
+          description: 'Proposal not found'
+
+  /proposte/{titolo}/commenti:
+    get:
+      description: >-
+        Gets all comments for a specific proposal.
+      summary: Get proposal comments
+      parameters:
+        - in: path
+          name: titolo
+          required: true
+          schema:
+            type: string
+            description: 'Title of the proposal'
+      responses:
+        '200':
+          description: 'Collection of comments'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Commento'
+    post:
+      description: >-
+        Add a comment to a proposal.
+      summary: Add comment to proposal
+      parameters:
+        - in: path
+          name: titolo
+          required: true
+          schema:
+            type: string
+            description: 'Title of the proposal'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - autoreID
+                - contenuto
+              properties:
+                autoreID:
+                  type: string
+                  description: 'ID of the comment author'
+                contenuto:
+                  type: string
+                  description: 'Content of the comment'
+      responses:
+        '201':
+          description: 'Comment added successfully'
+        '404':
+          description: 'Proposal not found'
+
+  /auth/login:
+    post:
+      description: >-
+        Authenticate a user with email and password.
+      summary: User login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  description: 'User email address'
+                password:
+                  type: string
+                  description: 'User password'
+      responses:
+        '200':
+          description: 'Login successful'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: 'JWT authentication token'
+                  user:
+                    $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: 'Invalid credentials'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - nome
+        - cognome
+        - biografia
+        - credenziali
+      properties:
+        _id:
+          type: string
+          description: 'Unique identifier of the user'
+        nome:
+          type: string
+          description: 'First name of the user'
+        cognome:
+          type: string
+          description: 'Last name of the user'
+        biografia:
+          type: string
+          description: 'Biography of the user'
+        fotoProfilo:
+          $ref: '#/components/schemas/Allegato'
+        credenziali:
+          $ref: '#/components/schemas/Credenziali'
+        createdAt:
+          type: string
+          format: date-time
+          description: 'Creation timestamp'
+        updatedAt:
+          type: string
+          format: date-time
+          description: 'Last update timestamp'
+
+    UserProfile:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: 'Unique identifier of the user'
+        nome:
+          type: string
+          description: 'First name of the user'
+        biografia:
+          type: string
+          description: 'Biography of the user'
+        fotoProfilo:
+          $ref: '#/components/schemas/Allegato'
+
+    Credenziali:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: 'Email address of the user'
+        password:
+          type: string
+          description: 'Hashed password'
+
+    Allegato:
+      type: object
+      properties:
+        data:
+          type: string
+          description: 'Base64 encoded file data'
+        contentType:
+          type: string
+          description: 'MIME type of the file'
+
+    Indirizzo:
+      type: object
+      properties:
+        citta:
+          type: string
+          description: 'City name'
+        cap:
+          type: string
+          description: 'CAP code'
+        via:
+          type: string
+          description: 'Street name'
+        civico:
+          type: string
+          description: 'Street number'
+
+    StatoProposta:
+      type: object
+      required:
+        - stato
+        - commento
+      properties:
+        stato:
+          type: string
+          enum: [in_approvazione, approvata, rifiutata]
+          description: 'Current status of the proposal'
+        commento:
+          type: string
+          description: 'Comment about the proposal status'
+
+    Proposta:
+      type: object
+      required:
+        - titolo
+        - stato
+        - proponenteID
+        - descrizione
+        - listaHyper
+      properties:
+        _id:
+          type: string
+          description: 'Unique identifier of the proposal'
+        titolo:
+          type: string
+          description: 'Title of the proposal'
+        stato:
+          $ref: '#/components/schemas/StatoProposta'
+        proponenteID:
+          type: string
+          description: 'ID of the user who created the proposal'
+        descrizione:
+          type: string
+          description: 'Description of the proposal'
+        foto:
+          $ref: '#/components/schemas/Allegato'
+        categoria:
+          type: string
+          description: 'Category of the proposal'
+        luogo:
+          $ref: '#/components/schemas/Indirizzo'
+        dataIpotetica:
+          type: string
+          format: date
+          description: 'Hypothetical date for the proposal'
+        listaHyper:
+          type: array
+          items:
+            type: string
+          description: 'List of user IDs who hyped the proposal'
+        createdAt:
+          type: string
+          format: date-time
+          description: 'Creation timestamp'
+        updatedAt:
+          type: string
+          format: date-time
+          description: 'Last update timestamp'
+
+    Commento:
+      type: object
+      required:
+        - autoreID
+        - contenuto
+        - propostaID
+      properties:
+        _id:
+          type: string
+          description: 'Unique identifier of the comment'
+        autoreID:
+          type: string
+          description: 'ID of the comment author'
+        contenuto:
+          type: string
+          description: 'Content of the comment'
+        propostaID:
+          type: string
+          description: 'ID of the proposal this comment belongs to'
+        createdAt:
+          type: string
+          format: date-time
+          description: 'Creation timestamp'
+        updatedAt:
+          type: string
+          format: date-time
+          description: 'Last update timestamp'
