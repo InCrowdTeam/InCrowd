@@ -67,6 +67,49 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+export const getPendingProposte = async (_req: Request, res: Response) => {
+  try {
+    const proposte = await Proposta.find({ "stato.stato": "in_approvazione" })
+      .sort({ createdAt: 1 });
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    res.json(proposteProcessate);
+  } catch (error) {
+    console.error("Errore nel recupero proposte pending:", error);
+    res.status(500).json({ message: "Errore interno" });
+  }
+};
+
+export const updateStatoProposta = async (req: Request, res: Response) => {
+  const { titolo } = req.params;
+  const titoloDecoded = decodeURIComponent(titolo);
+  const { stato, commento } = req.body;
+  try {
+    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+
+    proposta.stato = {
+      stato,
+      commento: commento ?? proposta.stato?.commento ?? "",
+    } as any;
+
+    await proposta.save();
+    const propostaObj = proposta.toObject();
+    if (propostaObj.foto?.data && Buffer.isBuffer(propostaObj.foto.data)) {
+      propostaObj.foto.data = propostaObj.foto.data.toString('base64');
+    }
+    res.json(propostaObj);
+  } catch (error) {
+    console.error("Errore aggiornamento stato proposta:", error);
+    res.status(500).json({ message: "Errore aggiornamento stato" });
+  }
+};
+
 export const hyperProposta = async (req: Request, res: Response) => {
   const { titolo } = req.params;
   const titoloDecoded = decodeURIComponent(titolo);

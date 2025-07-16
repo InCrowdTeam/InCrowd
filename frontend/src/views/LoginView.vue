@@ -58,11 +58,12 @@ const login = async () => {
     userStore.setToken(res.data.token);
     userStore.setUser({ ...res.data.user, userType: res.data.userType });
 
-    // Se l'utente è admin reindirizza al pannello operatori
+    // Reindirizza in base al ruolo
     if (res.data.userType === 'admin') {
       router.push('/admin/operatori');
+    } else if (res.data.userType === 'operatore') {
+      router.push('/moderation');
     } else {
-      // Altrimenti reindirizza alla home
       router.push('/');
     }
   } catch (err: any) {
