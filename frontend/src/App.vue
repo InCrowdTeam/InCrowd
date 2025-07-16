@@ -24,10 +24,10 @@ const goToAddProposta = () => router.push('/addproposta')
       <nav class="top-nav">
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/users">Utenti</RouterLink>
-        <RouterLink to="/addUser">Registrati</RouterLink>
+        <RouterLink v-if="!userStore.token" to="/addUser">Registrati</RouterLink>
         <RouterLink to="/addProposta">Aggiungi proposta</RouterLink>
-        <RouterLink to="/profilo">Profilo</RouterLink>
-        <RouterLink to="/login">Login</RouterLink>
+        <RouterLink v-if="userStore.token" to="/profilo">Profilo</RouterLink>
+        <RouterLink v-if="!userStore.token" to="/login">Login</RouterLink>
         <button v-if="userStore.token" @click="userStore.logout">Logout</button>
       </nav>
     </header>

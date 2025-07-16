@@ -15,6 +15,19 @@ InCrowd è la piattaforma di crowdfunding che mette al centro **le tue idee**. P
 - **Database:** MongoDB
 - **Linguaggi:** TypeScript
 
+## ⚙️ Configurazione ambiente
+Copia `.env.example` in `.env` e compila le variabili seguenti:
+
+```
+MONGO_URI=<stringa di connessione>
+JWT_SECRET=<chiave jwt>
+GOOGLE_CLIENT_ID=<client id google>
+ADMIN_EMAIL=<email admin>
+ADMIN_PASSWORD=<password admin>
+```
+
+La chiave Google è necessaria per abilitare il login tramite Google.
+
 
 ---
 > **InCrowd**: Dai forma alla tua città, un'idea alla volta. 🌟

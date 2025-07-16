@@ -24,7 +24,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       const token = jwt.sign(
         { email, userType: "admin" },
         JWT_SECRET,
-        { expiresIn: "1h" }
+        { expiresIn: "7d" }
       );
       return res.json({ token, userType: "admin" });
     }
@@ -65,7 +65,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     const token = jwt.sign(
       { userId: account._id, email: account.credenziali.email, userType },
       JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "7d" }
     );
 
     return res.json({ token, user: account, userType });
@@ -110,7 +110,7 @@ export const googleLogin = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { userId: account._id, email: account.credenziali.email, userType },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '7d' }
     );
     res.json({ token, user: account, userType });
   } catch (err) {

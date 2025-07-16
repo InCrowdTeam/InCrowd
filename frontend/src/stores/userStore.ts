@@ -2,12 +2,13 @@ import { defineStore } from 'pinia';
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    user: null as any | null,  // User data or null
-    token: localStorage.getItem('token') || '',  // JWT token from localStorage
+    user: JSON.parse(localStorage.getItem('user') || 'null') as any | null,
+    token: localStorage.getItem('token') || '',
   }),
   actions: {
     setUser(userData: any) {
       this.user = userData;
+      localStorage.setItem('user', JSON.stringify(userData));
     },
     setToken(token: string) {
       this.token = token;
@@ -16,6 +17,7 @@ export const useUserStore = defineStore('user', {
     logout() {
       this.user = null;
       this.token = '';
+      localStorage.removeItem('user');
       localStorage.removeItem('token');
     },
   },
