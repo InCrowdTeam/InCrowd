@@ -58,8 +58,13 @@ const login = async () => {
     userStore.setToken(res.data.token);
     userStore.setUser({ ...res.data.user, userType: res.data.userType });
 
-    // Reindirizza a una pagina protetta (o home)
-    router.push('/');
+    // Se l'utente è admin reindirizza al pannello operatori
+    if (res.data.userType === 'admin') {
+      router.push('/admin/operatori');
+    } else {
+      // Altrimenti reindirizza alla home
+      router.push('/');
+    }
   } catch (err: any) {
     errorMessage.value = err.response?.data?.message || 'Errore durante il login';
   }

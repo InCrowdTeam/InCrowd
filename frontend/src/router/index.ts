@@ -49,11 +49,14 @@ const router = createRouter({
   routes
 })
 
+router.beforeEach((to, _from, next) => {
+  const store = useUserStore()
+  if (to.path.startsWith('/admin') && store.user?.userType !== 'admin') {
+    next('/login')
+  } else {
+    next()
+  }
+})
 
-const logout = () => {
-  const userStore = useUserStore()
-  userStore.logout()
-  router.push('/login')
-}
 
 export default router
