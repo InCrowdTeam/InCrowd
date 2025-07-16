@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import userRoutes from "./routes/userRoutes";
 import propostaRoutes from "./routes/propostaRoutes";
 import enteRoutes from "./routes/enteRoutes";
@@ -10,6 +11,21 @@ import adminOperatoreRoutes from "./routes/adminOperatoreRoutes";
 import authRoutes from "./routes/authRoutes";
 
 dotenv.config();
+
+let mongoUri = process.env.MONGO_URI;
+if (!mongoUri) {
+  throw new Error("MONGO_URI is not defined");
+}
+let memoryServer: MongoMemoryServer | null = null;
+async function prepareMongo() {
+  if (mongoUri === "memory") {
+    memoryServer = await MongoMemoryServer.create();
+    mongoUri = memoryServer.getUri();
+  }
+}
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined");
+}
 
 const app = express();
 app.use(cors());
@@ -35,15 +51,19 @@ app.get("/", (req, res) => {
   res.send("Welcome to InCrowd API!");
 });
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI || "")
-  .then(() => {
-    console.log("Connected to MongoDB");
-  app.listen(process.env.PORT || 3000, () =>
-    console.log("Server running")
-  );
-})
-.catch((err) => console.error("MongoDB connection error:", err));
+async function start() {
+  await prepareMongo();
+  mongoose
+    .connect(mongoUri as string)
+    .then(() => {
+      console.log("Connected to MongoDB");
+      app.listen(process.env.PORT || 3000, () => {
+        console.log("Server running");
+      });
+    })
+    .catch((err) => console.error("MongoDB connection error:", err));
+}
+
+start();
 
 

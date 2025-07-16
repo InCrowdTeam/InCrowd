@@ -72,8 +72,30 @@ const login = async () => {
 };
 
 const loginWithGoogle = () => {
-  // TODO: Implementare l'autenticazione con Google
-  alert('Funzionalità in sviluppo');
+  // Inizializza Google Identity Services
+  // @ts-ignore
+  google.accounts.id.initialize({
+    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
+    callback: async (resp: any) => {
+      try {
+        const res = await axios.post('http://localhost:3000/api/auth/google', { idToken: resp.credential });
+        userStore.setUser(res.data.user);
+        userStore.setToken(res.data.token);
+
+        if (res.data.userType === 'admin') {
+          router.push('/admin/operatori');
+        } else if (res.data.userType === 'operatore') {
+          router.push('/moderation');
+        } else {
+          router.push('/');
+        }
+      } catch (err: any) {
+        errorMessage.value = err.response?.data?.message || 'Errore login Google';
+      }
+    }
+  });
+  // @ts-ignore
+  google.accounts.id.prompt();
 };
 </script>
 

@@ -1,10 +1,16 @@
 import { Request, Response } from "express";
 import Operatore from "../models/Operatore";
 import bcrypt from "bcrypt";
+import { emailExists } from "../utils/emailHelper";
 
 export const createOperatore = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, cognome, email, password } = req.body;
+    const { email, nome = 'Operatore', cognome = 'Admin' , password } = req.body;
+
+    if (await emailExists(email)) {
+      res.status(409).json({ message: 'Email già registrata' });
+      return;
+    }
 
     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 

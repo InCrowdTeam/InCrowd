@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
 import Commento from "../models/Commento";
 
@@ -110,10 +111,10 @@ export const updateStatoProposta = async (req: Request, res: Response) => {
   }
 };
 
-export const hyperProposta = async (req: Request, res: Response) => {
+export const hyperProposta = async (req: AuthenticatedRequest, res: Response) => {
   const { titolo } = req.params;
   const titoloDecoded = decodeURIComponent(titolo);
-  const { userId } = req.body;
+  const userId = req.user?.userId;
   try {
     const proposta = await Proposta.findOne({ titolo: titoloDecoded });
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
@@ -126,6 +127,8 @@ export const hyperProposta = async (req: Request, res: Response) => {
     }
 
     //controllo per permettere inserimento e rimozione hype
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const index = proposta.listaHyper.map(id => id.toString()).indexOf(userId);
 
     if (index === -1) {
@@ -151,15 +154,18 @@ export const hyperProposta = async (req: Request, res: Response) => {
   }
 };
 
-export const aggiungiCommento = async (req: Request, res: Response) => {
+export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
   const { titolo } = req.params;
   const titoloDecoded = decodeURIComponent(titolo);
-  const { contenuto, userId } = req.body;
+  const { contenuto } = req.body;
+  const userId = req.user?.userId;
   try {
     const proposta = await Proposta.findOne({ titolo: titoloDecoded });
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
     // Crea il commento
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const nuovoCommento = new Commento({
       utente: userId,
       proposta: proposta._id,
