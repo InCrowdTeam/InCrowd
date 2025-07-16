@@ -6,11 +6,22 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersegreto"; // usa dotenv in produzione
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "adminpass";
 
 export const login = async (req: Request, res: Response): Promise<any> => {
   const { email, password, oauthCode } = req.body;
 
   try {
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const token = jwt.sign(
+        { email, userType: "admin" },
+        JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+      return res.json({ token, userType: "admin" });
+    }
+
     let user: any = await User.findOne({ "credenziali.email": email });
     let userType = "user";
 

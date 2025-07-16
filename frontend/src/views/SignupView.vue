@@ -2,12 +2,16 @@
 <template>
   <div class="signup">
     <h1>Sign Up</h1>
+    <div class="segmented">
+      <button :class="{active: type==='user'}" @click="type='user'">Utente</button>
+      <button :class="{active: type==='ente'}" @click="type='ente'">Ente</button>
+    </div>
     <form @submit.prevent="handleSignUp" enctype="multipart/form-data">
       <div>
         <label for="nome">Nome:</label>
         <input type="text" id="nome" v-model="form.nome" required />
       </div>
-      <div>
+      <div v-if="type==='user'">
         <label for="cognome">Cognome:</label>
         <input type="text" id="cognome" v-model="form.cognome" required />
       </div>
@@ -40,6 +44,7 @@
 export default {
   data() {
     return {
+      type: 'user',
       form: {
         nome: "",
         cognome: "",
@@ -66,23 +71,31 @@ export default {
       try {
         const formData = new FormData();
         formData.append("nome", this.form.nome);
-        formData.append("cognome", this.form.cognome);
+        if (this.type === 'user') {
+          formData.append("cognome", this.form.cognome);
+        }
         formData.append("codiceFiscale", this.form.codiceFiscale);
         formData.append("biografia", this.form.biografia);
-        formData.append("fotoProfilo", this.form.fotoProfilo.data); // Aggiungi il file immagine
+        if (this.form.fotoProfilo.data) {
+          formData.append("fotoProfilo", this.form.fotoProfilo.data);
+        }
         formData.append("email", this.form.credenziali.email);
         formData.append("password", this.form.credenziali.password);
 
-        const response = await fetch("http://localhost:3000/api/users", {
+        const url = this.type === 'ente'
+          ? 'http://localhost:3000/api/enti'
+          : 'http://localhost:3000/api/users';
+
+        const response = await fetch(url, {
           method: "POST",
-          body: formData, // Invia i dati come FormData
+          body: formData,
         });
 
         if (!response.ok) throw new Error("Failed to create user");
-        alert("User created successfully!");
+        alert("Registrazione completata!");
       } catch (error) {
         console.error("Error creating user:", error);
-        alert("Failed to create user.");
+        alert("Errore durante la registrazione");
       }
     },
   },
@@ -106,6 +119,23 @@ export default {
   font-size: 2rem;
   font-weight: 700;
   letter-spacing: 1px;
+}
+
+.segmented {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+.segmented button {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #fe4654;
+  background: #f8f7f3;
+  cursor: pointer;
+}
+.segmented button.active {
+  background: #fe4654;
+  color: #fff;
 }
 
 .signup form > div {

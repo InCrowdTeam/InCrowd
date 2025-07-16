@@ -4,6 +4,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes";
 import propostaRoutes from "./routes/propostaRoutes";
+import enteRoutes from "./routes/enteRoutes";
+import operatoreRoutes from "./routes/operatoreRoutes";
+import adminOperatoreRoutes from "./routes/adminOperatoreRoutes";
 import authRoutes from "./routes/authRoutes";
 
 dotenv.config();
@@ -21,7 +24,9 @@ app.get("/ping", (req, res) => {
 
 app.use("/api/proposte", propostaRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/proposte", propostaRoutes);
+app.use("/api/enti", enteRoutes);
+app.use("/api/operatori", operatoreRoutes);
+app.use("/api/admin/operatori", adminOperatoreRoutes);
 app.use("/api/auth", authRoutes);
 
 
@@ -35,8 +40,10 @@ mongoose
   .connect(process.env.MONGO_URI || "")
   .then(() => {
     console.log("Connected to MongoDB");
-    app.listen(process.env.PORT || 3000, () =>
-      console.log("Server running")
-    );
-  })
-  .catch((err) => console.error("MongoDB connection error:", err));
+  app.listen(process.env.PORT || 3000, () =>
+    console.log("Server running")
+  );
+})
+.catch((err) => console.error("MongoDB connection error:", err));
+
+
