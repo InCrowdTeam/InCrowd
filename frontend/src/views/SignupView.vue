@@ -12,6 +12,10 @@
         <input type="text" id="cognome" v-model="form.cognome" required />
       </div>
       <div>
+        <label for="codiceFiscale">Codice Fiscale:</label>
+        <input type="text" id="codiceFiscale" v-model="form.codiceFiscale" required />
+      </div>
+      <div>
         <label for="biografia">Biografia:</label>
         <textarea id="biografia" v-model="form.biografia" required></textarea>
       </div>
@@ -39,6 +43,7 @@ export default {
       form: {
         nome: "",
         cognome: "",
+        codiceFiscale: "",
         biografia: "",
         fotoProfilo: {
           data: null,
@@ -62,6 +67,7 @@ export default {
         const formData = new FormData();
         formData.append("nome", this.form.nome);
         formData.append("cognome", this.form.cognome);
+        formData.append("codiceFiscale", this.form.codiceFiscale);
         formData.append("biografia", this.form.biografia);
         formData.append("fotoProfilo", this.form.fotoProfilo.data); // Aggiungi il file immagine
         formData.append("email", this.form.credenziali.email);

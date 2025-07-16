@@ -15,7 +15,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, cognome, biografia, email, password } = req.body;
+    const { nome, cognome, codiceFiscale, biografia, email, password } = req.body;
 
     // Hash della password se fornita
     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
@@ -24,6 +24,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     const newUser = new User({
       nome,
       cognome,
+      codiceFiscale,
       biografia,
       fotoProfilo: {
         data: req.file?.buffer,
