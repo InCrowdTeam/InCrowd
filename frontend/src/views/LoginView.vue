@@ -67,7 +67,6 @@ const login = async () => {
 
 const loginWithGoogle = () => {
   // TODO: Implementare l'autenticazione con Google
-  console.log('Login con Google non ancora implementato');
   alert('Funzionalità in sviluppo');
 };
 </script>
