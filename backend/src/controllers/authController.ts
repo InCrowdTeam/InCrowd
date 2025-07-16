@@ -15,7 +15,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json({ message: "Credenziali non valide" });
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.credenziali.password);
+    if (!password || !user.credenziali.password) {
+      return res.status(401).json({ message: "Credenziali non valide" });
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.credenziali.password
+    );
 
     if (!passwordMatch) {
       return res.status(401).json({ message: "Credenziali non valide" });

@@ -17,8 +17,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   try {
     const { nome, cognome, biografia, email, password } = req.body;
 
-    // Hash della password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash della password se fornita
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
     // Crea un nuovo utente
     const newUser = new User({
@@ -31,7 +31,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       },
       credenziali: {
         email,
-        password: hashedPassword,
+        ...(hashedPassword && { password: hashedPassword }),
       },
     });
 
