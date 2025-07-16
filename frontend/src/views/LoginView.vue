@@ -56,7 +56,7 @@ const login = async () => {
 
     // Salva il token e i dati dell'utente nello store di Pinia
     userStore.setToken(res.data.token);
-    userStore.setUser(res.data.user);
+    userStore.setUser({ ...res.data.user, userType: res.data.userType });
 
     // Reindirizza a una pagina protetta (o home)
     router.push('/');
