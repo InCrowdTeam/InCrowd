@@ -2,6 +2,7 @@
 <template>
   <div class="signup">
     <h1>Sign Up</h1>
+    <p v-if="registrationMessage" class="info">{{ registrationMessage }}</p>
     <div class="segmented">
       <button :class="{active: type==='user'}" @click="type='user'">Utente</button>
       <button :class="{active: type==='ente'}" @click="type='ente'">Ente</button>
@@ -31,20 +32,28 @@
         <label for="email">Email:</label>
         <input type="email" id="email" v-model="form.credenziali.email" required />
       </div>
-      <div>
+      <div v-if="showPassword">
         <label for="password">Password:</label>
         <input type="password" id="password" v-model="form.credenziali.password" required />
       </div>
       <button type="submit">Sign Up</button>
     </form>
+
+    <div class="divider">
+      <span>oppure</span>
+    </div>
+    <div id="google-signup-main" class="google-signin-container"></div>
   </div>
 </template>
 
 <script>
+import axios from 'axios';
 export default {
   data() {
     return {
       type: 'user',
+      showPassword: true,
+      registrationMessage: '',
       form: {
         nome: "",
         cognome: "",
@@ -57,6 +66,7 @@ export default {
         credenziali: {
           email: "",
           password: "",
+          oauthCode: "",
         },
       },
     };
@@ -80,7 +90,12 @@ export default {
           formData.append("fotoProfilo", this.form.fotoProfilo.data);
         }
         formData.append("email", this.form.credenziali.email);
-        formData.append("password", this.form.credenziali.password);
+        if (this.showPassword) {
+          formData.append("password", this.form.credenziali.password);
+        }
+        if (this.form.credenziali.oauthCode) {
+          formData.append("oauthCode", this.form.credenziali.oauthCode);
+        }
 
         const url = this.type === 'ente'
           ? 'http://localhost:3000/api/enti'
@@ -98,6 +113,72 @@ export default {
         alert("Errore durante la registrazione");
       }
     },
+    async initializeGoogle() {
+      try {
+        if (!document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
+          const script = document.createElement('script');
+          script.src = 'https://accounts.google.com/gsi/client';
+          script.async = true;
+          script.defer = true;
+          const scriptLoaded = new Promise((resolve, reject) => {
+            script.onload = () => resolve(true);
+            script.onerror = () => reject(new Error('Errore caricamento script Google'));
+          });
+          document.head.appendChild(script);
+          await scriptLoaded;
+          await new Promise(r => setTimeout(r, 1500));
+        }
+        // @ts-ignore
+        if (typeof google === 'undefined') return;
+        // @ts-ignore
+        google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: this.handleGoogle,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          use_fedcm_for_prompt: true,
+          itp_support: true,
+        });
+        const main = document.getElementById('google-signup-main');
+        if (main) {
+          // @ts-ignore
+          google.accounts.id.renderButton(main, {
+            theme: 'outline',
+            size: 'large',
+            shape: 'pill',
+            logo_alignment: 'left',
+          });
+        }
+      } catch (error) {
+        console.error('Errore inizializzazione Google:', error);
+      }
+    },
+    async handleGoogle(response) {
+      try {
+        const res = await axios.post('http://localhost:3000/api/auth/google', {
+          idToken: response.credential,
+        });
+
+        if (res.data.needsRegistration) {
+          this.form.nome = res.data.data.nome || 'Google';
+          if (this.type === 'user') {
+            this.form.cognome = res.data.data.cognome || 'User';
+          }
+          this.form.credenziali.email = res.data.data.email;
+          this.form.credenziali.oauthCode = res.data.data.oauthCode;
+          this.showPassword = false;
+          this.registrationMessage = 'Completa i campi mancanti per terminare la registrazione';
+          return;
+        }
+
+        this.$router.push('/');
+      } catch (err) {
+        console.error('Errore Google:', err);
+      }
+    },
+  },
+  mounted() {
+    this.initializeGoogle();
   },
 };
 </script>
@@ -198,6 +279,42 @@ export default {
 
 .signup button[type="submit"]:hover {
   background: #404149;
+}
+
+.divider {
+  text-align: center;
+  margin: 1.5rem 0;
+  position: relative;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e0e0e0;
+  z-index: 1;
+}
+
+.divider span {
+  background: #fff;
+  padding: 0 1rem;
+  color: #666;
+  font-size: 0.9rem;
+  position: relative;
+  z-index: 2;
+}
+
+.info {
+  background: #f0f7ff;
+  padding: 0.6rem;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #404149;
+  border: 1px solid #9ec5fe;
 }
 
 @media (max-width: 600px) {

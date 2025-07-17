@@ -6,7 +6,7 @@ import { emailExists } from "../utils/emailHelper";
 
 export const createEnte = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, codiceFiscale, biografia, email, password } = req.body;
+    const { nome, codiceFiscale, biografia, email, password, oauthCode } = req.body;
 
     if (!isValidCodiceFiscale(codiceFiscale)) {
       res.status(400).json({ message: "Codice fiscale non valido" });
@@ -31,6 +31,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
       credenziali: {
         email,
         ...(hashedPassword && { password: hashedPassword }),
+        ...(oauthCode && { oauthCode }),
       },
     });
 

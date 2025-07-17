@@ -28,6 +28,21 @@ ADMIN_PASSWORD=<password admin>
 
 La chiave Google è necessaria per abilitare il login tramite Google.
 
+## 🔑 Sistema di autenticazione
+
+Gli account di tipo **operatore** possono essere creati solo da un amministratore
+tramite l'apposita sezione di gestione. L'admin effettua l'accesso usando
+l'email e la password definite nel file `.env`.
+
+Sia gli utenti privati che gli enti possono registrarsi e accedere con email e
+password oppure tramite Google. In caso di accesso con Google viene
+memorizzato l'identificativo OAuth così da permettere login futuri senza
+password.
+
+Se un account non esiste ancora e si effettua l'accesso con Google, l'API
+risponde indicandone la creazione mancante e si viene reindirizzati ad una
+pagina per completare la registrazione con i dati precompilati.
+
 
 ---
 > **InCrowd**: Dai forma alla tua città, un'idea alla volta. 🌟

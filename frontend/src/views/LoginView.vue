@@ -97,12 +97,8 @@ const initializeGoogleSignIn = async () => {
         theme: 'outline',
         size: 'large',
         shape: 'pill',
-        logo_alignment: 'left'
+        logo_alignment: 'left',
       });
-      
-      // Mostra il prompt One-Tap opzionale
-      // @ts-ignore
-      google.accounts.id.prompt();
     }
   } catch (error) {
     console.error('Errore inizializzazione Google:', error);
@@ -111,10 +107,18 @@ const initializeGoogleSignIn = async () => {
 
 const handleGoogleResponse = async (response: any) => {
   try {
-    const res = await axios.post('http://localhost:3000/api/auth/google', { 
-      idToken: response.credential 
+    const res = await axios.post('http://localhost:3000/api/auth/google', {
+      idToken: response.credential,
     });
-    
+
+    if (res.data.needsRegistration) {
+      router.push({
+        name: 'completeGoogleSignup',
+        query: res.data.data,
+      });
+      return;
+    }
+
     userStore.setUser(res.data.user);
     userStore.setToken(res.data.token);
 

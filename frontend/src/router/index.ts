@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import UserList from '../views/UserList.vue'
 import SignUp from '../views/SignupView.vue'
+import CompleteGoogleSignupView from '../views/CompleteGoogleSignupView.vue'
 import AdminOperatoriView from '../views/AdminOperatoriView.vue'
 import AddPropostaView from '@/views/AddPropostaView.vue'
 import LoginView from '@/views/LoginView.vue'
@@ -24,6 +25,11 @@ const routes = [
     path: '/addUser',
     name: 'addUser',
     component: SignUp,
+  },
+  {
+    path: '/completeGoogleSignup',
+    name: 'completeGoogleSignup',
+    component: CompleteGoogleSignupView,
   },
   {
     path: '/admin/operatori',

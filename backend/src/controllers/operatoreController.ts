@@ -5,7 +5,7 @@ import { emailExists } from "../utils/emailHelper";
 
 export const createOperatore = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, nome = 'Operatore', cognome = 'Admin' , password } = req.body;
+    const { email, nome = 'Operatore', cognome = 'Admin', password, oauthCode } = req.body;
 
     if (await emailExists(email)) {
       res.status(409).json({ message: 'Email già registrata' });
@@ -20,6 +20,7 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
       credenziali: {
         email,
         ...(hashedPassword && { password: hashedPassword }),
+        ...(oauthCode && { oauthCode }),
       },
     });
 

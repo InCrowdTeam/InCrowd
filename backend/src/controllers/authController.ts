@@ -77,36 +77,47 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
 export const googleLogin = async (req: Request, res: Response) => {
   const { idToken } = req.body;
-  if (!idToken) return res.status(400).json({ message: 'Token mancante' });
+  if (!idToken) return res.status(400).json({ message: "Token mancante" });
+
   try {
     if (!process.env.GOOGLE_CLIENT_ID) {
       console.error("GOOGLE_CLIENT_ID not set in environment");
     }
-    const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.sub) {
-      return res.status(400).json({ message: 'Token non valido' });
+      return res.status(400).json({ message: "Token non valido" });
     }
 
-    const { user, ente, operatore, count } = await findAccountByEmail(payload.email);
+    const { user, ente, operatore, count } = await findAccountByEmail(
+      payload.email
+    );
     if (count > 1) {
-      return res.status(409).json({ message: 'Email duplicata' });
+      return res.status(409).json({ message: "Email duplicata" });
     }
-    let account: any = user || ente || operatore;
-    let userType = 'user';
-    if (ente) userType = 'ente';
-    if (operatore) userType = 'operatore';
+
+    const account: any = user || ente || operatore;
+    let userType = "user";
+    if (ente) userType = "ente";
+    if (operatore) userType = "operatore";
 
     if (!account) {
-      account = new User({
-        nome: payload.given_name || 'Google',
-        cognome: payload.family_name || 'User',
-        codiceFiscale: 'GOOGLEPLACEHOLDER',
-        biografia: '',
-        credenziali: { email: payload.email, oauthCode: payload.sub },
+      return res.status(404).json({
+        message: "Account non registrato",
+        needsRegistration: true,
+        data: {
+          email: payload.email,
+          nome: payload.given_name || "",
+          cognome: payload.family_name || "",
+          oauthCode: payload.sub,
+        },
       });
-      await account.save();
-    } else if (!account.credenziali.oauthCode) {
+    }
+
+    if (!account.credenziali.oauthCode) {
       account.credenziali.oauthCode = payload.sub;
       await account.save();
     }
@@ -114,10 +125,12 @@ export const googleLogin = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { userId: account._id, email: account.credenziali.email, userType },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
+
     res.json({ token, user: account, userType });
-  } catch (err) {
-    res.status(500).json({ message: 'Errore login Google', error: err });
+  } catch (err: any) {
+    const message = err?.message || err.toString();
+    res.status(500).json({ message: `Errore login Google: ${message}` });
   }
 };
