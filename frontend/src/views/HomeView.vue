@@ -326,19 +326,31 @@ async function handleHyper() {
         </div>
           <!-- SEZIONE COMMENTI -->
         <div class="comment-section">
-          <input
-            v-model="nuovoCommento"
-            @keyup.enter="inviaCommento"
-            placeholder="Scrivi un commento..."
-            class="comment-input"
-            type="text"
-          />
-          <button @click="inviaCommento" class="comment-btn">Invia</button>
-          <ul class="comment-list">
-            <li v-for="commento in commentiProposta" :key="commento._id">
-              <b>{{ commento.utente.nome || commento.utente?.nome || 'Utente' }}</b>: {{ commento.contenuto }}
-            </li>
-          </ul>
+          <h3>Commenti</h3>
+          <div v-if="!userStore.user" class="login-reminder">
+            <small style="color: #666; font-style: italic;">
+              Loggati per aggiungere commenti
+            </small>
+          </div>
+          
+          <div v-else class="comment-form">
+            <input
+              v-model="nuovoCommento"
+              @keyup.enter="inviaCommento"
+              placeholder="Scrivi un commento..."
+              class="comment-input"
+              type="text"
+            />
+            <button @click="inviaCommento" class="comment-btn">Invia</button>
+          </div>
+          
+          <div class="comments-list">
+            <ul class="comment-list">
+              <li v-for="commento in commentiProposta" :key="commento._id">
+                <b>{{ commento.utente.nome || commento.utente?.nome || 'Utente' }}</b>: {{ commento.contenuto }}
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </Transition>
