@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import type { IProposta } from "../types/Proposta";
 import { useUserStore } from "@/stores/userStore";
 import axios from "axios";
@@ -15,98 +15,233 @@ const selectedTab = ref("mie");
 
 const mieProposte = ref<IProposta[]>([]);
 const hypedProposte = ref<IProposta[]>([]);
-const seguiti = ref<any[]>([]);
+const loading = ref(true);
+const error = ref('');
+
+// Computed per mostrare nome completo
+const nomeCompleto = computed(() => {
+  if (userStore.user?.cognome) {
+    return `${userStore.user.nome} ${userStore.user.cognome}`;
+  }
+  return userStore.user?.nome || 'Nome utente';
+});
+
+// Computed per foto profilo
+const fotoProfiloUrl = computed(() => {
+  if (userStore.user?.fotoProfilo?.data) {
+    return `data:${userStore.user.fotoProfilo.contentType};base64,${userStore.user.fotoProfilo.data}`;
+  }
+  return userStore.user?.fotoProfiloUrl || null;
+});
 
 onMounted(async () => {
-  const allProposte = (await axios.get("/api/proposte")).data
-  console.log("allProposte:", allProposte);
-  mieProposte.value = allProposte.filter(
-    (p: IProposta) => p.proponenteID === userStore.user?._id
-  );
-  hypedProposte.value = allProposte.filter(
-    (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
-  );
-  const userId = userStore.user?._id;
-  if (userId) {
-    try{
-      console.log("userId:", userId);
-      const res = await axios.get(`/api/users/${userId}`);
-      console.log("Risposta utente:", res.data);
-      userStore.user = { ...userStore.user, ...res.data };
-    } catch (err) {
-      console.error("Errore chiamata axios:", err);
+  try {
+    loading.value = true;
+    
+    // Carica le proposte
+    const proposteRes = await axios.get("http://localhost:3000/api/proposte");
+    const allProposte = proposteRes.data;
+    
+    mieProposte.value = allProposte.filter(
+      (p: IProposta) => p.proponenteID === userStore.user?._id
+    );
+    hypedProposte.value = allProposte.filter(
+      (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
+    );
+    
+    // Aggiorna dati utente se necessario
+    const userId = userStore.user?._id;
+    if (userId && !userStore.user?.biografia) {
+      try {
+        const userRes = await axios.get(`http://localhost:3000/api/users/${userId}`);
+        userStore.user = { ...userStore.user, ...userRes.data };
+      } catch (err) {
+        console.error("Errore nel caricamento dati utente:", err);
+      }
     }
+  } catch (err) {
+    console.error("Errore nel caricamento profilo:", err);
+    error.value = "Errore nel caricamento del profilo";
+  } finally {
+    loading.value = false;
   }
 });
+
+const rimuoviProposta = async (proposta: IProposta) => {
+  if (!confirm(`Sei sicuro di voler rimuovere "${proposta.titolo}"?`)) return;
+  
+  try {
+    await axios.delete(`http://localhost:3000/api/proposte/${proposta.titolo}`);
+    mieProposte.value = mieProposte.value.filter(p => p.titolo !== proposta.titolo);
+  } catch (err) {
+    console.error("Errore nella rimozione della proposta:", err);
+    alert("Errore nella rimozione della proposta");
+  }
+};
+
+const unhypeProposta = async (proposta: IProposta) => {
+  try {
+    await axios.post(`http://localhost:3000/api/proposte/${proposta.titolo}/unhype`);
+    hypedProposte.value = hypedProposte.value.filter(p => p.titolo !== proposta.titolo);
+  } catch (err) {
+    console.error("Errore nell'unhype:", err);
+    alert("Errore nell'unhype della proposta");
+  }
+};
 </script>
 
 <template>
   <div class="profile-container">
-    <!-- Sezione profilo utente -->
-    <div class="profile-user-section">
-      <img
-        class="profile-avatar"
-        :src="userStore.user?.fotoProfiloUrl || '/default-avatar.png'"
-        alt="Avatar"
-      />
-      <div class="profile-user-info">
-        <div class="profile-user-name">{{ userStore.user?.nome }}</div>
-        <div class="profile-user-bio">{{ userStore.user?.biografia || "Nessuna biografia" }}</div>
-      </div>
+    <!-- Loading state -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Caricamento profilo...</p>
     </div>
 
-    <!-- Striscia bianca (tabs) -->
-    <div class="profile-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.value"
-        :class="{ active: selectedTab === tab.value }"
-        @click="selectedTab = tab.value"
-      >
-        {{ tab.label }}
-      </button>
+    <!-- Error state -->
+    <div v-else-if="error" class="error-container">
+      <p class="error-message">{{ error }}</p>
     </div>
 
-    <!-- Contenuto tab -->
-    <div class="profile-content">
-      <!-- Mie proposte -->
-      <div v-if="selectedTab === 'mie'">
-        <div v-for="proposta in mieProposte" :key="proposta.titolo" class="profile-proposta-card">
-          <img v-if="proposta.foto && proposta.foto.data"
-               :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
-               class="profile-proposta-img"
-               alt="Immagine proposta" />
-          <div class="profile-proposta-info">
-            <span class="profile-proposta-hype">
-              <span class="hype-icon">⚡</span> {{ proposta.listaHyper.length }}
-            </span>
-            <span class="profile-proposta-author">{{ userStore.user?.nome }}</span>
-            <div class="profile-proposta-title">{{ proposta.titolo }}</div>
+    <!-- Profilo caricato -->
+    <div v-else>
+      <!-- Sezione profilo utente -->
+      <div class="profile-header">
+        <div class="profile-avatar-container">
+          <img
+            v-if="fotoProfiloUrl"
+            class="profile-avatar"
+            :src="fotoProfiloUrl"
+            alt="Foto profilo"
+          />
+          <div v-else class="profile-avatar-placeholder">
+            <span>{{ nomeCompleto.charAt(0).toUpperCase() }}</span>
+          </div>
+        </div>
+        <div class="profile-info">
+          <h1 class="profile-name">{{ nomeCompleto }}</h1>
+          <p class="profile-bio">
+            {{ userStore.user?.biografia || "Nessuna biografia disponibile" }}
+          </p>
+          <div class="profile-stats">
+            <div class="stat">
+              <span class="stat-number">{{ mieProposte.length }}</span>
+              <span class="stat-label">Proposte</span>
+            </div>
+            <div class="stat">
+              <span class="stat-number">{{ hypedProposte.length }}</span>
+              <span class="stat-label">Hyped</span>
+            </div>
           </div>
         </div>
       </div>
-      <!-- Hyped -->
-      <div v-else-if="selectedTab === 'hyped'">
-        <div v-for="proposta in hypedProposte" :key="proposta.titolo" class="profile-proposta-card">
-          <img v-if="proposta.foto && proposta.foto.data"
-               :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
-               class="profile-proposta-img"
-               alt="Immagine proposta" />
-          <div class="profile-proposta-info">
-            <span class="profile-proposta-hype">
-              <span class="hype-icon">⚡</span> {{ proposta.listaHyper.length }}
-            </span>
-            <span class="profile-proposta-author">{{ proposta.proponenteID || 'Utente' }}</span>
-            <div class="profile-proposta-title">{{ proposta.titolo }}</div>
+
+      <!-- Tabs -->
+      <div class="profile-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          :class="{ active: selectedTab === tab.value }"
+          @click="selectedTab = tab.value"
+          class="tab-button"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <!-- Contenuto tab -->
+      <div class="profile-content">
+        <!-- Mie proposte -->
+        <div v-if="selectedTab === 'mie'" class="proposals-section">
+          <div v-if="mieProposte.length === 0" class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h3>Nessuna proposta ancora</h3>
+            <p>Le tue proposte appariranno qui una volta pubblicate</p>
+          </div>
+          <div v-else class="proposals-grid">
+            <div v-for="proposta in mieProposte" :key="proposta.titolo" class="proposal-card">
+              <div class="proposal-image-container">
+                <img 
+                  v-if="proposta.foto?.data"
+                  :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
+                  class="proposal-image"
+                  alt="Immagine proposta" 
+                />
+                <div v-else class="proposal-image-placeholder">
+                  <span>📸</span>
+                </div>
+              </div>
+              <div class="proposal-content">
+                <div class="proposal-header">
+                  <span class="proposal-hype">
+                    <span class="hype-icon">⚡</span>
+                    {{ proposta.listaHyper.length }}
+                  </span>
+                  <span class="proposal-category">{{ proposta.categoria || 'Generale' }}</span>
+                </div>
+                <h3 class="proposal-title">{{ proposta.titolo }}</h3>
+                <p class="proposal-description">{{ proposta.descrizione }}</p>
+                <div class="proposal-footer">
+                  <span class="proposal-date">
+                    {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                  </span>
+                  <button class="action-button delete-button" @click="rimuoviProposta(proposta)">
+                    🗑️ Rimuovi
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <!-- Seguiti -->
-      <div v-else-if="selectedTab === 'seguiti'">
-        <div v-for="ente in seguiti" :key="ente._id" class="profile-ente-card">
-          <img :src="ente.logo" class="ente-logo" alt="Logo ente" />
-          <span class="ente-nome">{{ ente.nome }}</span>
-          <button class="unfollow-btn">Non seguire più</button>
+
+        <!-- Hyped -->
+        <div v-else-if="selectedTab === 'hyped'" class="proposals-section">
+          <div v-if="hypedProposte.length === 0" class="empty-state">
+            <div class="empty-icon">⚡</div>
+            <h3>Nessuna proposta hypata</h3>
+            <p>Le proposte che hai hypato appariranno qui</p>
+          </div>
+          <div v-else class="proposals-grid">
+            <div v-for="proposta in hypedProposte" :key="proposta.titolo" class="proposal-card">
+              <div class="proposal-image-container">
+                <img 
+                  v-if="proposta.foto?.data"
+                  :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
+                  class="proposal-image"
+                  alt="Immagine proposta" 
+                />
+                <div v-else class="proposal-image-placeholder">
+                  <span>📸</span>
+                </div>
+              </div>
+              <div class="proposal-content">
+                <div class="proposal-header">
+                  <span class="proposal-hype">
+                    <span class="hype-icon">⚡</span>
+                    {{ proposta.listaHyper.length }}
+                  </span>
+                  <span class="proposal-category">{{ proposta.categoria || 'Generale' }}</span>
+                </div>
+                <h3 class="proposal-title">{{ proposta.titolo }}</h3>
+                <p class="proposal-description">{{ proposta.descrizione }}</p>
+                <div class="proposal-footer">
+                  <span class="proposal-author">Proposta da altro utente</span>
+                  <button class="action-button unhype-button" @click="unhypeProposta(proposta)">
+                    ⚡ Unhype
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seguiti -->
+        <div v-else-if="selectedTab === 'seguiti'" class="proposals-section">
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <h3>Nessun utente seguito</h3>
+            <p>Gli utenti che seguirai appariranno qui</p>
+          </div>
         </div>
       </div>
     </div>
@@ -116,79 +251,377 @@ onMounted(async () => {
 <style scoped>
 .profile-container {
   min-height: 100vh;
+  background: #f8f7f3;
   padding-bottom: 80px;
 }
 
-/* Sezione utente */
-.profile-user-section {
+/* Loading e Error States */
+.loading-container, .error-container {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f0f0f0;
+  border-top: 3px solid #fe4654;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message {
+  color: #fe4654;
+  font-weight: 500;
+}
+
+/* Header del profilo */
+.profile-header {
+  background: #fff;
+  margin: 1.5rem 1.5rem 1rem 1.5rem;
+  border-radius: 1.2rem;
+  padding: 2rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  display: flex;
+  gap: 1.5rem;
   align-items: flex-start;
-  gap: 1.2rem;
-  padding: 2rem 1.5rem 1.2rem 1.5rem;
+}
+
+.profile-avatar-container {
+  flex-shrink: 0;
 }
 
 .profile-avatar {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  background: #eee;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  border: 3px solid #fe4654;
 }
 
-.profile-user-info {
+.profile-avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #fe4654;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #404149;
+  margin: 0 0 0.5rem 0;
+}
+
+.profile-bio {
+  color: #666;
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 2rem;
+}
+
+.stat {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 0.3rem;
+  align-items: center;
 }
 
-.profile-user-name {
+.stat-number {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text-color);
-  margin-bottom: 0.2rem;
+  color: #fe4654;
 }
 
-.profile-user-bio {
-  font-size: 1rem;
-  color: var(--text-color);
-  opacity: 0.85;
-  margin-top: 0.1rem;
-  max-width: 220px;
-  word-break: break-word;
+.stat-label {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.2rem;
 }
 
-/* Striscia bianca (tabs) */
+/* Tabs */
 .profile-tabs {
   background: #fff;
   border-radius: 1.2rem;
-  margin: 0 1.2rem 1.2rem 1.2rem;
-  padding: 0.5rem 0.3rem;
+  margin: 0 1.5rem 1.5rem 1.5rem;
+  padding: 0.5rem;
   display: flex;
-  justify-content: center;
-  gap: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  gap: 0.5rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
 }
 
-.profile-tabs button {
+.tab-button {
+  flex: 1;
   background: none;
-  color: #23232b;
+  color: #666;
   border: none;
-  border-radius: 2rem;
-  padding: 0.5rem 1.5rem;
-  font-size: 1.05rem;
-  font-weight: 500;
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-  opacity: 0.7;
+  transition: all 0.2s;
 }
 
-.profile-tabs button.active {
+.tab-button:hover {
+  color: #404149;
+}
+
+.tab-button.active {
   background: #fe4654;
   color: #fff;
-  opacity: 1;
 }
 
+/* Contenuto */
+.profile-content {
+  padding: 0 1.5rem 2rem 1.5rem;
+}
+
+.proposals-section {
+  width: 100%;
+}
+
+.proposals-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  color: #404149;
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+  color: #666;
+  margin: 0;
+}
+
+/* Card proposte */
+.proposal-card {
+  background: #fff;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.proposal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.proposal-image-container {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+  background: #f8f7f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.proposal-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.proposal-image-placeholder {
+  color: #666;
+  font-size: 2rem;
+}
+
+.proposal-content {
+  padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.proposal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.proposal-hype {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #fee;
+  color: #fe4654;
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.hype-icon {
+  font-size: 1rem;
+}
+
+.proposal-category {
+  background: #f8f7f3;
+  color: #666;
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.proposal-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #404149;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.3;
+}
+
+.proposal-description {
+  color: #666;
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.proposal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: auto;
+}
+
+/* Pulsanti azione */
+.action-button {
+  background: none;
+  border: 1px solid;
+  border-radius: 1rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.delete-button {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.delete-button:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.unhype-button {
+  color: #fe4654;
+  border-color: #fe4654;
+}
+
+.unhype-button:hover {
+  background: #fe4654;
+  color: #fff;
+}
+
+.proposal-author {
+  font-style: italic;
+}
+
+.proposal-date {
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .proposals-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+  
+  .profile-header {
+    margin: 2rem 2rem 1.5rem 2rem;
+  }
+  
+  .profile-tabs {
+    margin: 0 2rem 2rem 2rem;
+  }
+  
+  .profile-content {
+    padding: 0 2rem 2rem 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .proposals-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-header {
+    margin: 1.5rem 1rem 1rem 1rem;
+    padding: 1.5rem;
+  }
+  
+  .profile-tabs {
+    margin: 0 1rem 1.5rem 1rem;
+  }
+  
+  .profile-content {
+    padding: 0 1rem 2rem 1rem;
+  }
+}
 </style>
