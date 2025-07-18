@@ -6,7 +6,7 @@ import { emailExists } from "../utils/emailHelper";
 
 export const createEnte = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, codiceFiscale, biografia, email, password, oauthCode } = req.body;
+    const { nome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
 
     if (!isValidCodiceFiscale(codiceFiscale)) {
       res.status(400).json({ message: "Codice fiscale non valido" });
@@ -20,14 +20,33 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
 
     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
+    // Gestione foto profilo
+    let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
+    
+    if (req.file) {
+      // Foto caricata dall'utente
+      fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype,
+      };
+    } else if (fotoProfiloGoogle) {
+      // Foto da Google
+      try {
+        const googlePhoto = JSON.parse(fotoProfiloGoogle);
+        fotoProfilo = {
+          data: googlePhoto.data,
+          contentType: googlePhoto.contentType,
+        };
+      } catch (e) {
+        console.error('Errore parsing foto Google:', e);
+      }
+    }
+
     const newEnte = new Ente({
       nome,
       codiceFiscale,
       biografia,
-      fotoProfilo: {
-        data: req.file?.buffer,
-        contentType: req.file?.mimetype,
-      },
+      ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
       credenziali: {
         email,
         ...(hashedPassword && { password: hashedPassword }),

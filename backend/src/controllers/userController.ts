@@ -17,7 +17,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, cognome, codiceFiscale, biografia, email, password, oauthCode } = req.body;
+    const { nome, cognome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
 
     if (!isValidCodiceFiscale(codiceFiscale)) {
       res.status(400).json({ message: "Codice fiscale non valido" });
@@ -32,16 +32,35 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     // Hash della password se fornita
     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
+    // Gestione foto profilo
+    let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
+    
+    if (req.file) {
+      // Foto caricata dall'utente
+      fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype,
+      };
+    } else if (fotoProfiloGoogle) {
+      // Foto da Google
+      try {
+        const googlePhoto = JSON.parse(fotoProfiloGoogle);
+        fotoProfilo = {
+          data: googlePhoto.data,
+          contentType: googlePhoto.contentType,
+        };
+      } catch (e) {
+        console.error('Errore parsing foto Google:', e);
+      }
+    }
+
     // Crea un nuovo utente
     const newUser = new User({
       nome,
       cognome,
       codiceFiscale,
       biografia,
-      fotoProfilo: {
-        data: req.file?.buffer,
-        contentType: req.file?.mimetype,
-      },
+      ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
       credenziali: {
         email,
         ...(hashedPassword && { password: hashedPassword }),

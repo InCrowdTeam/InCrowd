@@ -21,7 +21,12 @@
       </div>
       <div>
         <label for="fotoProfilo">Foto Profilo:</label>
+        <div v-if="fotoProfiloPreview" class="photo-preview">
+          <img :src="fotoProfiloPreview" alt="Anteprima foto profilo" />
+          <p class="photo-info">{{ form.fotoProfilo.googlePhoto ? 'Foto dal tuo account Google' : 'Foto caricata' }}</p>
+        </div>
         <input type="file" id="fotoProfilo" @change="handleFileUpload" />
+        <p class="file-info">{{ form.fotoProfilo.googlePhoto ? 'Puoi caricare una foto diversa se preferisci' : 'Seleziona un file immagine' }}</p>
       </div>
       <div>
         <label for="email">Email:</label>
@@ -50,6 +55,18 @@ const userStore = useUserStore();
 const type = (route.query.type as string) || 'user';
 const nomeGoogle = (route.query.nome as string) || '';
 let cognomeGoogle = (route.query.cognome as string) || '';
+let fotoProfiloGoogle = null;
+
+// Parse sicuro della foto profilo
+try {
+  if (route.query.fotoProfilo && route.query.fotoProfilo !== 'undefined') {
+    fotoProfiloGoogle = JSON.parse(route.query.fotoProfilo as string);
+  }
+} catch (e) {
+  console.error('Errore parsing foto profilo:', e);
+  fotoProfiloGoogle = null;
+}
+
 if (type === 'user' && !cognomeGoogle && nomeGoogle.includes(' ')) {
   // Split automatico se manca cognome ma nome contiene spazio
   const parts = nomeGoogle.split(' ');
@@ -62,7 +79,8 @@ const form = ref({
   biografia: '',
   fotoProfilo: {
     data: null as File | null,
-    contentType: ''
+    contentType: '',
+    googlePhoto: fotoProfiloGoogle // Foto da Google
   },
   credenziali: {
     email: route.query.email as string || '',
@@ -70,12 +88,28 @@ const form = ref({
   }
 });
 
+const fotoProfiloPreview = ref('');
+
+// Se abbiamo una foto da Google, mostriamola come preview
+if (fotoProfiloGoogle) {
+  fotoProfiloPreview.value = `data:${fotoProfiloGoogle.contentType};base64,${fotoProfiloGoogle.data}`;
+}
+
 const showCognome = computed(() => type === 'user' && !!form.value.cognome);
 
 function handleFileUpload(event: any) {
   const file = event.target.files[0];
   form.value.fotoProfilo.data = file;
   form.value.fotoProfilo.contentType = file ? file.type : '';
+  
+  // Aggiorna preview se caricato un nuovo file
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      fotoProfiloPreview.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 async function handleSignUp() {
@@ -88,9 +122,15 @@ async function handleSignUp() {
   }
   formData.append('codiceFiscale', form.value.codiceFiscale);
   formData.append('biografia', form.value.biografia);
+  
+  // Se l'utente ha caricato una foto, usa quella, altrimenti usa quella di Google
   if (form.value.fotoProfilo.data) {
     formData.append('fotoProfilo', form.value.fotoProfilo.data);
+  } else if (form.value.fotoProfilo.googlePhoto) {
+    // Invia i dati della foto Google come JSON
+    formData.append('fotoProfiloGoogle', JSON.stringify(form.value.fotoProfilo.googlePhoto));
   }
+  
   formData.append('email', form.value.credenziali.email);
   formData.append('oauthCode', form.value.credenziali.oauthCode);
 
@@ -275,6 +315,34 @@ async function handleSignUp() {
   text-align: center;
   color: #404149;
   border: 1px solid #9ec5fe;
+}
+
+.photo-preview {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.photo-preview img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fe4654;
+  display: block;
+  margin: 0 auto;
+}
+
+.photo-info {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
+.file-info {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: #666;
 }
 
 @media (max-width: 600px) {

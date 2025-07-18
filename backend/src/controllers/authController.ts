@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { findAccountByEmail } from "../utils/emailHelper";
+import fetch from 'node-fetch';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -16,6 +17,26 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "adminpass";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+// Funzione helper per scaricare e convertire immagine da URL a base64
+const downloadImageAsBase64 = async (imageUrl: string): Promise<{ data: string, contentType: string } | null> => {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return null;
+    
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    
+    return {
+      data: base64,
+      contentType
+    };
+  } catch (error) {
+    console.error('Errore download immagine:', error);
+    return null;
+  }
+};
 
 export const login = async (req: Request, res: Response): Promise<any> => {
   const { email, password, oauthCode } = req.body;
@@ -56,6 +77,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         return res.status(401).json({ message: "Credenziali non valide" });
       }
     } else if (account.credenziali.oauthCode) {
+      if (!oauthCode && password) {
+        // L'utente sta cercando di fare login con password ma ha solo OAuth
+        return res.status(401).json({ 
+          message: "Password non impostata. Accedere con Google e impostare una password dalle impostazioni del profilo." 
+        });
+      }
       if (!oauthCode || oauthCode !== account.credenziali.oauthCode) {
         return res.status(401).json({ message: "Credenziali non valide" });
       }
@@ -105,6 +132,12 @@ export const googleLogin = async (req: Request, res: Response) => {
     if (operatore) userType = "operatore";
 
     if (!account) {
+      // Scarica foto profilo da Google se disponibile
+      let fotoProfilo = null;
+      if (payload.picture) {
+        fotoProfilo = await downloadImageAsBase64(payload.picture);
+      }
+
       return res.status(404).json({
         message: "Account non registrato",
         needsRegistration: true,
@@ -113,6 +146,7 @@ export const googleLogin = async (req: Request, res: Response) => {
           nome: payload.given_name || "",
           cognome: payload.family_name || "",
           oauthCode: payload.sub,
+          fotoProfilo: fotoProfilo
         },
       });
     }
@@ -120,6 +154,15 @@ export const googleLogin = async (req: Request, res: Response) => {
     if (!account.credenziali.oauthCode) {
       account.credenziali.oauthCode = payload.sub;
       await account.save();
+    }
+
+    // Aggiorna foto profilo se non presente e disponibile su Google
+    if (!account.fotoProfilo && payload.picture) {
+      const fotoProfilo = await downloadImageAsBase64(payload.picture);
+      if (fotoProfilo) {
+        account.fotoProfilo = fotoProfilo;
+        await account.save();
+      }
     }
 
     const token = jwt.sign(

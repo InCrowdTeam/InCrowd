@@ -181,7 +181,8 @@ export default {
               cognome,
               email: res.data.data.email,
               oauthCode: res.data.data.oauthCode,
-              type: this.type
+              type: this.type,
+              fotoProfilo: res.data.data.fotoProfilo ? JSON.stringify(res.data.data.fotoProfilo) : undefined
             },
           });
           return;
@@ -212,7 +213,8 @@ export default {
               cognome,
               email: err.response.data.data.email,
               oauthCode: err.response.data.data.oauthCode,
-              type: this.type
+              type: this.type,
+              fotoProfilo: err.response.data.data.fotoProfilo ? JSON.stringify(err.response.data.data.fotoProfilo) : undefined
             },
           });
           return;
