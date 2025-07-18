@@ -1,27 +1,44 @@
 <template>
-  <div class="login-container">
-    <h2>Login</h2>
-    <form @submit.prevent="login">
-      <div>
-        <label>Email</label>
-        <input type="email" v-model="email" required />
+  <div class="login-page">
+    <div class="login-card">
+      <h2 class="login-title">Accedi a InCrowd</h2>
+      
+      <form @submit.prevent="login" class="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input 
+            id="email"
+            type="email" 
+            v-model="email" 
+            required 
+            class="form-input"
+            placeholder="La tua email"
+          />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input 
+            id="password"
+            type="password" 
+            v-model="password" 
+            required 
+            class="form-input"
+            placeholder="La tua password"
+          />
+        </div>
+        <button type="submit" class="login-btn">Accedi</button>
+      </form>
+      
+      <div class="divider">
+        <span>oppure</span>
       </div>
-      <div>
-        <label>Password</label>
-        <input type="password" v-model="password" required />
+      
+      <div id="google-signin-main" class="google-signin-container">
+        <!-- Il pulsante Google verrà renderizzato qui automaticamente -->
       </div>
-      <button type="submit">Login</button>
-    </form>
-    
-    <div class="divider">
-      <span>oppure</span>
+      
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </div>
-    
-    <div id="google-signin-main" class="google-signin-container">
-      <!-- Il pulsante Google verrà renderizzato qui automaticamente -->
-    </div>
-    
-    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
   </div>
 </template>
 
@@ -45,25 +62,26 @@ const login = async () => {
     });
 
     userStore.setToken(res.data.token);
+    userStore.setUserType(res.data.userType);
     
     // Per l'admin creiamo un oggetto user specifico
     if (res.data.userType === 'admin') {
       userStore.setUser({ 
-        userType: 'admin',
         email: email.value,
         nome: 'Admin',
         cognome: 'Sistema'
       });
     } else {
-      userStore.setUser({ ...res.data.user, userType: res.data.userType });
+      userStore.setUser(res.data.user);
     }
 
+    // Navigazione post-login in base al tipo utente
     if (res.data.userType === 'admin') {
-      router.push('/admin/operatori');
+      router.push('/admin/operatori'); // Pannello admin
     } else if (res.data.userType === 'operatore') {
-      router.push('/moderation');
+      router.push('/moderation'); // Pannello operatori
     } else {
-      router.push('/');
+      router.push('/'); // Home per Enti e Utenti
     }
   } catch (err: any) {
     errorMessage.value = err.response?.data?.message || 'Errore durante il login';
@@ -155,13 +173,15 @@ const handleGoogleResponse = async (response: any) => {
 
     userStore.setUser(res.data.user);
     userStore.setToken(res.data.token);
+    userStore.setUserType(res.data.userType);
 
+    // Navigazione post-login in base al tipo utente
     if (res.data.userType === 'admin') {
-      router.push('/admin/operatori');
+      router.push('/admin/operatori'); // Pannello admin
     } else if (res.data.userType === 'operatore') {
-      router.push('/moderation');
+      router.push('/moderation'); // Pannello operatori
     } else {
-      router.push('/');
+      router.push('/'); // Home per Enti e Utenti
     }
   } catch (err: any) {
     // Controlla se l'errore è relativo alla necessità di registrazione
@@ -205,74 +225,88 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.login-container {
-  max-width: 400px;
-  margin: 2.5rem auto 0 auto;
-  padding: 2rem 2rem 1.5rem 2rem;
-  background: #fff;
-  border-radius: 1.2rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8f7f3 0%, #fff 50%, #f8f7f3 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
 }
 
-.login-container h2 {
-  text-align: center;
-  color: #fe4654;
-  margin-bottom: 1.5rem;
+.login-card {
+  background: #fff;
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-title {
   font-size: 2rem;
   font-weight: 700;
-  letter-spacing: 1px;
+  color: #404149;
+  text-align: center;
+  margin: 0 0 2rem 0;
 }
 
-.login-container form > div {
-  margin-bottom: 1.1rem;
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-bottom: 2rem;
+}
+
+.form-group {
   display: flex;
   flex-direction: column;
 }
 
-.login-container label {
-  font-weight: 500;
-  margin-bottom: 0.3rem;
+.form-group label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
   color: #404149;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 
-.login-container input[type="email"],
-.login-container input[type="password"] {
-  padding: 0.7rem 1rem;
-  border: 1.5px solid #fe4654;
-  border-radius: 2rem;
+.form-input {
+  padding: 0.8rem 1.2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1.2rem;
   font-size: 1rem;
   outline: none;
-  transition: border 0.2s;
-  background: #f8f7f3;
+  transition: all 0.3s ease;
+  background: #fafafa;
 }
 
-.login-container input:focus {
-  border-color: #404149;
+.form-input:focus {
+  border-color: #fe4654;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
 }
 
-.login-container button[type="submit"] {
-  width: 100%;
-  background: #fe4654;
+.login-btn {
+  background: linear-gradient(135deg, #fe4654, #404149);
   color: #fff;
   border: none;
-  border-radius: 2rem;
-  padding: 0.7rem 0;
+  border-radius: 1.5rem;
+  padding: 1rem;
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 0.7rem;
-  transition: background 0.2s;
-  box-shadow: 0 1px 6px rgba(254,70,84,0.07);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
 }
 
-.login-container button[type="submit"]:hover {
-  background: #404149;
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
 }
 
 .divider {
   text-align: center;
-  margin: 1.5rem 0;
+  margin: 2rem 0;
   position: relative;
 }
 
@@ -296,20 +330,42 @@ onMounted(() => {
   z-index: 2;
 }
 
-.error {
-  color: #fe4654;
-  text-align: center;
-  margin-top: 1rem;
-  font-weight: 500;
-  background: #fff2f2;
-  padding: 0.7rem;
-  border-radius: 1rem;
-  border: 1px solid #fe4654;
+.google-signin-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
 }
 
-@media (max-width: 600px) {
-  .login-container {
-    padding: 1rem 0.5rem;
+.google-signin-container > div {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.google-signin-container iframe {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.error {
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 0.8rem;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .login-card {
+    padding: 2rem 1.5rem;
+    margin: 1rem;
+  }
+  
+  .login-title {
+    font-size: 1.7rem;
   }
 }
 </style>

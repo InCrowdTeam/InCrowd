@@ -6,12 +6,21 @@ import axios from "axios";
 
 const userStore = useUserStore();
 
-const tabs = [
-  { label: "Mie proposte", value: "mie" },
-  { label: "Hyped", value: "hyped" },
-  { label: "Seguiti", value: "seguiti" }
-];
-const selectedTab = ref("mie");
+// Computed per verificare se è un operatore
+const isOperatore = computed(() => userStore.isOperatore);
+
+const tabs = computed(() => {
+  if (isOperatore.value) {
+    return [{ label: "Profilo", value: "profilo" }];
+  }
+  return [
+    { label: "Mie proposte", value: "mie" },
+    { label: "Hyped", value: "hyped" },
+    { label: "Seguiti", value: "seguiti" }
+  ];
+});
+
+const selectedTab = ref(isOperatore.value ? "profilo" : "mie");
 
 const mieProposte = ref<IProposta[]>([]);
 const hypedProposte = ref<IProposta[]>([]);
@@ -24,6 +33,14 @@ const nomeCompleto = computed(() => {
     return `${userStore.user.nome} ${userStore.user.cognome}`;
   }
   return userStore.user?.nome || 'Nome utente';
+});
+
+// Computed per biografia con supporto operatori
+const biografiaUtente = computed(() => {
+  if (isOperatore.value) {
+    return "🔧 Operatore di InCrowd - Mi occupo della moderazione e gestione della piattaforma per garantire un'esperienza sicura e piacevole a tutti gli utenti.";
+  }
+  return userStore.user?.biografia || "Nessuna biografia disponibile";
 });
 
 // Computed per foto profilo
@@ -121,9 +138,9 @@ const unhypeProposta = async (proposta: IProposta) => {
         <div class="profile-info">
           <h1 class="profile-name">{{ nomeCompleto }}</h1>
           <p class="profile-bio">
-            {{ userStore.user?.biografia || "Nessuna biografia disponibile" }}
+            {{ biografiaUtente }}
           </p>
-          <div class="profile-stats">
+          <div v-if="!isOperatore" class="profile-stats">
             <div class="stat">
               <span class="stat-number">{{ mieProposte.length }}</span>
               <span class="stat-label">Proposte</span>
@@ -131,6 +148,12 @@ const unhypeProposta = async (proposta: IProposta) => {
             <div class="stat">
               <span class="stat-number">{{ hypedProposte.length }}</span>
               <span class="stat-label">Hyped</span>
+            </div>
+          </div>
+          <div v-else class="operator-info">
+            <div class="operator-badge">
+              <span class="operator-icon">🔧</span>
+              <span class="operator-text">Operatore Ufficiale</span>
             </div>
           </div>
         </div>
@@ -151,8 +174,35 @@ const unhypeProposta = async (proposta: IProposta) => {
 
       <!-- Contenuto tab -->
       <div class="profile-content">
+        <!-- Profilo Operatore -->
+        <div v-if="selectedTab === 'profilo' && isOperatore" class="operator-profile-section">
+          <div class="operator-welcome-card">
+            <div class="operator-icon">🔧</div>
+            <h3>Benvenuto nel tuo profilo operatore!</h3>
+            <p>Come operatore di InCrowd, hai accesso a strumenti speciali per la moderazione e gestione della piattaforma.</p>
+          </div>
+          
+          <div class="operator-features">
+            <div class="feature-card">
+              <div class="feature-icon">💬</div>
+              <h4>Moderazione Commenti</h4>
+              <p>Puoi commentare su tutte le proposte per fornire supporto e moderazione</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">👀</div>
+              <h4>Supervisione Contenuti</h4>
+              <p>Accesso al pannello di moderazione per gestire i contenuti della piattaforma</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🛡️</div>
+              <h4>Sicurezza Comunità</h4>
+              <p>Contribuisci a mantenere un ambiente sicuro e accogliente per tutti</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Mie proposte -->
-        <div v-if="selectedTab === 'mie'" class="proposals-section">
+        <div v-else-if="selectedTab === 'mie'" class="proposals-section">
           <div v-if="mieProposte.length === 0" class="empty-state">
             <div class="empty-icon">📝</div>
             <h3>Nessuna proposta ancora</h3>
@@ -581,6 +631,99 @@ const unhypeProposta = async (proposta: IProposta) => {
 
 .proposal-date {
   font-weight: 500;
+}
+
+/* Stili per Operatori */
+.operator-info {
+  margin-top: 1rem;
+}
+
+.operator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.operator-icon {
+  font-size: 1.1rem;
+}
+
+.operator-profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.operator-welcome-card {
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: #fff;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
+}
+
+.operator-welcome-card .operator-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.operator-welcome-card h3 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem 0;
+}
+
+.operator-welcome-card p {
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
+.operator-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.feature-card h4 {
+  color: #404149;
+  font-size: 1.2rem;
+  margin: 0 0 0.8rem 0;
+  font-weight: 600;
+}
+
+.feature-card p {
+  color: #666;
+  margin: 0;
+  line-height: 1.4;
 }
 
 /* Responsive */

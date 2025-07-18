@@ -1,48 +1,85 @@
 <!-- filepath: /Users/annu/Desktop/InCrowd/frontend/src/views/SignupView.vue -->
 <template>
-  <div class="signup">
-    <h1>Sign Up</h1>
-    <p v-if="registrationMessage" :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error' : 'info'">{{ registrationMessage }}</p>
-    <div class="segmented">
-      <button :class="{active: type==='user'}" @click="type='user'">Utente</button>
-      <button :class="{active: type==='ente'}" @click="type='ente'">Ente</button>
-    </div>
-    <form @submit.prevent="handleSignUp" enctype="multipart/form-data">
-      <div>
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" v-model="form.nome" required />
+  <div class="signup-container">
+    <div class="signup-card">
+      <h1 class="signup-title">Registrati su InCrowd</h1>
+      
+      <!-- Google Sign-in in cima -->
+      <div class="google-section">
+        <p class="google-text">✨ Usa Google per non dover ricordare la password</p>
+        <div id="google-signup-main" class="google-signin-container"></div>
       </div>
-      <div v-if="type==='user'">
-        <label for="cognome">Cognome:</label>
-        <input type="text" id="cognome" v-model="form.cognome" required />
-      </div>
-      <div>
-        <label for="codiceFiscale">Codice Fiscale:</label>
-        <input type="text" id="codiceFiscale" v-model="form.codiceFiscale" required />
-      </div>
-      <div>
-        <label for="biografia">Biografia:</label>
-        <textarea id="biografia" v-model="form.biografia" required></textarea>
-      </div>
-      <div>
-        <label for="fotoProfilo">Foto Profilo:</label>
-        <input type="file" id="fotoProfilo" @change="handleFileUpload"  />
-      </div>
-      <div>
-        <label for="email">Email:</label>
-        <input type="email" id="email" v-model="form.credenziali.email" required />
-      </div>
-      <div v-if="showPassword">
-        <label for="password">Password:</label>
-        <input type="password" id="password" v-model="form.credenziali.password" required />
-      </div>
-      <button type="submit">Sign Up</button>
-    </form>
 
-    <div class="divider">
-      <span>oppure</span>
+      <div class="divider">
+        <span>oppure usa email e password</span>
+      </div>
+
+      <p v-if="registrationMessage" :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error' : 'info'">{{ registrationMessage }}</p>
+      
+      <!-- Tasti segmentati migliorati -->
+      <div class="user-type-selector">
+        <h3>Che tipo di account vuoi creare?</h3>
+        <div class="segmented-control">
+          <button 
+            type="button"
+            :class="{ active: type === 'user' }" 
+            @click="type = 'user'"
+            class="segment-btn"
+          >
+            <span class="segment-icon">👤</span>
+            <span class="segment-text">Utente</span>
+          </button>
+          <button 
+            type="button"
+            :class="{ active: type === 'ente' }" 
+            @click="type = 'ente'"
+            class="segment-btn"
+          >
+            <span class="segment-icon">🏢</span>
+            <span class="segment-text">Ente</span>
+          </button>
+        </div>
+      </div>
+
+      <form @submit.prevent="handleSignUp" enctype="multipart/form-data" class="signup-form">
+        <div class="form-group">
+          <label for="nome">Nome<span v-if="type === 'ente'"> dell'Ente</span>:</label>
+          <input type="text" id="nome" v-model="form.nome" required class="form-input" />
+        </div>
+        
+        <div v-if="type === 'user'" class="form-group">
+          <label for="cognome">Cognome:</label>
+          <input type="text" id="cognome" v-model="form.cognome" required class="form-input" />
+        </div>
+        
+        <div class="form-group">
+          <label for="codiceFiscale">Codice Fiscale:</label>
+          <input type="text" id="codiceFiscale" v-model="form.codiceFiscale" required class="form-input" />
+        </div>
+        
+        <div class="form-group">
+          <label for="biografia">Biografia:</label>
+          <textarea id="biografia" v-model="form.biografia" required class="form-textarea"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="fotoProfilo">Foto Profilo:</label>
+          <input type="file" id="fotoProfilo" @change="handleFileUpload" class="form-file" />
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="email" id="email" v-model="form.credenziali.email" required class="form-input" />
+        </div>
+        
+        <div v-if="showPassword" class="form-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" v-model="form.credenziali.password" required class="form-input" />
+        </div>
+        
+        <button type="submit" class="signup-btn">Crea Account</button>
+      </form>
     </div>
-    <div id="google-signup-main" class="google-signin-container"></div>
   </div>
 </template>
 
@@ -234,116 +271,64 @@ export default {
 </script>
 
 <style scoped>
-.signup {
-  max-width: 430px;
-  margin: 2.5rem auto 0 auto;
-  padding: 2rem 2rem 1.5rem 2rem;
-  background: #fff;
-  border-radius: 1.2rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+.signup-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8f7f3 0%, #fff 50%, #f8f7f3 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
 }
 
-.signup h1 {
-  text-align: center;
-  color: #fe4654;
-  margin-bottom: 1.5rem;
+.signup-card {
+  background: #fff;
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+.signup-title {
   font-size: 2rem;
   font-weight: 700;
-  letter-spacing: 1px;
+  color: #404149;
+  text-align: center;
+  margin: 0 0 2rem 0;
 }
 
-.error {
-  color: #fe4654;
+/* Google Section */
+.google-section {
   text-align: center;
-  margin-top: 1rem;
-  font-weight: 500;
-  background: #fff2f2;
-  padding: 0.7rem;
-  border-radius: 1rem;
-  border: 1px solid #fe4654;
+  margin-bottom: 1.5rem;
 }
-.segmented {
+
+.google-text {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0 0 1rem 0;
+  font-style: italic;
+}
+
+.google-signin-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
-}
-.segmented button {
-  flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #fe4654;
-  background: #f8f7f3;
-  cursor: pointer;
-}
-.segmented button.active {
-  background: #fe4654;
-  color: #fff;
 }
 
-.signup form > div {
-  margin-bottom: 1.1rem;
-  display: flex;
-  flex-direction: column;
+.google-signin-container > div {
+  width: 100% !important;
+  max-width: none !important;
 }
 
-.signup label {
-  font-weight: 500;
-  margin-bottom: 0.3rem;
-  color: #404149;
-  font-size: 1.05rem;
+.google-signin-container iframe {
+  width: 100% !important;
+  max-width: none !important;
 }
 
-.signup input[type="text"],
-.signup input[type="email"],
-.signup input[type="password"],
-.signup input[type="file"],
-.signup textarea {
-  padding: 0.7rem 1rem;
-  border: 1.5px solid #fe4654;
-  border-radius: 2rem;
-  font-size: 1rem;
-  outline: none;
-  transition: border 0.2s;
-  background: #f8f7f3;
-}
-
-.signup input[type="file"] {
-  padding: 0.4rem 0.5rem;
-  border-radius: 1rem;
-  background: #f8f7f3;
-}
-
-.signup input:focus,
-.signup textarea:focus {
-  border-color: #404149;
-}
-
-.signup textarea {
-  min-height: 70px;
-  resize: vertical;
-}
-
-.signup button[type="submit"] {
-  width: 100%;
-  background: #fe4654;
-  color: #fff;
-  border: none;
-  border-radius: 2rem;
-  padding: 0.7rem 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 0.7rem;
-  transition: background 0.2s;
-  box-shadow: 0 1px 6px rgba(254,70,84,0.07);
-}
-
-.signup button[type="submit"]:hover {
-  background: #404149;
-}
-
+/* Divider */
 .divider {
   text-align: center;
-  margin: 1.5rem 0;
+  margin: 2rem 0;
   position: relative;
 }
 
@@ -367,31 +352,159 @@ export default {
   z-index: 2;
 }
 
-.info {
-  background: #f0f7ff;
-  padding: 0.6rem;
-  border-radius: 1rem;
-  margin-bottom: 1rem;
-  text-align: center;
-  color: #404149;
-  border: 1px solid #9ec5fe;
+/* User Type Selector */
+.user-type-selector {
+  margin-bottom: 2rem;
 }
 
-@media (max-width: 600px) {
-  .signup {
-    padding: 1rem 0.5rem;
+.user-type-selector h3 {
+  color: #404149;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  text-align: center;
+}
+
+.segmented-control {
+  display: flex;
+  background: #f8f7f3;
+  border-radius: 1.5rem;
+  padding: 0.3rem;
+  border: 2px solid #e0e0e0;
+}
+
+.segment-btn {
+  flex: 1;
+  padding: 0.8rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.segment-btn.active {
+  background: #fe4654;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+  transform: translateY(-1px);
+}
+
+.segment-icon {
+  font-size: 1.5rem;
+}
+
+.segment-text {
+  font-weight: 500;
+}
+
+/* Form Styles */
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #404149;
+  font-size: 0.95rem;
+}
+
+.form-input,
+.form-textarea,
+.form-file {
+  padding: 0.8rem 1.2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1.2rem;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+  background: #fafafa;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: #fe4654;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.form-file {
+  padding: 0.6rem 1rem;
+  background: #fafafa;
+  border-style: dashed;
+}
+
+.signup-btn {
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: #fff;
+  border: none;
+  border-radius: 1.5rem;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
+}
+
+.signup-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
+}
+
+/* Messages */
+.error {
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 0.8rem;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.info {
+  color: #0c5460;
+  background: #d1ecf1;
+  border: 1px solid #bee5eb;
+  border-radius: 0.8rem;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .signup-card {
+    padding: 2rem 1.5rem;
+    margin: 1rem;
+  }
+  
+  .signup-title {
+    font-size: 1.7rem;
   }
 }
-  
-.error {
-  color: #fe4654;
-  text-align: center;
-  margin-top: 1rem;
-  font-weight: 500;
-  background: #fff2f2;
-  padding: 0.7rem;
-  border-radius: 1rem;
-  border: 1px solid #fe4654;
-}
-
 </style>

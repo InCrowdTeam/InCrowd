@@ -75,13 +75,13 @@ router.beforeEach((to, _from, next) => {
   const store = useUserStore()
   
   // Guard per pagine admin
-  if (to.meta.requiresAdmin && store.user?.userType !== 'admin') {
+  if (to.meta.requiresAdmin && !store.isAdmin) {
     next('/login')
     return
   }
   
   // Guard per pagine operatore  
-  if (to.meta.requiresOperator && store.user?.userType !== 'operatore') {
+  if (to.meta.requiresOperator && !store.isOperatore) {
     next('/login')
     return
   }

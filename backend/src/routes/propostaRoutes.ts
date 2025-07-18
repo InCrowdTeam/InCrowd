@@ -24,7 +24,7 @@ router.post("/", authMiddleware, requireRole("user", "ente"), upload.single("fot
 router.patch("/:titolo/hyper", authMiddleware, requireRole("user", "ente"), hyperProposta as any);
 
 // Rotta per aggiungere un commento a una proposta
-router.post("/:titolo/commenti", authMiddleware, requireRole("user", "ente"), aggiungiCommento as any);
+router.post("/:titolo/commenti", authMiddleware, requireRole("user", "ente", "operatore"), aggiungiCommento as any);
 
 // Aggiorna stato proposta (approva o rifiuta)
 router.patch("/:titolo/stato", authMiddleware, requireRole("operatore"), updateStatoProposta as any);

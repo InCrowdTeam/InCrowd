@@ -191,9 +191,20 @@ async function handleHyper() {
   }
 }
 
-// Funzione per ottenere il badge dell'utente (disabilitata)
+// Funzione per ottenere il badge dell'utente
 function getUserBadge(commento: any) {
-  return ''; // Nessun badge per tutti gli utenti
+  if (!commento.utente) return '';
+  
+  // Se l'ID utente corrisponde all'utente corrente, usa il suo tipo
+  if (commento.utente._id === userStore.user?._id) {
+    if (userStore.isAdmin) return '👨‍💼 Admin';
+    if (userStore.isOperatore) return '🔧 Operatore';
+    if (userStore.isEnte) return '🏢 Ente';
+  }
+  
+  // Per ora, non possiamo determinare il tipo degli altri utenti
+  // In futuro si potrebbe estendere il backend per includere queste informazioni
+  return '';
 }
 
 // Funzione per ottenere il nome dell'utente
@@ -241,9 +252,7 @@ watch(propostaSelezionata, (newProposta) => {
 
     <div class="toggle-content">
       <div v-if="selected === 'classifica'">
-        <div class="classifica-header">
-          <h2>🏆 Classifica Top 10</h2>
-        </div>
+        <h2>🏆 Classifica Top 10</h2>
         <div v-if="isLoading" class="loading-container">
           <div class="loading-spinner"></div>
           <p>Caricamento classifica...</p>
@@ -259,11 +268,6 @@ watch(propostaSelezionata, (newProposta) => {
               v-for="(proposta, index) in classificaProposte" 
               :key="proposta.titolo"
               class="classifica-item"
-              :class="{ 
-                'first-place': index === 0,
-                'second-place': index === 1,
-                'third-place': index === 2
-              }"
               @click="apriDettaglio(proposta)"
             >
               <div class="classifica-position">
@@ -392,8 +396,8 @@ watch(propostaSelezionata, (newProposta) => {
                 @click="handleHyper"
                 title="Metti un hyper!"
               >
-                <span v-if="!isHyperLoading" class="hyper-icon">⚡</span>
-                <span v-else class="loading-hourglass">⏳</span>
+                <span v-if="!isHyperLoading">⚡</span>
+                <span v-else class="loading-spinner">⏳</span>
               </button>
               <div v-else class="hyper-disabled-container">
                 <span class="hyper-icon-disabled">⚡</span>
@@ -420,28 +424,25 @@ watch(propostaSelezionata, (newProposta) => {
           </div>
           
           <div v-else class="comment-form">
-            <div class="comment-input-container">
-              <input
-                v-model="nuovoCommento"
-                @keyup.enter="inviaCommento"
-                :disabled="isLoading"
-                placeholder="Scrivi un commento..."
-                class="comment-input"
-                type="text"
-              />
-              <button 
-                @click="inviaCommento" 
-                :disabled="isLoading || !nuovoCommento.trim()"
-                class="comment-send-btn"
-                title="Invia commento"
-              >
-                <span v-if="!isLoading" class="send-icon">▶</span>
-                <span v-else class="loading-dots">●●●</span>
-              </button>
-            </div>
+            <input
+              v-model="nuovoCommento"
+              @keyup.enter="inviaCommento"
+              :disabled="isLoading"
+              placeholder="Scrivi un commento..."
+              class="comment-input"
+              type="text"
+            />
+            <button 
+              @click="inviaCommento" 
+              :disabled="isLoading || !nuovoCommento.trim()"
+              class="comment-btn"
+            >
+              <span v-if="!isLoading">Invia</span>
+              <span v-else>Invio...</span>
+            </button>
           </div>
           
-          <div class="comments-list" :class="{ 'with-login-reminder': !userStore.user }">
+          <div class="comments-list">
             <div v-if="isCommentsLoading" class="loading-comments">
               <div class="loading-spinner small"></div>
               <small>Caricamento commenti...</small>
@@ -454,6 +455,7 @@ watch(propostaSelezionata, (newProposta) => {
               <div v-for="commento in commentiProposta" :key="commento._id" class="comment-item">
                 <div class="comment-header">
                   <span class="comment-author">{{ getUserName(commento) }}</span>
+                  <span v-if="getUserBadge(commento)" class="user-badge">{{ getUserBadge(commento) }}</span>
                 </div>
                 <div class="comment-content">{{ commento.contenuto }}</div>
               </div>
@@ -530,24 +532,6 @@ ul {
 }
 
 /* Classifica Styles */
-.classifica-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding: 2rem 1.5rem;
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
-  border-radius: 1.5rem;
-  margin: 0 1.5rem 2rem 1.5rem;
-  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
-}
-
-.classifica-header h2 {
-  color: #fff;
-  font-size: 2rem;
-  font-weight: bold;
-  margin: 0;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}
-
 .classifica-container {
   max-width: 800px;
   margin: 0 auto;
@@ -594,45 +578,12 @@ ul {
   align-items: center;
   gap: 1.5rem;
   cursor: pointer;
-  transition: transform 0.3s, box-shadow 0.3s, filter 0.3s;
-  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .classifica-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-}
-
-/* Stili speciali per i primi 3 posti */
-.classifica-item.first-place {
-  transform: scale(1.05);
-  box-shadow: 0 8px 32px rgba(254, 70, 84, 0.4);
-  animation: firstPlaceBounce 3s ease-in-out infinite;
-  border: 2px solid #ffd700;
-}
-
-.classifica-item.first-place:hover {
-  transform: scale(1.05) translateY(-3px);
-  box-shadow: 0 12px 40px rgba(254, 70, 84, 0.6);
-}
-
-.classifica-item.second-place {
-  box-shadow: 0 6px 24px rgba(192, 192, 192, 0.4);
-  filter: drop-shadow(0 0 15px rgba(192, 192, 192, 0.6));
-}
-
-.classifica-item.third-place {
-  box-shadow: 0 4px 20px rgba(205, 127, 50, 0.4);
-  filter: drop-shadow(0 0 10px rgba(205, 127, 50, 0.5));
-}
-
-@keyframes firstPlaceBounce {
-  0%, 100% {
-    transform: scale(1.05) translateY(0);
-  }
-  50% {
-    transform: scale(1.05) translateY(-8px);
-  }
 }
 
 .classifica-position {
@@ -945,57 +896,19 @@ ul {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
+  transition: background 0.2s, color 0.2s;
 }
 
-.hyper-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(254, 70, 84, 0.4);
-}
-
-.hyper-btn.active {
-  background: #fe4654;
-  color: #fff;
-  border-color: #fe4654;
-  box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
-  animation: hyperPulse 2s infinite;
-}
-
+.hyper-btn.active,
 .hyper-btn:disabled {
   background: #fe4654;
   color: #fff;
   border-color: #fe4654;
+}
+
+.hyper-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.8;
-}
-
-.hyper-icon {
-  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.8));
-  transition: filter 0.3s ease;
-}
-
-.hyper-btn.active .hyper-icon {
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1));
-}
-
-.loading-hourglass {
-  animation: rotate 1.5s linear infinite;
-  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
-}
-
-@keyframes hyperPulse {
-  0%, 100% {
-    box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(254, 70, 84, 0.9);
-  }
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  opacity: 0.7;
 }
 
 .hyper-disabled-container {
@@ -1061,21 +974,17 @@ ul {
 }
 
 .comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
   margin-bottom: 1rem;
 }
 
-.comment-input-container {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  position: relative;
-}
-
 .comment-input {
-  flex: 1;
+  width: 100%;
   padding: 0.8rem 1rem;
   border: 1.5px solid #e0e0e0;
-  border-radius: 1.5rem;
+  border-radius: 1rem;
   font-size: 1rem;
   outline: none;
   transition: border 0.2s;
@@ -1084,49 +993,6 @@ ul {
 
 .comment-input:focus {
   border-color: #fe4654;
-}
-
-.comment-send-btn {
-  background: #fe4654;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
-}
-
-.comment-send-btn:hover:not(:disabled) {
-  background: #404149;
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(64, 65, 73, 0.4);
-}
-
-.comment-send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.send-icon {
-  margin-left: 2px; /* Piccolo offset per centrare visivamente la freccia */
-}
-
-.loading-dots {
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 .comment-btn {
@@ -1155,10 +1021,6 @@ ul {
   flex: 1;
   display: flex;
   flex-direction: column;
-}
-
-.comments-list.with-login-reminder {
-  margin-top: 1rem;
 }
 
 .loading-comments {
@@ -1207,6 +1069,15 @@ ul {
   font-weight: bold;
   color: #fe4654;
   font-size: 0.9rem;
+}
+
+.user-badge {
+  background: #404149;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.8rem;
+  font-weight: 500;
 }
 
 .comment-content {
