@@ -48,6 +48,13 @@ const proposte = ref<IProposta[]>([])
 const selected = ref<'classifica' | 'esplora'>('esplora')
 const userStore = useUserStore()
 
+// Stato per controllare la visibilità del banner
+const showBanner = ref(true)
+
+function closeBanner() {
+  showBanner.value = false
+}
+
 // PROPOSTE FILTRATE PER CATEGORIA
 const proposteFiltrate = computed(() =>
   categoriaSelezionata.value
@@ -224,6 +231,23 @@ watch(propostaSelezionata, (newProposta) => {
 
 <template>
   <div class="home-container">
+    <!-- Banner per utenti non loggati -->
+    <div v-if="!userStore.user && showBanner" class="welcome-banner">
+      <button class="banner-close-btn" @click="closeBanner">×</button>
+      <div class="banner-content" @click="$router.push('/not-logged')">
+        <div class="banner-icon">🎪</div>
+        <div class="banner-text">
+          <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
+          <div class="banner-bottom-row">
+            <p>Registrati gratis e unisciti alla community</p>
+            <div class="banner-cta">
+              <span class="cta-text">Scopri di più →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="toggle-bar">
       <button
         :class="{ active: selected === 'classifica' }"
@@ -470,6 +494,181 @@ watch(propostaSelezionata, (newProposta) => {
 ul {
   list-style-type: none;
   padding: 0;
+}
+
+/* Welcome Banner for non-logged users */
+.welcome-banner {
+  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
+  border-radius: 1rem;
+  margin: 0.5rem auto 1rem auto;
+  max-width: 800px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
+  overflow: hidden;
+  position: relative;
+}
+
+.banner-close-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.8rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.3s ease;
+}
+
+.banner-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.welcome-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.welcome-banner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(254, 70, 84, 0.4);
+}
+
+.welcome-banner:hover::before {
+  left: 100%;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1rem 1.5rem;
+  color: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+.banner-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
+}
+
+.banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.banner-text h3 {
+  margin: 0 0 0.3rem 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.banner-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.banner-text p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.banner-cta {
+  flex-shrink: 0;
+}
+
+.cta-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.2);
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
+  white-space: nowrap;
+  transition: background 0.3s ease;
+  display: inline-block;
+}
+
+.welcome-banner:hover .cta-text {
+  background: rgba(255,255,255,0.3);
+}
+
+/* Responsive banner */
+@media (max-width: 768px) {
+  .welcome-banner {
+    margin: 0.5rem;
+    max-width: none;
+  }
+  
+  .banner-content {
+    padding: 0.8rem 1.2rem;
+    gap: 1rem;
+  }
+  
+  .banner-icon {
+    font-size: 1.8rem;
+  }
+  
+  .banner-text h3 {
+    font-size: 1rem;
+  }
+  
+  .banner-bottom-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .banner-text p {
+    font-size: 0.85rem;
+  }
+  
+  .cta-text {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+  }
+  
+  .banner-close-btn {
+    top: 0.3rem;
+    right: 0.5rem;
+    font-size: 1.3rem;
+    width: 25px;
+    height: 25px;
+  }
 }
 
 /* Loading States */
