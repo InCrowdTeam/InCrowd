@@ -45,7 +45,18 @@ const login = async () => {
     });
 
     userStore.setToken(res.data.token);
-    userStore.setUser({ ...res.data.user, userType: res.data.userType });
+    
+    // Per l'admin creiamo un oggetto user specifico
+    if (res.data.userType === 'admin') {
+      userStore.setUser({ 
+        userType: 'admin',
+        email: email.value,
+        nome: 'Admin',
+        cognome: 'Sistema'
+      });
+    } else {
+      userStore.setUser({ ...res.data.user, userType: res.data.userType });
+    }
 
     if (res.data.userType === 'admin') {
       router.push('/admin/operatori');

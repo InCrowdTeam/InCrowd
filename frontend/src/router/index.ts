@@ -8,6 +8,7 @@ import AddPropostaView from '@/views/AddPropostaView.vue'
 import LoginView from '@/views/LoginView.vue'
 import ProfiloView from '@/views/ProfiloView.vue'
 import ModerationPanel from '@/views/ModerationPanel.vue'
+import NotLoggedView from '@/views/NotLoggedView.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes = [
@@ -35,16 +36,19 @@ const routes = [
     path: '/admin/operatori',
     name: 'adminOperatori',
     component: AdminOperatoriView,
+    meta: { requiresAdmin: true }
   },
   {
     path: '/moderation',
     name: 'moderation',
     component: ModerationPanel,
+    meta: { requiresOperator: true }
   },
   {
     path: '/addProposta',
     name: 'addProposta',
     component: AddPropostaView,
+    meta: { requiresAuth: true }
   },
   { path: '/login',
     name: 'Login',
@@ -52,7 +56,13 @@ const routes = [
   {
     path: '/profilo',
     name: 'profilo',
-    component: ProfiloView
+    component: ProfiloView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/not-logged',
+    name: 'notLogged',
+    component: NotLoggedView
   },
 ]
 
@@ -63,13 +73,26 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const store = useUserStore()
-  if (to.path.startsWith('/admin') && store.user?.userType !== 'admin') {
+  
+  // Guard per pagine admin
+  if (to.meta.requiresAdmin && store.user?.userType !== 'admin') {
     next('/login')
-  } else if (to.path.startsWith('/moderation') && store.user?.userType !== 'operatore') {
-    next('/login')
-  } else {
-    next()
+    return
   }
+  
+  // Guard per pagine operatore  
+  if (to.meta.requiresOperator && store.user?.userType !== 'operatore') {
+    next('/login')
+    return
+  }
+  
+  // Guard per pagine che richiedono autenticazione
+  if (to.meta.requiresAuth && !store.token) {
+    next('/not-logged')
+    return
+  }
+  
+  next()
 })
 
 

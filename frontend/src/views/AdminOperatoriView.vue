@@ -20,9 +20,6 @@
             </div>
           </div>
         </div>
-        <button @click="logout" class="logout-button">
-          🚪 Logout
-        </button>
       </div>
 
       <!-- Form aggiunta operatore -->
@@ -118,9 +115,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const operatori = ref<any[]>([])
 const form = ref({ nome: '', cognome: '', email: '', password: '' })
 const store = useUserStore()
@@ -229,11 +224,6 @@ const remove = async (id: string) => {
   }
 }
 
-const logout = () => {
-  store.logout()
-  router.push('/')
-}
-
 onMounted(fetchOperatori)
 </script>
 
@@ -276,10 +266,6 @@ onMounted(fetchOperatori)
   border-radius: 1.2rem;
   padding: 2rem;
   box-shadow: 0 2px 16px rgba(0,0,0,0.09);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 2rem;
 }
 
 .admin-info {
@@ -320,26 +306,6 @@ onMounted(fetchOperatori)
   font-size: 0.875rem;
   color: #666;
   margin-top: 0.2rem;
-}
-
-.logout-button {
-  background: #fe4654;
-  color: #fff;
-  border: none;
-  border-radius: 1rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.logout-button:hover {
-  background: #404149;
-  transform: translateY(-1px);
 }
 
 /* Form Section */
@@ -594,13 +560,7 @@ onMounted(fetchOperatori)
 
 @media (max-width: 767px) {
   .admin-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1.5rem;
-  }
-  
-  .logout-button {
-    align-self: center;
+    margin: 1.5rem;
   }
 }
 </style>
