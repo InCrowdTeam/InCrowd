@@ -79,7 +79,7 @@ const login = async () => {
     if (res.data.userType === 'admin') {
       router.push('/admin/operatori'); // Pannello admin
     } else if (res.data.userType === 'operatore') {
-      router.push('/moderation'); // Pannello operatori
+      router.push('/pannello-operatore'); // Pannello operatori
     } else {
       router.push('/'); // Home per Enti e Utenti
     }
@@ -179,7 +179,7 @@ const handleGoogleResponse = async (response: any) => {
     if (res.data.userType === 'admin') {
       router.push('/admin/operatori'); // Pannello admin
     } else if (res.data.userType === 'operatore') {
-      router.push('/moderation'); // Pannello operatori
+      router.push('/pannello-operatore'); // Pannello operatori
     } else {
       router.push('/'); // Home per Enti e Utenti
     }

@@ -9,6 +9,7 @@ import LoginView from '@/views/LoginView.vue'
 import ProfiloView from '@/views/ProfiloView.vue'
 import ModerationPanel from '@/views/ModerationPanel.vue'
 import NotLoggedView from '@/views/NotLoggedView.vue'
+import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes = [
@@ -21,6 +22,7 @@ const routes = [
     path: '/users',
     name: 'users',
     component: UserList,
+    meta: { requiresOperatorOrAdmin: true }
   },
   {
     path: '/addUser',
@@ -42,6 +44,12 @@ const routes = [
     path: '/moderation',
     name: 'moderation',
     component: ModerationPanel,
+    meta: { requiresOperator: true }
+  },
+  {
+    path: '/pannello-operatore',
+    name: 'pannelloOperatore',
+    component: PannelloOperatoreView,
     meta: { requiresOperator: true }
   },
   {
@@ -76,6 +84,12 @@ router.beforeEach((to, _from, next) => {
   
   // Guard per pagine admin
   if (to.meta.requiresAdmin && !store.isAdmin) {
+    next('/login')
+    return
+  }
+  
+  // Guard per pagine operatore o admin
+  if (to.meta.requiresOperatorOrAdmin && !store.isOperatore && !store.isAdmin) {
     next('/login')
     return
   }

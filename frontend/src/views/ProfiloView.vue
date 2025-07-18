@@ -11,7 +11,7 @@ const isOperatore = computed(() => userStore.isOperatore);
 
 const tabs = computed(() => {
   if (isOperatore.value) {
-    return [{ label: "Profilo", value: "profilo" }];
+    return []; // Nascondi i tab per gli operatori
   }
   return [
     { label: "Mie proposte", value: "mie" },
@@ -20,7 +20,7 @@ const tabs = computed(() => {
   ];
 });
 
-const selectedTab = ref(isOperatore.value ? "profilo" : "mie");
+const selectedTab = ref(isOperatore.value ? "" : "mie");
 
 const mieProposte = ref<IProposta[]>([]);
 const hypedProposte = ref<IProposta[]>([]);
@@ -159,8 +159,8 @@ const unhypeProposta = async (proposta: IProposta) => {
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="profile-tabs">
+      <!-- Tabs (nascosti per operatori) -->
+      <div v-if="!isOperatore" class="profile-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.value"
@@ -174,30 +174,12 @@ const unhypeProposta = async (proposta: IProposta) => {
 
       <!-- Contenuto tab -->
       <div class="profile-content">
-        <!-- Profilo Operatore -->
-        <div v-if="selectedTab === 'profilo' && isOperatore" class="operator-profile-section">
-          <div class="operator-welcome-card">
-            <div class="operator-icon">🔧</div>
-            <h3>Benvenuto nel tuo profilo operatore!</h3>
-            <p>Come operatore di InCrowd, hai accesso a strumenti speciali per la moderazione e gestione della piattaforma.</p>
-          </div>
-          
-          <div class="operator-features">
-            <div class="feature-card">
-              <div class="feature-icon">💬</div>
-              <h4>Moderazione Commenti</h4>
-              <p>Puoi commentare su tutte le proposte per fornire supporto e moderazione</p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon">👀</div>
-              <h4>Supervisione Contenuti</h4>
-              <p>Accesso al pannello di moderazione per gestire i contenuti della piattaforma</p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon">🛡️</div>
-              <h4>Sicurezza Comunità</h4>
-              <p>Contribuisci a mantenere un ambiente sicuro e accogliente per tutti</p>
-            </div>
+        <!-- Profilo Operatore (minimalista) -->
+        <div v-if="isOperatore" class="simple-operator-profile">
+          <div class="operator-welcome">
+            <div class="welcome-icon">🔧</div>
+            <h3>Profilo Operatore</h3>
+            <p>Questo è il tuo profilo personale. Per accedere agli strumenti di moderazione, vai al <RouterLink to="/pannello-operatore" class="panel-link">Pannello Operatore</RouterLink>.</p>
           </div>
         </div>
 
@@ -338,12 +320,12 @@ const unhypeProposta = async (proposta: IProposta) => {
 /* Header del profilo */
 .profile-header {
   background: #fff;
-  margin: 1.5rem 1.5rem 1rem 1.5rem;
-  border-radius: 1.2rem;
-  padding: 2rem;
+  margin: 1rem 1.5rem 0.8rem 1.5rem;
+  border-radius: 1rem;
+  padding: 1.5rem;
   box-shadow: 0 2px 16px rgba(0,0,0,0.09);
   display: flex;
-  gap: 1.5rem;
+  gap: 1.2rem;
   align-items: flex-start;
 }
 
@@ -415,11 +397,11 @@ const unhypeProposta = async (proposta: IProposta) => {
 /* Tabs */
 .profile-tabs {
   background: #fff;
-  border-radius: 1.2rem;
-  margin: 0 1.5rem 1.5rem 1.5rem;
-  padding: 0.5rem;
+  border-radius: 1rem;
+  margin: 0 1.5rem 1rem 1.5rem;
+  padding: 0.4rem;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   box-shadow: 0 2px 16px rgba(0,0,0,0.09);
 }
 
@@ -447,7 +429,7 @@ const unhypeProposta = async (proposta: IProposta) => {
 
 /* Contenuto */
 .profile-content {
-  padding: 0 1.5rem 2rem 1.5rem;
+  padding: 0 1.5rem 1.5rem 1.5rem;
 }
 
 .proposals-section {
@@ -655,75 +637,52 @@ const unhypeProposta = async (proposta: IProposta) => {
   font-size: 1.1rem;
 }
 
-.operator-profile-section {
+/* Profilo operatore semplificato */
+.simple-operator-profile {
   display: flex;
-  flex-direction: column;
-  gap: 2rem;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
 }
 
-.operator-welcome-card {
-  background: linear-gradient(135deg, #fe4654, #404149);
-  color: #fff;
+.operator-welcome {
+  background: #fff;
   padding: 2rem;
-  border-radius: 1.5rem;
+  border-radius: 1.2rem;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  max-width: 500px;
 }
 
-.operator-welcome-card .operator-icon {
+.welcome-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
   display: block;
 }
 
-.operator-welcome-card h3 {
+.operator-welcome h3 {
+  color: #404149;
   font-size: 1.5rem;
   margin: 0 0 1rem 0;
-}
-
-.operator-welcome-card p {
-  margin: 0;
-  opacity: 0.9;
-  line-height: 1.5;
-}
-
-.operator-features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-.feature-card {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 1.2rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
-  text-align: center;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.feature-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-}
-
-.feature-icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  display: block;
-}
-
-.feature-card h4 {
-  color: #404149;
-  font-size: 1.2rem;
-  margin: 0 0 0.8rem 0;
   font-weight: 600;
 }
 
-.feature-card p {
+.operator-welcome p {
   color: #666;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.5;
+}
+
+.panel-link {
+  color: #fe4654;
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.panel-link:hover {
+  border-bottom-color: #fe4654;
 }
 
 /* Responsive */

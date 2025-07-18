@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import Operatore from "../models/Operatore";
+import Proposta from "../models/Proposta";
+import User from "../models/User";
 import bcrypt from "bcrypt";
 import { emailExists } from "../utils/emailHelper";
 
@@ -71,6 +73,30 @@ export const deleteOperatore = async (req: Request, res: Response): Promise<void
     res.json({ message: 'Operatore deleted' })
   } catch (error) {
     res.status(500).json({ message: 'Error deleting operatore', error })
+  }
+}
+
+export const getOperatorStats = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    // Conta utenti totali
+    const utentiTotali = await User.countDocuments();
+    
+    // Conta proposte per stato
+    const proposteInAttesa = await Proposta.countDocuments({ "stato.stato": "in_approvazione" });
+    const proposteApprovate = await Proposta.countDocuments({ "stato.stato": "approvata" });
+    const proposteRifiutate = await Proposta.countDocuments({ "stato.stato": "rifiutata" });
+    
+    const stats = {
+      utentiTotali,
+      proposteInAttesa,
+      proposteApprovate,
+      proposteRifiutate
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error("Errore nel recupero statistiche operatore:", error);
+    res.status(500).json({ message: "Errore interno nel recupero statistiche" });
   }
 }
 

@@ -269,7 +269,7 @@ async function handleSignUp() {
           if (loginData.userType === 'admin') {
             router.push('/admin/operatori');
           } else if (loginData.userType === 'operatore') {
-            router.push('/moderation');
+            router.push('/pannello-operatore');
           } else {
             router.push('/');
           }
