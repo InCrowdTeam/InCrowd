@@ -112,9 +112,31 @@ const handleGoogleResponse = async (response: any) => {
     });
 
     if (res.data.needsRegistration) {
+      // Determina tipo: se c'è cognome, è user, altrimenti ente
+      let nome = res.data.data.nome || '';
+      let cognome = res.data.data.cognome || '';
+      let type = 'user';
+      // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
+      if (!cognome) {
+        type = 'ente';
+        cognome = '';
+      } else {
+        // Split nome Google in nome/cognome se possibile
+        const parts = nome.split(' ');
+        if (parts.length > 1) {
+          nome = parts[0];
+          cognome = parts.slice(1).join(' ');
+        }
+      }
       router.push({
         name: 'completeGoogleSignup',
-        query: res.data.data,
+        query: {
+          nome,
+          cognome,
+          email: res.data.data.email,
+          oauthCode: res.data.data.oauthCode,
+          type
+        },
       });
       return;
     }
@@ -130,6 +152,36 @@ const handleGoogleResponse = async (response: any) => {
       router.push('/');
     }
   } catch (err: any) {
+    // Controlla se l'errore è relativo alla necessità di registrazione
+    if (err.response?.status === 404 && err.response?.data?.needsRegistration) {
+      // Determina tipo: se c'è cognome, è user, altrimenti ente
+      let nome = err.response.data.data.nome || '';
+      let cognome = err.response.data.data.cognome || '';
+      let type = 'user';
+      // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
+      if (!cognome) {
+        type = 'ente';
+        cognome = '';
+      } else {
+        // Split nome Google in nome/cognome se possibile
+        const parts = nome.split(' ');
+        if (parts.length > 1) {
+          nome = parts[0];
+          cognome = parts.slice(1).join(' ');
+        }
+      }
+      router.push({
+        name: 'completeGoogleSignup',
+        query: {
+          nome,
+          cognome,
+          email: err.response.data.data.email,
+          oauthCode: err.response.data.data.oauthCode,
+          type
+        },
+      });
+      return;
+    }
     errorMessage.value = err.response?.data?.message || 'Errore login Google';
   }
 };

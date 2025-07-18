@@ -2,7 +2,7 @@
 <template>
   <div class="signup">
     <h1>Sign Up</h1>
-    <p v-if="registrationMessage" class="info">{{ registrationMessage }}</p>
+    <p v-if="registrationMessage" :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error' : 'info'">{{ registrationMessage }}</p>
     <div class="segmented">
       <button :class="{active: type==='user'}" @click="type='user'">Utente</button>
       <button :class="{active: type==='ente'}" @click="type='ente'">Ente</button>
@@ -160,20 +160,68 @@ export default {
         });
 
         if (res.data.needsRegistration) {
-          this.form.nome = res.data.data.nome || 'Google';
+          // Prepara i dati per la view di completamento
+          let nome = res.data.data.nome || '';
+          let cognome = res.data.data.cognome || '';
           if (this.type === 'user') {
-            this.form.cognome = res.data.data.cognome || 'User';
+            // Split nome Google in nome/cognome se possibile
+            const parts = nome.split(' ');
+            if (parts.length > 1) {
+              nome = parts[0];
+              cognome = parts.slice(1).join(' ');
+            }
+          } else {
+            // Se ente, tutto in nome, cognome vuoto
+            cognome = '';
           }
-          this.form.credenziali.email = res.data.data.email;
-          this.form.credenziali.oauthCode = res.data.data.oauthCode;
-          this.showPassword = false;
-          this.registrationMessage = 'Completa i campi mancanti per terminare la registrazione';
+          this.$router.push({
+            name: 'completeGoogleSignup',
+            query: {
+              nome,
+              cognome,
+              email: res.data.data.email,
+              oauthCode: res.data.data.oauthCode,
+              type: this.type
+            },
+          });
           return;
         }
 
         this.$router.push('/');
       } catch (err) {
-        console.error('Errore Google:', err);
+        // Controlla se l'errore è relativo alla necessità di registrazione
+        if (err.response?.status === 404 && err.response?.data?.needsRegistration) {
+          // Prepara i dati per la view di completamento
+          let nome = err.response.data.data.nome || '';
+          let cognome = err.response.data.data.cognome || '';
+          if (this.type === 'user') {
+            // Split nome Google in nome/cognome se possibile
+            const parts = nome.split(' ');
+            if (parts.length > 1) {
+              nome = parts[0];
+              cognome = parts.slice(1).join(' ');
+            }
+          } else {
+            // Se ente, tutto in nome, cognome vuoto
+            cognome = '';
+          }
+          this.$router.push({
+            name: 'completeGoogleSignup',
+            query: {
+              nome,
+              cognome,
+              email: err.response.data.data.email,
+              oauthCode: err.response.data.data.oauthCode,
+              type: this.type
+            },
+          });
+          return;
+        }
+        // Mostra feedback errore come in LoginView.vue
+        let message = (err && err.response && err.response.data && err.response.data.message)
+          ? err.response.data.message
+          : 'Errore login Google';
+        this.registrationMessage = message;
       }
     },
   },
@@ -202,6 +250,16 @@ export default {
   letter-spacing: 1px;
 }
 
+.error {
+  color: #fe4654;
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+  background: #fff2f2;
+  padding: 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid #fe4654;
+}
 .segmented {
   display: flex;
   justify-content: center;
@@ -322,4 +380,16 @@ export default {
     padding: 1rem 0.5rem;
   }
 }
+  
+.error {
+  color: #fe4654;
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+  background: #fff2f2;
+  padding: 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid #fe4654;
+}
+
 </style>

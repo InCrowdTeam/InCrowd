@@ -1,15 +1,15 @@
 <template>
   <div class="signup">
-    <h1>Complete Registration</h1>
-    <p class="info">{{ message }}</p>
+    <h1>Completa la registrazione</h1>
+    <p class="info">Stai completando la registrazione con Google. I dati qui sotto sono stati importati dal tuo account Google. Compila i campi mancanti per terminare la registrazione.</p>
     <form @submit.prevent="handleSignUp" enctype="multipart/form-data">
       <div>
         <label for="nome">Nome:</label>
-        <input type="text" id="nome" v-model="form.nome" disabled />
+        <input type="text" id="nome" v-model="form.nome" :disabled="true" />
       </div>
       <div v-if="showCognome">
         <label for="cognome">Cognome:</label>
-        <input type="text" id="cognome" v-model="form.cognome" disabled />
+        <input type="text" id="cognome" v-model="form.cognome" :disabled="true" />
       </div>
       <div>
         <label for="codiceFiscale">Codice Fiscale:</label>
@@ -25,24 +25,37 @@
       </div>
       <div>
         <label for="email">Email:</label>
-        <input type="email" id="email" v-model="form.credenziali.email" disabled />
+        <input type="email" id="email" v-model="form.credenziali.email" :disabled="true" />
       </div>
-      <button type="submit">Register</button>
+      <button type="submit">Completa registrazione</button>
+      <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
+      <div v-if="successMessage" class="success">{{ successMessage }}</div>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+
+const errorMessage = ref('');
+const successMessage = ref('');
+import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 const route = useRoute();
 const router = useRouter();
 
+const type = (route.query.type as string) || 'user';
+const nomeGoogle = (route.query.nome as string) || '';
+let cognomeGoogle = (route.query.cognome as string) || '';
+if (type === 'user' && !cognomeGoogle && nomeGoogle.includes(' ')) {
+  // Split automatico se manca cognome ma nome contiene spazio
+  const parts = nomeGoogle.split(' ');
+  cognomeGoogle = parts.slice(1).join(' ');
+}
 const form = ref({
-  nome: route.query.nome as string || '',
-  cognome: route.query.cognome as string || '',
+  nome: nomeGoogle.split(' ')[0] || nomeGoogle,
+  cognome: type === 'user' ? cognomeGoogle : '',
   codiceFiscale: '',
   biografia: '',
   fotoProfilo: {
@@ -51,13 +64,11 @@ const form = ref({
   },
   credenziali: {
     email: route.query.email as string || '',
-    password: '',
     oauthCode: route.query.oauthCode as string || '',
   }
 });
 
-const message = 'Compila i campi mancanti per completare la registrazione';
-const showCognome = ref(route.query.cognome !== undefined);
+const showCognome = computed(() => type === 'user' && !!form.value.cognome);
 
 function handleFileUpload(event: any) {
   const file = event.target.files[0];
@@ -66,6 +77,8 @@ function handleFileUpload(event: any) {
 }
 
 async function handleSignUp() {
+  errorMessage.value = '';
+  successMessage.value = '';
   const formData = new FormData();
   formData.append('nome', form.value.nome);
   if (showCognome.value) {
@@ -83,16 +96,49 @@ async function handleSignUp() {
     ? 'http://localhost:3000/api/users'
     : 'http://localhost:3000/api/enti';
 
-  await fetch(url, {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
 
-  router.push('/login');
+    if (!res.ok) {
+      const data = await res.json();
+      errorMessage.value = data.message || "Errore nella registrazione.";
+      return;
+    }
+
+    successMessage.value = "Registrazione completata! Ora puoi accedere.";
+    setTimeout(() => {
+      router.push('/login');
+    }, 1200);
+  } catch (err) {
+    errorMessage.value = "Errore di rete nella registrazione.";
+  }
 }
 </script>
 
 <style scoped>
+.error {
+  color: #fe4654;
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+  background: #fff2f2;
+  padding: 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid #fe4654;
+}
+.success {
+  color: #198754;
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+  background: #e6fff2;
+  padding: 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid #198754;
+}
 .signup {
   max-width: 430px;
   margin: 2.5rem auto 0 auto;
