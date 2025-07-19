@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Operatore from "../models/Operatore";
 import Proposta from "../models/Proposta";
 import User from "../models/User";
+import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import { emailExists } from "../utils/emailHelper";
 
@@ -78,8 +79,10 @@ export const deleteOperatore = async (req: Request, res: Response): Promise<void
 
 export const getOperatorStats = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // Conta utenti totali
-    const utentiTotali = await User.countDocuments();
+    // Conta utenti e enti separatamente
+    const utentiCount = await User.countDocuments();
+    const entiCount = await Ente.countDocuments();
+    const utentiTotali = utentiCount + entiCount;
     
     // Conta proposte per stato
     const proposteInAttesa = await Proposta.countDocuments({ "stato.stato": "in_approvazione" });
@@ -88,6 +91,8 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
     
     const stats = {
       utentiTotali,
+      utentiCount,
+      entiCount,
       proposteInAttesa,
       proposteApprovate,
       proposteRifiutate

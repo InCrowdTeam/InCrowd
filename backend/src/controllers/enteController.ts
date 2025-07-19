@@ -4,6 +4,26 @@ import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists } from "../utils/emailHelper";
 
+export const getAllEnti = async (req: Request, res: Response) => {
+  try {
+    const enti = await Ente.find().select("-credenziali.password");
+    
+    // Processa le foto profilo convertendo Buffer in base64 se necessario
+    const entiProcessati = enti.map(ente => {
+      const obj = ente.toObject();
+      if (obj.fotoProfilo?.data && Buffer.isBuffer(obj.fotoProfilo.data)) {
+        obj.fotoProfilo.data = obj.fotoProfilo.data.toString('base64');
+      }
+      return obj;
+    });
+    
+    res.json(entiProcessati);
+  } catch (error) {
+    console.error("Errore nel recupero enti:", error);
+    res.status(500).json({ message: "Errore interno" });
+  }
+};
+
 export const createEnte = async (req: Request, res: Response): Promise<void> => {
   try {
     const { nome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;

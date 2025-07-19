@@ -5,14 +5,22 @@
       <div class="header-content">
         <div class="header-icon">👥</div>
         <div class="header-text">
-          <h1>Gestione Utenti</h1>
-          <p>Visualizza e gestisci tutti gli utenti registrati sulla piattaforma</p>
+          <h1>Gestione Utenti ed Enti</h1>
+          <p>Visualizza e gestisci tutti gli utenti ed enti registrati sulla piattaforma</p>
         </div>
       </div>
       <div class="header-stats" v-if="!loading">
         <div class="stat-badge">
           <span class="stat-number">{{ filteredUsers.length }}</span>
-          <span class="stat-label">{{ filteredUsers.length === 1 ? 'Utente' : 'Utenti' }}</span>
+          <span class="stat-label">{{ filteredUsers.length === 1 ? 'Utente/Ente' : 'Utenti/Enti' }}</span>
+        </div>
+        <div class="stat-badge" v-if="users.length > 0">
+          <span class="stat-number">{{ users.filter(u => u.userType === 'user').length }}</span>
+          <span class="stat-label">Utenti</span>
+        </div>
+        <div class="stat-badge" v-if="users.length > 0">
+          <span class="stat-number">{{ users.filter(u => u.userType === 'ente').length }}</span>
+          <span class="stat-label">Enti</span>
         </div>
       </div>
     </div>
@@ -25,14 +33,14 @@
           class="search-input"
           type="text"
           v-model="search"
-          placeholder="Cerca utenti per nome, cognome o email..."
+          placeholder="Cerca utenti ed enti per nome, cognome o email..."
         />
         <div v-if="search" class="clear-search" @click="search = ''">✕</div>
       </div>
       
       <div class="filters-container">
         <select v-model="filterType" class="filter-select">
-          <option value="all">Tutti gli utenti</option>
+          <option value="all">Tutti gli utenti ed enti</option>
           <option value="user">Solo utenti normali</option>
           <option value="ente">Solo enti</option>
           <option value="operatore">Solo operatori</option>
@@ -76,7 +84,7 @@
           <!-- Contenuto utente -->
           <div class="user-content">
             <div class="user-header">
-              <h3 class="user-title">{{ user.nome }} {{ user.cognome }}</h3>
+              <h3 class="user-title">{{ user.nome }}{{ user.cognome ? ` ${user.cognome}` : '' }}</h3>
               <div class="user-status">
                 <span class="status-badge" :class="getUserTypeClass(user)">{{ getUserTypeLabel(user) }}</span>
               </div>
@@ -183,7 +191,7 @@
               </div>
             </div>
             <div class="user-summary-info">
-              <h4>{{ selectedUser.nome }} {{ selectedUser.cognome }}</h4>
+              <h4>{{ selectedUser.nome }}{{ selectedUser.cognome ? ` ${selectedUser.cognome}` : '' }}</h4>
               <p class="user-email-large">{{ selectedUser.credenziali.email }}</p>
               <div class="user-type-badge large" :class="getUserTypeClass(selectedUser)">
                 {{ getUserTypeLabel(selectedUser) }}
@@ -255,13 +263,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
+import { getAllEnti } from '@/api/enteApi'
 import axios from 'axios'
 
 // Tipi
 interface User {
   _id: string
   nome: string
-  cognome: string
+  cognome?: string // Opzionale per gli enti
   credenziali: {
     email: string
   }
@@ -278,6 +287,8 @@ interface User {
     contentType: string
   }
   ruolo?: string
+  userType?: string // Per distinguere il tipo (user, ente, operatore)
+  codiceFiscale?: string
 }
 
 const store = useUserStore()
@@ -302,11 +313,11 @@ const filteredUsers = computed(() => {
     filtered = filtered.filter(user => {
       switch (filterType.value) {
         case 'user':
-          return !user.ruolo || user.ruolo === 'user'
+          return user.userType === 'user'
         case 'ente':
-          return user.ruolo === 'ente'
+          return user.userType === 'ente'
         case 'operatore':
-          return user.ruolo === 'operatore'
+          return user.userType === 'operatore' || user.ruolo === 'operatore'
         default:
           return true
       }
@@ -318,7 +329,7 @@ const filteredUsers = computed(() => {
     const searchLower = search.value.toLowerCase()
     filtered = filtered.filter(user =>
       user.nome.toLowerCase().includes(searchLower) ||
-      user.cognome.toLowerCase().includes(searchLower) ||
+      (user.cognome && user.cognome.toLowerCase().includes(searchLower)) ||
       user.credenziali.email.toLowerCase().includes(searchLower) ||
       (user.biografia && user.biografia.toLowerCase().includes(searchLower))
     )
@@ -328,7 +339,7 @@ const filteredUsers = computed(() => {
   filtered.sort((a, b) => {
     switch (sortBy.value) {
       case 'name':
-        return `${a.nome} ${a.cognome}`.localeCompare(`${b.nome} ${b.cognome}`)
+        return `${a.nome} ${a.cognome || ''}`.localeCompare(`${b.nome} ${b.cognome || ''}`)
       case 'email':
         return a.credenziali.email.localeCompare(b.credenziali.email)
       case 'date':
@@ -383,14 +394,44 @@ const loadUsers = async () => {
   try {
     loading.value = true
     
-    const response = await axios.get('http://localhost:3000/api/users', {
-      headers: {
-        'Authorization': `Bearer ${store.token}`
-      },
-      timeout: 10000 // Timeout di 10 secondi
-    })
+    // Carica sia utenti che enti in parallelo
+    const [usersResponse, entiResponse] = await Promise.allSettled([
+      axios.get('http://localhost:3000/api/users', {
+        headers: {
+          'Authorization': `Bearer ${store.token}`
+        },
+        timeout: 10000
+      }),
+      getAllEnti(store.token)
+    ])
     
-    users.value = response.data || []
+    let allUsers: User[] = []
+    
+    // Processa utenti
+    if (usersResponse.status === 'fulfilled') {
+      const userData = usersResponse.value.data || []
+      allUsers = allUsers.concat(userData.map((user: any) => ({
+        ...user,
+        userType: 'user'
+      })))
+    } else {
+      console.error('Errore nel caricamento utenti:', usersResponse.reason)
+    }
+    
+    // Processa enti
+    if (entiResponse.status === 'fulfilled') {
+      const entiData = entiResponse.value || []
+      allUsers = allUsers.concat(entiData.map((ente: any) => ({
+        ...ente,
+        userType: 'ente',
+        // Per gli enti, assicuriamoci che cognome sia undefined invece di stringa vuota
+        cognome: undefined
+      })))
+    } else {
+      console.error('Errore nel caricamento enti:', entiResponse.reason)
+    }
+    
+    users.value = allUsers
   } catch (error) {
     console.error('Errore nel caricamento degli utenti:', error)
     
@@ -425,24 +466,44 @@ const getUserInitials = (user: User): string => {
 }
 
 const getUserTypeClass = (user: User): string => {
-  switch (user.ruolo) {
+  switch (user.userType) {
     case 'ente':
       return 'type-ente'
     case 'operatore':
       return 'type-operatore'
-    default:
+    case 'user':
       return 'type-user'
+    default:
+      // Fallback per compatibilità con il vecchio sistema
+      switch (user.ruolo) {
+        case 'ente':
+          return 'type-ente'
+        case 'operatore':
+          return 'type-operatore'
+        default:
+          return 'type-user'
+      }
   }
 }
 
 const getUserTypeLabel = (user: User): string => {
-  switch (user.ruolo) {
+  switch (user.userType) {
     case 'ente':
       return 'Ente'
     case 'operatore':
       return 'Operatore'
-    default:
+    case 'user':
       return 'Utente'
+    default:
+      // Fallback per compatibilità con il vecchio sistema
+      switch (user.ruolo) {
+        case 'ente':
+          return 'Ente'
+        case 'operatore':
+          return 'Operatore'
+        default:
+          return 'Utente'
+      }
   }
 }
 
@@ -549,6 +610,11 @@ onMounted(() => {
 .header-stats {
   position: relative;
   z-index: 1;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .stat-badge {
@@ -558,6 +624,7 @@ onMounted(() => {
   text-align: center;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 120px;
 }
 
 .stat-number {
@@ -1129,6 +1196,16 @@ onMounted(() => {
     text-align: center;
     margin: 1rem;
     padding: 2rem 1.5rem;
+  }
+
+  .header-stats {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .stat-badge {
+    min-width: 100px;
+    padding: 0.75rem 1rem;
   }
 
   .header-text h1 {
