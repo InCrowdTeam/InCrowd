@@ -21,7 +21,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
 
     // Gestione foto profilo
-    let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
+    let fotoProfilo: { data?: string | Buffer, contentType?: string } | undefined = undefined;
     
     if (req.file) {
       // Foto caricata dall'utente
@@ -42,17 +42,23 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    const newEnte = new Ente({
+    const enteData: any = {
       nome,
       codiceFiscale,
-      biografia,
-      ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
+      biografia: biografia && biografia.trim() ? biografia.trim() : "Nessuna biografia fornita",
       credenziali: {
         email,
         ...(hashedPassword && { password: hashedPassword }),
         ...(oauthCode && { oauthCode }),
       },
-    });
+    };
+
+    // Aggiungi fotoProfilo solo se è presente
+    if (fotoProfilo && (fotoProfilo.data || fotoProfilo.contentType)) {
+      enteData.fotoProfilo = fotoProfilo;
+    }
+
+    const newEnte = new Ente(enteData);
 
     await newEnte.save();
     res.status(201).json({ message: "Ente created successfully", ente: newEnte });

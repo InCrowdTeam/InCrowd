@@ -59,7 +59,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       nome,
       cognome,
       codiceFiscale,
-      biografia,
+      biografia: biografia && biografia.trim() ? biografia.trim() : "Nessuna biografia fornita",
       ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
       credenziali: {
         email,

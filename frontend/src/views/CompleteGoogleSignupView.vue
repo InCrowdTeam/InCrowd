@@ -222,6 +222,9 @@ async function handleSignUp() {
   // Foto profilo se caricata
   if (form.value.fotoProfilo.data) {
     formData.append('fotoProfilo', form.value.fotoProfilo.data);
+  } else if (route.query.fotoProfilo && route.query.fotoProfilo !== 'undefined') {
+    // Se non è stata caricata una nuova foto ma abbiamo quella di Google
+    formData.append('fotoProfiloGoogle', route.query.fotoProfilo as string);
   }
   
   formData.append('email', form.value.credenziali.email);
