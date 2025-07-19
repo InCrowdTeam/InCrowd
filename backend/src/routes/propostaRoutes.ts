@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta } from "../controllers/propostaController";
+import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta } from "../controllers/propostaController";
 import multer from "multer";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
@@ -32,5 +32,7 @@ router.patch("/:titolo/stato", authMiddleware, requireRole("operatore"), updateS
 // Rotta per ottenere i commenti di una proposta
 router.get("/:titolo/commenti", getCommentiProposta as any);
 
+// Rotta per eliminare una proposta
+router.delete("/:titolo", authMiddleware, requireRole("user", "ente", "operatore"), deleteProposta as any);
 
 export default router;

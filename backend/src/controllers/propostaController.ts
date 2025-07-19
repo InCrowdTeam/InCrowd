@@ -257,3 +257,43 @@ export const createProposta = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Error creating proposta", error });
   }
 };
+
+export const deleteProposta = async (req: AuthenticatedRequest, res: Response) => {
+  const { titolo } = req.params;
+  const titoloDecoded = decodeURIComponent(titolo);
+  const userId = req.user?.userId;
+  
+  try {
+    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    if (!proposta) {
+      return res.status(404).json({ message: "Proposta non trovata" });
+    }
+    
+    // Verifica che l'utente sia il proprietario della proposta o un operatore
+    const userType = req.user?.userType; // Corretto: userType invece di role
+    
+    // Converti entrambi i valori a stringa per il confronto
+    const proponenteIdStr = proposta.proponenteID?.toString();
+    const userIdStr = userId?.toString();
+    
+    console.log("Debug delete - proponenteID:", proponenteIdStr, "userId:", userIdStr, "userType:", userType);
+    
+    if (proponenteIdStr !== userIdStr && userType !== "operatore") {
+      return res.status(403).json({ 
+        message: "Non hai i permessi per eliminare questa proposta",
+        debug: { proponenteId: proponenteIdStr, userId: userIdStr, userType: userType }
+      });
+    }
+    
+    // Elimina tutti i commenti associati alla proposta
+    await Commento.deleteMany({ proposta: proposta._id });
+    
+    // Elimina la proposta
+    await Proposta.findByIdAndDelete(proposta._id);
+    
+    res.json({ message: "Proposta eliminata con successo" });
+  } catch (error) {
+    console.error("Errore nell'eliminazione della proposta:", error);
+    res.status(500).json({ message: "Errore interno del server" });
+  }
+};

@@ -88,21 +88,48 @@ const rimuoviProposta = async (proposta: IProposta) => {
   if (!confirm(`Sei sicuro di voler rimuovere "${proposta.titolo}"?`)) return;
   
   try {
-    await axios.delete(`http://localhost:3000/api/proposte/${proposta.titolo}`);
-    mieProposte.value = mieProposte.value.filter(p => p.titolo !== proposta.titolo);
-  } catch (err) {
+    const response = await axios.delete(
+      `http://localhost:3000/api/proposte/${encodeURIComponent(proposta.titolo)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${userStore.token}`
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      // Rimuovi la proposta dalla lista locale
+      mieProposte.value = mieProposte.value.filter(p => p.titolo !== proposta.titolo);
+      alert("Proposta eliminata con successo!");
+    }
+  } catch (err: any) {
     console.error("Errore nella rimozione della proposta:", err);
-    alert("Errore nella rimozione della proposta");
+    const errorMessage = err.response?.data?.message || "Errore nella rimozione della proposta";
+    alert(errorMessage);
   }
 };
 
 const unhypeProposta = async (proposta: IProposta) => {
   try {
-    await axios.post(`http://localhost:3000/api/proposte/${proposta.titolo}/unhype`);
-    hypedProposte.value = hypedProposte.value.filter(p => p.titolo !== proposta.titolo);
-  } catch (err) {
+    // Usa l'endpoint hyper che fa il toggle - se già hypata, la rimuove
+    const response = await axios.patch(
+      `http://localhost:3000/api/proposte/${encodeURIComponent(proposta.titolo)}/hyper`,
+      {},
+      {
+        headers: {
+          'Authorization': `Bearer ${userStore.token}`
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      // Rimuovi la proposta dalla lista locale
+      hypedProposte.value = hypedProposte.value.filter(p => p.titolo !== proposta.titolo);
+    }
+  } catch (err: any) {
     console.error("Errore nell'unhype:", err);
-    alert("Errore nell'unhype della proposta");
+    const errorMessage = err.response?.data?.message || "Errore nell'unhype della proposta";
+    alert(errorMessage);
   }
 };
 </script>
