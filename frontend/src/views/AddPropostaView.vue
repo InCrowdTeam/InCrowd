@@ -55,6 +55,10 @@
 import { useUserStore } from '@/stores/userStore'
 
 export default {
+  setup() {
+    const userStore = useUserStore();
+    return { userStore };
+  },
   data() {
     return {
       form: {
@@ -79,14 +83,13 @@ export default {
   },
   mounted() {
     // Recupera l'ID utente loggato da Pinia
-    const userStore = useUserStore()
-    if (userStore.user && userStore.user._id) {
-      this.form.proponenteID = userStore.user._id
+    if (this.userStore.user && this.userStore.user._id) {
+      this.form.proponenteID = this.userStore.user._id
     }
   },
   watch: {
     // Aggiorna proponenteID quando cambia lo user nello store
-    '$pinia.state.userStore.user'(newUser) {
+    'userStore.user'(newUser) {
       if (newUser && newUser._id) {
         this.form.proponenteID = newUser._id;
       }
@@ -101,6 +104,12 @@ export default {
     },
     async handleSubmit() {
       try {
+        // Verifica che l'utente sia autenticato
+        if (!this.userStore.token) {
+          alert("Devi essere loggato per creare una proposta!");
+          return;
+        }
+
         this.form.stato = { stato: "in_approvazione", commento: "" };
         const statoPuro = {
           stato: this.form.stato.stato,
@@ -127,9 +136,11 @@ export default {
           commento: this.form.stato.commento ?? ""
         }));
 
-
         const response = await fetch("http://localhost:3000/api/proposte", {
           method: "POST",
+          headers: {
+            'Authorization': `Bearer ${this.userStore.token}`
+          },
           body: formData,
         });
         
