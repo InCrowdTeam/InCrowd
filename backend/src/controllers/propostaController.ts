@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
 import Commento from "../models/Commento";
 
@@ -67,10 +68,53 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const hyperProposta = async (req: Request, res: Response) => {
+export const getPendingProposte = async (_req: Request, res: Response) => {
+  try {
+    const proposte = await Proposta.find({ "stato.stato": "in_approvazione" })
+      .sort({ createdAt: 1 });
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    res.json(proposteProcessate);
+  } catch (error) {
+    console.error("Errore nel recupero proposte pending:", error);
+    res.status(500).json({ message: "Errore interno" });
+  }
+};
+
+export const updateStatoProposta = async (req: Request, res: Response) => {
   const { titolo } = req.params;
   const titoloDecoded = decodeURIComponent(titolo);
-  const { userId } = req.body;
+  const { stato, commento } = req.body;
+  try {
+    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+
+    proposta.stato = {
+      stato,
+      commento: commento ?? proposta.stato?.commento ?? "",
+    } as any;
+
+    await proposta.save();
+    const propostaObj = proposta.toObject();
+    if (propostaObj.foto?.data && Buffer.isBuffer(propostaObj.foto.data)) {
+      propostaObj.foto.data = propostaObj.foto.data.toString('base64');
+    }
+    res.json(propostaObj);
+  } catch (error) {
+    console.error("Errore aggiornamento stato proposta:", error);
+    res.status(500).json({ message: "Errore aggiornamento stato" });
+  }
+};
+
+export const hyperProposta = async (req: AuthenticatedRequest, res: Response) => {
+  const { titolo } = req.params;
+  const titoloDecoded = decodeURIComponent(titolo);
+  const userId = req.user?.userId;
   try {
     const proposta = await Proposta.findOne({ titolo: titoloDecoded });
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
@@ -83,6 +127,8 @@ export const hyperProposta = async (req: Request, res: Response) => {
     }
 
     //controllo per permettere inserimento e rimozione hype
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const index = proposta.listaHyper.map(id => id.toString()).indexOf(userId);
 
     if (index === -1) {
@@ -108,15 +154,18 @@ export const hyperProposta = async (req: Request, res: Response) => {
   }
 };
 
-export const aggiungiCommento = async (req: Request, res: Response) => {
+export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
   const { titolo } = req.params;
   const titoloDecoded = decodeURIComponent(titolo);
-  const { contenuto, userId } = req.body;
+  const { contenuto } = req.body;
+  const userId = req.user?.userId;
   try {
     const proposta = await Proposta.findOne({ titolo: titoloDecoded });
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
     // Crea il commento
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const nuovoCommento = new Commento({
       utente: userId,
       proposta: proposta._id,
@@ -206,5 +255,45 @@ export const createProposta = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Errore durante la creazione della proposta:", error);
     res.status(500).json({ message: "Error creating proposta", error });
+  }
+};
+
+export const deleteProposta = async (req: AuthenticatedRequest, res: Response) => {
+  const { titolo } = req.params;
+  const titoloDecoded = decodeURIComponent(titolo);
+  const userId = req.user?.userId;
+  
+  try {
+    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    if (!proposta) {
+      return res.status(404).json({ message: "Proposta non trovata" });
+    }
+    
+    // Verifica che l'utente sia il proprietario della proposta o un operatore
+    const userType = req.user?.userType; // Corretto: userType invece di role
+    
+    // Converti entrambi i valori a stringa per il confronto
+    const proponenteIdStr = proposta.proponenteID?.toString();
+    const userIdStr = userId?.toString();
+    
+    console.log("Debug delete - proponenteID:", proponenteIdStr, "userId:", userIdStr, "userType:", userType);
+    
+    if (proponenteIdStr !== userIdStr && userType !== "operatore") {
+      return res.status(403).json({ 
+        message: "Non hai i permessi per eliminare questa proposta",
+        debug: { proponenteId: proponenteIdStr, userId: userIdStr, userType: userType }
+      });
+    }
+    
+    // Elimina tutti i commenti associati alla proposta
+    await Commento.deleteMany({ proposta: proposta._id });
+    
+    // Elimina la proposta
+    await Proposta.findByIdAndDelete(proposta._id);
+    
+    res.json({ message: "Proposta eliminata con successo" });
+  } catch (error) {
+    console.error("Errore nell'eliminazione della proposta:", error);
+    res.status(500).json({ message: "Errore interno del server" });
   }
 };

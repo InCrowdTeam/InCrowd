@@ -1,0 +1,90 @@
+import { Request, Response } from "express";
+import Ente from "../models/Ente";
+import bcrypt from "bcrypt";
+import { isValidCodiceFiscale } from "../utils/codiceFiscale";
+import { emailExists } from "../utils/emailHelper";
+
+export const getAllEnti = async (req: Request, res: Response) => {
+  try {
+    const enti = await Ente.find().select("-credenziali.password");
+    
+    // Processa le foto profilo convertendo Buffer in base64 se necessario
+    const entiProcessati = enti.map(ente => {
+      const obj = ente.toObject();
+      if (obj.fotoProfilo?.data && Buffer.isBuffer(obj.fotoProfilo.data)) {
+        obj.fotoProfilo.data = obj.fotoProfilo.data.toString('base64');
+      }
+      return obj;
+    });
+    
+    res.json(entiProcessati);
+  } catch (error) {
+    console.error("Errore nel recupero enti:", error);
+    res.status(500).json({ message: "Errore interno" });
+  }
+};
+
+export const createEnte = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { nome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
+
+    if (!isValidCodiceFiscale(codiceFiscale)) {
+      res.status(400).json({ message: "Codice fiscale non valido" });
+      return;
+    }
+
+    if (await emailExists(email)) {
+      res.status(409).json({ message: "Email già registrata" });
+      return;
+    }
+
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+
+    // Gestione foto profilo
+    let fotoProfilo: { data?: string | Buffer, contentType?: string } | undefined = undefined;
+    
+    if (req.file) {
+      // Foto caricata dall'utente
+      fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype,
+      };
+    } else if (fotoProfiloGoogle) {
+      // Foto da Google
+      try {
+        const googlePhoto = JSON.parse(fotoProfiloGoogle);
+        fotoProfilo = {
+          data: googlePhoto.data,
+          contentType: googlePhoto.contentType,
+        };
+      } catch (e) {
+        console.error('Errore parsing foto Google:', e);
+      }
+    }
+
+    const enteData: any = {
+      nome,
+      codiceFiscale,
+      biografia: biografia && biografia.trim() ? biografia.trim() : "Nessuna biografia fornita",
+      credenziali: {
+        email,
+        ...(hashedPassword && { password: hashedPassword }),
+        ...(oauthCode && { oauthCode }),
+      },
+    };
+
+    // Aggiungi fotoProfilo solo se è presente
+    if (fotoProfilo && (fotoProfilo.data || fotoProfilo.contentType)) {
+      enteData.fotoProfilo = fotoProfilo;
+    }
+
+    const newEnte = new Ente(enteData);
+
+    await newEnte.save();
+    res.status(201).json({ message: "Ente created successfully", ente: newEnte });
+  } catch (error) {
+    console.error("Errore durante la creazione dell'ente:", error);
+    res.status(500).json({ message: "Error creating ente", error });
+  }
+}
+

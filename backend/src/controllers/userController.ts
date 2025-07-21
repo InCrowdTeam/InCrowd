@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcrypt";
+import { isValidCodiceFiscale } from "../utils/codiceFiscale";
+import { emailExists } from "../utils/emailHelper";
 
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
@@ -15,23 +17,54 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, cognome, biografia, email, password } = req.body;
+    const { nome, cognome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
 
-    // Hash della password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (!isValidCodiceFiscale(codiceFiscale)) {
+      res.status(400).json({ message: "Codice fiscale non valido" });
+      return;
+    }
+
+    if (await emailExists(email)) {
+      res.status(409).json({ message: "Email già registrata" });
+      return;
+    }
+
+    // Hash della password se fornita
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+
+    // Gestione foto profilo
+    let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
+    
+    if (req.file) {
+      // Foto caricata dall'utente
+      fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype,
+      };
+    } else if (fotoProfiloGoogle) {
+      // Foto da Google
+      try {
+        const googlePhoto = JSON.parse(fotoProfiloGoogle);
+        fotoProfilo = {
+          data: googlePhoto.data,
+          contentType: googlePhoto.contentType,
+        };
+      } catch (e) {
+        console.error('Errore parsing foto Google:', e);
+      }
+    }
 
     // Crea un nuovo utente
     const newUser = new User({
       nome,
       cognome,
-      biografia,
-      fotoProfilo: {
-        data: req.file?.buffer,
-        contentType: req.file?.mimetype,
-      },
+      codiceFiscale,
+      biografia: biografia && biografia.trim() ? biografia.trim() : "Nessuna biografia fornita",
+      ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
       credenziali: {
         email,
-        password: hashedPassword,
+        ...(hashedPassword && { password: hashedPassword }),
+        ...(oauthCode && { oauthCode }),
       },
     });
 

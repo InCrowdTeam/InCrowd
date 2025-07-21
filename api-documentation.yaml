@@ -43,6 +43,7 @@ paths:
               required:
                 - nome
                 - cognome
+                - codiceFiscale
                 - biografia
                 - email
                 - password
@@ -53,6 +54,9 @@ paths:
                 cognome:
                   type: string
                   description: 'Last name of the user'
+                codiceFiscale:
+                  type: string
+                  description: 'Fiscal code of the user'
                 biografia:
                   type: string
                   description: 'Biography of the user'
@@ -291,6 +295,7 @@ components:
       required:
         - nome
         - cognome
+        - codiceFiscale
         - biografia
         - credenziali
       properties:
@@ -303,6 +308,9 @@ components:
         cognome:
           type: string
           description: 'Last name of the user'
+        codiceFiscale:
+          type: string
+          description: 'Fiscal code of the user'
         biografia:
           type: string
           description: 'Biography of the user'
