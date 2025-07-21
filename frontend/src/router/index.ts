@@ -2,9 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import UserList from '../views/UserList.vue'
 import SignUp from '../views/SignupView.vue'
+import CompleteGoogleSignupView from '../views/CompleteGoogleSignupView.vue'
+import AdminOperatoriView from '../views/AdminOperatoriView.vue'
 import AddPropostaView from '@/views/AddPropostaView.vue'
 import LoginView from '@/views/LoginView.vue'
 import ProfiloView from '@/views/ProfiloView.vue'
+import ModerationPanel from '@/views/ModerationPanel.vue'
+import NotLoggedView from '@/views/NotLoggedView.vue'
+import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes = [
@@ -17,6 +22,7 @@ const routes = [
     path: '/users',
     name: 'users',
     component: UserList,
+    meta: { requiresOperatorOrAdmin: true }
   },
   {
     path: '/addUser',
@@ -24,9 +30,33 @@ const routes = [
     component: SignUp,
   },
   {
+    path: '/completeGoogleSignup',
+    name: 'completeGoogleSignup',
+    component: CompleteGoogleSignupView,
+  },
+  {
+    path: '/admin/operatori',
+    name: 'adminOperatori',
+    component: AdminOperatoriView,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/moderation',
+    name: 'moderation',
+    component: ModerationPanel,
+    meta: { requiresOperator: true }
+  },
+  {
+    path: '/pannello-operatore',
+    name: 'pannelloOperatore',
+    component: PannelloOperatoreView,
+    meta: { requiresOperator: true }
+  },
+  {
     path: '/addProposta',
     name: 'addProposta',
     component: AddPropostaView,
+    meta: { requiresAuth: true }
   },
   { path: '/login',
     name: 'Login',
@@ -34,7 +64,13 @@ const routes = [
   {
     path: '/profilo',
     name: 'profilo',
-    component: ProfiloView
+    component: ProfiloView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/not-logged',
+    name: 'notLogged',
+    component: NotLoggedView
   },
 ]
 
@@ -43,11 +79,35 @@ const router = createRouter({
   routes
 })
 
+router.beforeEach((to, _from, next) => {
+  const store = useUserStore()
+  
+  // Guard per pagine admin
+  if (to.meta.requiresAdmin && !store.isAdmin) {
+    next('/login')
+    return
+  }
+  
+  // Guard per pagine operatore o admin
+  if (to.meta.requiresOperatorOrAdmin && !store.isOperatore && !store.isAdmin) {
+    next('/login')
+    return
+  }
+  
+  // Guard per pagine operatore  
+  if (to.meta.requiresOperator && !store.isOperatore) {
+    next('/login')
+    return
+  }
+  
+  // Guard per pagine che richiedono autenticazione
+  if (to.meta.requiresAuth && !store.token) {
+    next('/not-logged')
+    return
+  }
+  
+  next()
+})
 
-const logout = () => {
-  const userStore = useUserStore()
-  userStore.logout()
-  router.push('/login')
-}
 
 export default router

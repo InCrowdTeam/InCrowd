@@ -48,13 +48,6 @@ const proposte = ref<IProposta[]>([])
 const selected = ref<'classifica' | 'esplora'>('esplora')
 const userStore = useUserStore()
 
-// Stato per controllare la visibilità del banner
-const showBanner = ref(true)
-
-function closeBanner() {
-  showBanner.value = false
-}
-
 // PROPOSTE FILTRATE PER CATEGORIA
 const proposteFiltrate = computed(() =>
   categoriaSelezionata.value
@@ -198,9 +191,20 @@ async function handleHyper() {
   }
 }
 
-// Funzione per ottenere il badge dell'utente (disabilitata)
+// Funzione per ottenere il badge dell'utente
 function getUserBadge(commento: any) {
-  return ''; // Nessun badge per tutti gli utenti
+  if (!commento.utente) return '';
+  
+  // Se l'ID utente corrisponde all'utente corrente, usa il suo tipo
+  if (commento.utente._id === userStore.user?._id) {
+    if (userStore.isAdmin) return '👨‍💼 Admin';
+    if (userStore.isOperatore) return '🔧 Operatore';
+    if (userStore.isEnte) return '🏢 Ente';
+  }
+  
+  // Per ora, non possiamo determinare il tipo degli altri utenti
+  // In futuro si potrebbe estendere il backend per includere queste informazioni
+  return '';
 }
 
 // Funzione per ottenere il nome dell'utente
@@ -231,23 +235,6 @@ watch(propostaSelezionata, (newProposta) => {
 
 <template>
   <div class="home-container">
-    <!-- Banner per utenti non loggati -->
-    <div v-if="!userStore.user && showBanner" class="welcome-banner">
-      <button class="banner-close-btn" @click="closeBanner">×</button>
-      <div class="banner-content" @click="$router.push('/not-logged')">
-        <div class="banner-icon">🎪</div>
-        <div class="banner-text">
-          <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
-          <div class="banner-bottom-row">
-            <p>Registrati gratis e unisciti alla community</p>
-            <div class="banner-cta">
-              <span class="cta-text">Scopri di più →</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="toggle-bar">
       <button
         :class="{ active: selected === 'classifica' }"
@@ -265,9 +252,7 @@ watch(propostaSelezionata, (newProposta) => {
 
     <div class="toggle-content">
       <div v-if="selected === 'classifica'">
-        <div class="classifica-header">
-          <h2>🏆 Classifica Top 10</h2>
-        </div>
+        <h2>🏆 Classifica Top 10</h2>
         <div v-if="isLoading" class="loading-container">
           <div class="loading-spinner"></div>
           <p>Caricamento classifica...</p>
@@ -283,11 +268,6 @@ watch(propostaSelezionata, (newProposta) => {
               v-for="(proposta, index) in classificaProposte" 
               :key="proposta.titolo"
               class="classifica-item"
-              :class="{ 
-                'first-place': index === 0,
-                'second-place': index === 1,
-                'third-place': index === 2
-              }"
               @click="apriDettaglio(proposta)"
             >
               <div class="classifica-position">
@@ -416,8 +396,8 @@ watch(propostaSelezionata, (newProposta) => {
                 @click="handleHyper"
                 title="Metti un hyper!"
               >
-                <span v-if="!isHyperLoading" class="hyper-icon">⚡</span>
-                <span v-else class="loading-hourglass">⏳</span>
+                <span v-if="!isHyperLoading">⚡</span>
+                <span v-else class="loading-spinner">⏳</span>
               </button>
               <div v-else class="hyper-disabled-container">
                 <span class="hyper-icon-disabled">⚡</span>
@@ -444,28 +424,25 @@ watch(propostaSelezionata, (newProposta) => {
           </div>
           
           <div v-else class="comment-form">
-            <div class="comment-input-container">
-              <input
-                v-model="nuovoCommento"
-                @keyup.enter="inviaCommento"
-                :disabled="isLoading"
-                placeholder="Scrivi un commento..."
-                class="comment-input"
-                type="text"
-              />
-              <button 
-                @click="inviaCommento" 
-                :disabled="isLoading || !nuovoCommento.trim()"
-                class="comment-send-btn"
-                title="Invia commento"
-              >
-                <span v-if="!isLoading" class="send-icon">▶</span>
-                <span v-else class="loading-dots">●●●</span>
-              </button>
-            </div>
+            <input
+              v-model="nuovoCommento"
+              @keyup.enter="inviaCommento"
+              :disabled="isLoading"
+              placeholder="Scrivi un commento..."
+              class="comment-input"
+              type="text"
+            />
+            <button 
+              @click="inviaCommento" 
+              :disabled="isLoading || !nuovoCommento.trim()"
+              class="comment-btn"
+            >
+              <span v-if="!isLoading">Invia</span>
+              <span v-else>Invio...</span>
+            </button>
           </div>
           
-          <div class="comments-list" :class="{ 'with-login-reminder': !userStore.user }">
+          <div class="comments-list">
             <div v-if="isCommentsLoading" class="loading-comments">
               <div class="loading-spinner small"></div>
               <small>Caricamento commenti...</small>
@@ -478,6 +455,7 @@ watch(propostaSelezionata, (newProposta) => {
               <div v-for="commento in commentiProposta" :key="commento._id" class="comment-item">
                 <div class="comment-header">
                   <span class="comment-author">{{ getUserName(commento) }}</span>
+                  <span v-if="getUserBadge(commento)" class="user-badge">{{ getUserBadge(commento) }}</span>
                 </div>
                 <div class="comment-content">{{ commento.contenuto }}</div>
               </div>
@@ -494,181 +472,6 @@ watch(propostaSelezionata, (newProposta) => {
 ul {
   list-style-type: none;
   padding: 0;
-}
-
-/* Welcome Banner for non-logged users */
-.welcome-banner {
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
-  border-radius: 1rem;
-  margin: 0.5rem auto 1rem auto;
-  max-width: 800px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
-  overflow: hidden;
-  position: relative;
-}
-
-.banner-close-btn {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.8rem;
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 1.5rem;
-  cursor: pointer;
-  z-index: 10;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background 0.3s ease;
-}
-
-.banner-close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.welcome-banner::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: left 0.5s;
-}
-
-.welcome-banner:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 28px rgba(254, 70, 84, 0.4);
-}
-
-.welcome-banner:hover::before {
-  left: 100%;
-}
-
-.banner-content {
-  display: flex;
-  align-items: center;
-  gap: 1.2rem;
-  padding: 1rem 1.5rem;
-  color: #fff;
-  position: relative;
-  z-index: 1;
-}
-
-.banner-icon {
-  font-size: 2rem;
-  flex-shrink: 0;
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-8px);
-  }
-  60% {
-    transform: translateY(-4px);
-  }
-}
-
-.banner-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.banner-text h3 {
-  margin: 0 0 0.3rem 0;
-  font-size: 1.1rem;
-  font-weight: bold;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
-
-.banner-bottom-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.banner-text p {
-  margin: 0;
-  opacity: 0.9;
-  font-size: 0.9rem;
-  flex: 1;
-}
-
-.banner-cta {
-  flex-shrink: 0;
-}
-
-.cta-text {
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: rgba(255,255,255,0.2);
-  padding: 0.3rem 0.8rem;
-  border-radius: 1rem;
-  white-space: nowrap;
-  transition: background 0.3s ease;
-  display: inline-block;
-}
-
-.welcome-banner:hover .cta-text {
-  background: rgba(255,255,255,0.3);
-}
-
-/* Responsive banner */
-@media (max-width: 768px) {
-  .welcome-banner {
-    margin: 0.5rem;
-    max-width: none;
-  }
-  
-  .banner-content {
-    padding: 0.8rem 1.2rem;
-    gap: 1rem;
-  }
-  
-  .banner-icon {
-    font-size: 1.8rem;
-  }
-  
-  .banner-text h3 {
-    font-size: 1rem;
-  }
-  
-  .banner-bottom-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .banner-text p {
-    font-size: 0.85rem;
-  }
-  
-  .cta-text {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.6rem;
-  }
-  
-  .banner-close-btn {
-    top: 0.3rem;
-    right: 0.5rem;
-    font-size: 1.3rem;
-    width: 25px;
-    height: 25px;
-  }
 }
 
 /* Loading States */
@@ -729,24 +532,6 @@ ul {
 }
 
 /* Classifica Styles */
-.classifica-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding: 2rem 1.5rem;
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
-  border-radius: 1.5rem;
-  margin: 0 1.5rem 2rem 1.5rem;
-  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
-}
-
-.classifica-header h2 {
-  color: #fff;
-  font-size: 2rem;
-  font-weight: bold;
-  margin: 0;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}
-
 .classifica-container {
   max-width: 800px;
   margin: 0 auto;
@@ -793,45 +578,12 @@ ul {
   align-items: center;
   gap: 1.5rem;
   cursor: pointer;
-  transition: transform 0.3s, box-shadow 0.3s, filter 0.3s;
-  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .classifica-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-}
-
-/* Stili speciali per i primi 3 posti */
-.classifica-item.first-place {
-  transform: scale(1.05);
-  box-shadow: 0 8px 32px rgba(254, 70, 84, 0.4);
-  animation: firstPlaceBounce 3s ease-in-out infinite;
-  border: 2px solid #ffd700;
-}
-
-.classifica-item.first-place:hover {
-  transform: scale(1.05) translateY(-3px);
-  box-shadow: 0 12px 40px rgba(254, 70, 84, 0.6);
-}
-
-.classifica-item.second-place {
-  box-shadow: 0 6px 24px rgba(192, 192, 192, 0.4);
-  filter: drop-shadow(0 0 15px rgba(192, 192, 192, 0.6));
-}
-
-.classifica-item.third-place {
-  box-shadow: 0 4px 20px rgba(205, 127, 50, 0.4);
-  filter: drop-shadow(0 0 10px rgba(205, 127, 50, 0.5));
-}
-
-@keyframes firstPlaceBounce {
-  0%, 100% {
-    transform: scale(1.05) translateY(0);
-  }
-  50% {
-    transform: scale(1.05) translateY(-8px);
-  }
 }
 
 .classifica-position {
@@ -1144,57 +896,19 @@ ul {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
+  transition: background 0.2s, color 0.2s;
 }
 
-.hyper-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(254, 70, 84, 0.4);
-}
-
-.hyper-btn.active {
-  background: #fe4654;
-  color: #fff;
-  border-color: #fe4654;
-  box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
-  animation: hyperPulse 2s infinite;
-}
-
+.hyper-btn.active,
 .hyper-btn:disabled {
   background: #fe4654;
   color: #fff;
   border-color: #fe4654;
+}
+
+.hyper-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.8;
-}
-
-.hyper-icon {
-  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.8));
-  transition: filter 0.3s ease;
-}
-
-.hyper-btn.active .hyper-icon {
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1));
-}
-
-.loading-hourglass {
-  animation: rotate 1.5s linear infinite;
-  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
-}
-
-@keyframes hyperPulse {
-  0%, 100% {
-    box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(254, 70, 84, 0.9);
-  }
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  opacity: 0.7;
 }
 
 .hyper-disabled-container {
@@ -1260,21 +974,17 @@ ul {
 }
 
 .comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
   margin-bottom: 1rem;
 }
 
-.comment-input-container {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  position: relative;
-}
-
 .comment-input {
-  flex: 1;
+  width: 100%;
   padding: 0.8rem 1rem;
   border: 1.5px solid #e0e0e0;
-  border-radius: 1.5rem;
+  border-radius: 1rem;
   font-size: 1rem;
   outline: none;
   transition: border 0.2s;
@@ -1283,49 +993,6 @@ ul {
 
 .comment-input:focus {
   border-color: #fe4654;
-}
-
-.comment-send-btn {
-  background: #fe4654;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
-}
-
-.comment-send-btn:hover:not(:disabled) {
-  background: #404149;
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(64, 65, 73, 0.4);
-}
-
-.comment-send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.send-icon {
-  margin-left: 2px; /* Piccolo offset per centrare visivamente la freccia */
-}
-
-.loading-dots {
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 .comment-btn {
@@ -1354,10 +1021,6 @@ ul {
   flex: 1;
   display: flex;
   flex-direction: column;
-}
-
-.comments-list.with-login-reminder {
-  margin-top: 1rem;
 }
 
 .loading-comments {
@@ -1406,6 +1069,15 @@ ul {
   font-weight: bold;
   color: #fe4654;
   font-size: 0.9rem;
+}
+
+.user-badge {
+  background: #404149;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.8rem;
+  font-weight: 500;
 }
 
 .comment-content {
