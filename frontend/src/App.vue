@@ -143,7 +143,6 @@ function getUserRole(): string {
         
         <nav class="nav-links">
           <RouterLink to="/">Home</RouterLink>
-          <RouterLink to="/search">🔍 Ricerca</RouterLink>
           <RouterLink to="/pannello-operatore">Pannello Operatore</RouterLink>
           <RouterLink to="/profilo">Profilo</RouterLink>
         </nav>
@@ -188,7 +187,6 @@ function getUserRole(): string {
         
         <nav v-if="userStore.token" class="nav-links">
           <RouterLink to="/">Home</RouterLink>
-          <RouterLink to="/search">🔍 Ricerca</RouterLink>
           <RouterLink to="/addProposta">Aggiungi proposta</RouterLink>
           <RouterLink to="/profilo">Profilo</RouterLink>
         </nav>

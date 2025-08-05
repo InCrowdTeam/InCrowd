@@ -5,7 +5,7 @@ import Commento from "../models/Commento";
 
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
-    const proposte = await Proposta.find();
+    const proposte = await Proposta.find({"stato.stato": "approvata"});
     const proposteProcessate = proposte.map(p => {
       const obj = p.toObject();
       // se è ancora Buffer lo converto, altrimenti lascio la stringa
@@ -18,6 +18,41 @@ export const getAllProposte = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Errore nel recupero proposte:", error);
     res.status(500).json({ message: "Errore interno" });
+  }
+};
+
+export const getMyProposte = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    console.log("🔍 Debug getMyProposte - req.user:", req.user);
+    
+    // Verifica che l'utente sia autenticato
+    if (!req.user || !req.user.userId) {
+      console.log("❌ Utente non autenticato in getMyProposte");
+      return res.status(401).json({ message: "Utente non autenticato" });
+    }
+
+    console.log("🔍 Debug - User ID:", req.user.userId);
+
+    // Recupera TUTTE le proposte dell'utente, indipendentemente dallo stato
+    const proposte = await Proposta.find({ proponenteID: req.user.userId })
+      .sort({ createdAt: -1 }); // Ordina per data di creazione (più recenti prima)
+    
+    console.log("🔍 Debug - Proposte trovate:", proposte.length);
+    
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      // se è ancora Buffer lo converto, altrimenti lascio la stringa
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    
+    console.log("✅ Inviando proposte:", proposteProcessate.length);
+    res.json(proposteProcessate);
+  } catch (error) {
+    console.error("❌ Errore nel recupero proposte utente:", error);
+    res.status(500).json({ message: "Errore interno nel recupero delle proposte" });
   }
 };
 
@@ -35,7 +70,9 @@ export const searchProposte = async (req: Request, res: Response) => {
     } = req.query;
 
     // Costruzione del filtro di ricerca
-    let filter: any = {};
+    let filter: any = {
+      "stato.stato": "approvata" // Mostra solo proposte approvate
+    };
 
     // Ricerca testuale su titolo e descrizione
     if (q && typeof q === 'string') {
@@ -55,9 +92,16 @@ export const searchProposte = async (req: Request, res: Response) => {
       filter['luogo.citta'] = { $regex: citta, $options: 'i' };
     }
 
-    // Filtro per stato
+    // Filtro per stato - manteniamo sempre approvata come base
+    // ma permettiamo ulteriori filtri solo se sono stati "validi"
     if (stato && typeof stato === 'string') {
-      filter['stato.stato'] = stato;
+      // Solo per admin/operatori: permettere di cercare anche altri stati
+      // Per ora manteniamo solo "approvata"
+      if (stato === 'approvata') {
+        filter['stato.stato'] = stato;
+      }
+      // Se vuoi permettere la ricerca di altri stati, decommentare:
+      // filter['stato.stato'] = stato;
     }
 
     // Costruzione dell'ordinamento

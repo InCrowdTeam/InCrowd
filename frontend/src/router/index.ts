@@ -10,7 +10,6 @@ import ProfiloView from '@/views/ProfiloView.vue'
 import ModerationPanel from '@/views/ModerationPanel.vue'
 import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
-import SearchView from '@/views/SearchView.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes = [
@@ -58,11 +57,6 @@ const routes = [
     name: 'addProposta',
     component: AddPropostaView,
     meta: { requiresAuth: true }
-  },
-  {
-    path: '/search',
-    name: 'search',
-    component: SearchView
   },
   { path: '/login',
     name: 'Login',

@@ -3,6 +3,7 @@ import { onMounted, ref, computed, watch } from 'vue'
 import axios from 'axios'
 import type { IProposta } from "../types/Proposta"
 import { useUserStore } from '@/stores/userStore'
+import { searchProposte, type SearchFilters } from '@/api/propostaApi'
 
 // Stato di caricamento
 const isLoading = ref(false)
@@ -48,6 +49,23 @@ const proposte = ref<IProposta[]>([])
 const selected = ref<'classifica' | 'esplora'>('esplora')
 const userStore = useUserStore()
 
+// Stato per la ricerca
+const searchQuery = ref('')
+const showFilters = ref(false)
+const isSearching = ref(false)
+const searchResults = ref<IProposta[]>([])
+const searchExecuted = ref(false)
+
+const searchFilters = ref<SearchFilters>({
+  categoria: '',
+  citta: '',
+  stato: '',
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+  limit: 20,
+  skip: 0
+})
+
 // Stato per controllare la visibilità del banner
 const showBanner = ref(true)
 
@@ -55,12 +73,35 @@ function closeBanner() {
   showBanner.value = false
 }
 
-// PROPOSTE FILTRATE PER CATEGORIA
-const proposteFiltrate = computed(() =>
-  categoriaSelezionata.value
+// PROPOSTE FILTRATE PER CATEGORIA E RICERCA
+const proposteFiltrate = computed(() => {
+  // Se c'è una ricerca attiva, mostra i risultati della ricerca
+  if (searchExecuted.value && (searchQuery.value || hasActiveFilters.value)) {
+    return searchResults.value
+  }
+  
+  // Altrimenti filtra per categoria se selezionata
+  return categoriaSelezionata.value
     ? proposte.value.filter(p => p.categoria === categoriaSelezionata.value)
     : proposte.value
-)
+})
+
+// Computed unificato per gestire tutte le visualizzazioni
+const proposteVisualizzate = computed(() => {
+  if (selected.value === 'classifica') {
+    return classificaProposte.value
+  }
+  
+  return proposteFiltrate.value
+})
+
+// Computed per verificare se ci sono filtri attivi
+const hasActiveFilters = computed(() => {
+  return searchQuery.value || 
+         searchFilters.value.categoria || 
+         searchFilters.value.citta || 
+         searchFilters.value.stato
+})
 
 // CLASSIFICA - proposte ordinate per numero di hyper
 const classificaProposte = computed(() => {
@@ -179,10 +220,18 @@ async function handleHyper() {
     // Aggiorna la proposta selezionata
     propostaSelezionata.value = res.data;
     
-    // Aggiorna anche la proposta nella lista
+    // Aggiorna anche la proposta nella lista principale
     const index = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
     if (index !== -1) {
       proposte.value[index] = res.data;
+    }
+    
+    // Aggiorna anche la proposta nei risultati di ricerca se presenti
+    if (searchExecuted.value && searchResults.value.length > 0) {
+      const searchIndex = searchResults.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
+      if (searchIndex !== -1) {
+        searchResults.value[searchIndex] = res.data;
+      }
     }
   } catch (err: any) {
     console.error("Errore hyper:", err);
@@ -220,6 +269,52 @@ function getCategoryLabel(categoria: string) {
     conferenze: '🎤 Conferenze'
   }
   return categories[categoria] || categoria
+}
+
+// Funzioni per la ricerca
+let searchTimeout: number
+
+const toggleFilters = () => {
+  showFilters.value = !showFilters.value
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  searchExecuted.value = false
+  searchResults.value = []
+}
+
+const onSearch = () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    executeSearch()
+  }, 300)
+}
+
+const executeSearch = async () => {
+  if (!searchQuery.value && !hasActiveFilters.value) {
+    searchExecuted.value = false
+    searchResults.value = []
+    return
+  }
+
+  isSearching.value = true
+  try {
+    const filters: SearchFilters = {
+      ...searchFilters.value,
+      q: searchQuery.value || undefined
+    }
+
+    const response = await searchProposte(filters)
+    searchResults.value = response.proposte
+    searchExecuted.value = true
+    
+  } catch (error) {
+    console.error('Errore nella ricerca:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
 }
 
 onMounted(async () => {
@@ -261,19 +356,141 @@ watch(propostaSelezionata, (newProposta) => {
       </div>
     </div>
 
-    <div class="toggle-bar">
-      <button
-        :class="{ active: selected === 'classifica' }"
-        @click="selected = 'classifica'"
-      >
-        Classifica
-      </button>
-      <button
-        :class="{ active: selected === 'esplora' }"
-        @click="selected = 'esplora'"
-      >
-        Esplora
-      </button>
+    <!-- Barra di ricerca -->
+    <div class="search-container">
+      <div class="search-bar">
+        <div class="search-input-container">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Cerca proposte per titolo o descrizione..."
+            class="search-input"
+            @input="onSearch"
+          />
+          <button 
+            v-if="searchQuery" 
+            @click="clearSearch" 
+            class="clear-btn"
+            title="Cancella ricerca"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <button 
+          @click="toggleFilters" 
+          class="filters-btn"
+          :class="{ active: showFilters }"
+        >
+          <span class="filter-icon">🔍</span>
+          Filtri
+        </button>
+      </div>
+
+      <!-- Pannello filtri avanzati -->
+      <Transition name="slide-down">
+        <div v-if="showFilters" class="filters-panel">
+          <div class="filters-grid">
+            <!-- Filtro categoria -->
+            <div class="filter-group">
+              <label class="filter-label">Categoria</label>
+              <select v-model="searchFilters.categoria" @change="onSearch" class="filter-select">
+                <option value="">Tutte le categorie</option>
+                <option value="cultura">🎭 Cultura</option>
+                <option value="concerti">🎵 Concerti</option>
+                <option value="mostreInstallazioni">🖼️ Mostre e installazioni</option>
+                <option value="sport">⚽ Sport</option>
+                <option value="workshopCorsi">📚 Workshop e corsi</option>
+                <option value="conferenze">🎤 Conferenze</option>
+              </select>
+            </div>
+
+            <!-- Filtro città -->
+            <div class="filter-group">
+              <label class="filter-label">Città</label>
+              <input 
+                v-model="searchFilters.citta" 
+                @input="onSearch"
+                type="text" 
+                placeholder="Es: Milano, Roma..." 
+                class="filter-input"
+              />
+            </div>
+
+            <!-- Filtro stato -->
+            <div class="filter-group">
+              <label class="filter-label">Stato</label>
+              <select v-model="searchFilters.stato" @change="onSearch" class="filter-select">
+                <option value="">Tutti gli stati</option>
+                <option value="proposta">📝 Proposta</option>
+                <option value="approvata">✅ Approvata</option>
+                <option value="respinta">❌ Respinta</option>
+                <option value="in_corso">🔄 In corso</option>
+                <option value="completata">✅ Completata</option>
+              </select>
+            </div>
+
+            <!-- Ordinamento -->
+            <div class="filter-group">
+              <label class="filter-label">Ordina per</label>
+              <select v-model="searchFilters.sortBy" @change="onSearch" class="filter-select">
+                <option value="createdAt">Data creazione</option>
+                <option value="hyperCount">Numero di hyper</option>
+                <option value="titolo">Titolo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filters-actions">
+            <button @click="showFilters = false" class="close-filters-btn">
+              Chiudi filtri
+            </button>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- Indicatori filtri attivi -->
+      <div v-if="hasActiveFilters" class="active-filters">
+        <span class="active-filters-label">Filtri attivi:</span>
+        <div class="filter-tags">
+          <span v-if="searchQuery" class="filter-tag">
+            Ricerca: "{{ searchQuery }}"
+            <button @click="searchQuery = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+          <span v-if="searchFilters.categoria" class="filter-tag">
+            Categoria: {{ getCategoryLabel(searchFilters.categoria) }}
+            <button @click="searchFilters.categoria = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+          <span v-if="searchFilters.citta" class="filter-tag">
+            Città: {{ searchFilters.citta }}
+            <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+          <span v-if="searchFilters.stato" class="filter-tag">
+            Stato: {{ searchFilters.stato }}
+            <button @click="searchFilters.stato = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toggle-container">
+      <div class="toggle-switch">
+        <div class="toggle-slider" :class="{ 'slide-right': selected === 'classifica' }"></div>
+        <button
+          class="toggle-option"
+          :class="{ active: selected === 'esplora' }"
+          @click="selected = 'esplora'"
+        >
+          Esplora
+        </button>
+        <button
+          class="toggle-option"
+          :class="{ active: selected === 'classifica' }"
+          @click="selected = 'classifica'"
+        >
+          Classifica
+        </button>
+      </div>
     </div>
 
     <div class="toggle-content">
@@ -365,24 +582,27 @@ watch(propostaSelezionata, (newProposta) => {
             <p class="section-subtitle">Scopri le ultime idee della community</p>
           </div>
           
-          <div v-if="isLoading" class="loading-container">
+          <div v-if="isLoading || isSearching" class="loading-container">
             <div class="loading-spinner"></div>
-            <p>Caricamento proposte...</p>
+            <p>{{ isSearching ? 'Ricerca in corso...' : 'Caricamento proposte...' }}</p>
           </div>
           
-          <div v-else-if="proposteFiltrate.length === 0" class="empty-proposte">
-            <div class="empty-icon">📝</div>
-            <h3>Nessuna proposta ancora</h3>
-            <p>Sii il primo a condividere un'idea con la community!</p>
-            <RouterLink v-if="userStore.user" to="/addProposta" class="cta-button">
+          <div v-else-if="proposteVisualizzate.length === 0" class="empty-proposte">
+            <div class="empty-icon">{{ searchExecuted ? '�' : '�📝' }}</div>
+            <h3>{{ searchExecuted ? 'Nessun risultato trovato' : 'Nessuna proposta ancora' }}</h3>
+            <p>{{ searchExecuted ? 'Prova a modificare i criteri di ricerca' : 'Sii il primo a condividere un\'idea con la community!' }}</p>
+            <RouterLink v-if="userStore.user && !searchExecuted" to="/addProposta" class="cta-button">
               ➕ Aggiungi la tua proposta
             </RouterLink>
+            <button v-if="searchExecuted" @click="clearSearch" class="cta-button">
+              🔄 Mostra tutte le proposte
+            </button>
           </div>
           
           <div v-else>
             <div class="proposte-grid" :class="{ 'with-panel': propostaSelezionata }">
               <div
-                v-for="proposta in proposteFiltrate"
+                v-for="proposta in proposteVisualizzate"
                 :key="proposta.titolo"
                 class="proposta-card"
                 @click="apriDettaglio(proposta)"
@@ -763,27 +983,54 @@ ul {
   100% { transform: rotate(360deg); }
 }
 
-/* Toggle Bar */
-.toggle-bar {
+/* Toggle Container */
+.toggle-container {
   display: flex;
   justify-content: center;
   margin-bottom: 2rem;
-  gap: 1rem;
 }
 
-.toggle-bar button {
+.toggle-switch {
+  position: relative;
+  display: flex;
+  background: #e6e6e6;
+  border-radius: 2rem;
+  padding: 0.25rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  height: calc(100% - 0.5rem);
+  background: #fe4654;
+  border-radius: 1.75rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.toggle-slider.slide-right {
+  transform: translateX(100%);
+}
+
+.toggle-option {
+  position: relative;
+  z-index: 2;
   padding: 0.5rem 2rem;
   border: none;
-  background: #e6e6e6;
+  background: transparent;
   color: #404149;
   font-size: 1.1rem;
-  border-radius: 2rem;
+  border-radius: 1.75rem;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: color 0.3s ease;
+  min-width: 120px;
+  text-align: center;
 }
 
-.toggle-bar button.active {
-  background: #fe4654;
+.toggle-option.active {
   color: #fff;
   font-weight: bold;
 }
@@ -1469,7 +1716,7 @@ ul {
 .hyper-count {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #ffffff;
+  color: #2B2C34;
 }
 
 .hyper-disabled-text {
@@ -1695,5 +1942,259 @@ ul {
 
 .comments-scroll::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+/* Search styles */
+.search-container {
+  margin-bottom: 2rem;
+  background: #2B2C34;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.search-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input-container {
+  flex: 1;
+  position: relative;
+  min-width: 300px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e6e6e6;
+  border-radius: 2rem;
+  font-size: 1rem;
+  background: #404149;
+  transition: all 0.3s ease;
+  color: #404149;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #fe4654;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #404149;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.clear-btn:hover {
+  background: #fe4654;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #e6e6e6;
+  border: none;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #404149;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.filters-btn:hover {
+  background: #d6d6d6;
+  transform: translateY(-2px);
+}
+
+.filters-btn.active {
+  background: #fe4654;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.filter-icon {
+  font-size: 1.2rem;
+}
+
+.filters-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 1rem;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #404149;
+  font-size: 0.9rem;
+}
+
+.filter-select,
+.filter-input {
+  padding: 0.6rem 1rem;
+  border: 2px solid #e6e6e6;
+  border-radius: 0.8rem;
+  background: white;
+  font-size: 0.9rem;
+  color: #404149;
+  transition: all 0.3s ease;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+  outline: none;
+  border-color: #fe4654;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.filters-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.close-filters-btn {
+  padding: 0.6rem 1.5rem;
+  background: #404149;
+  color: white;
+  border: none;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.close-filters-btn:hover {
+  background: #fe4654;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.active-filters {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.active-filters-label {
+  font-weight: 600;
+  color: #404149;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.tag-remove {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 50%;
+  opacity: 0.8;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@media (max-width: 768px) {
+  .search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-input-container {
+    min-width: auto;
+  }
+  
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 </style>
