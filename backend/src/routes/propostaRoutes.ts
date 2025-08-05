@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta } from "../controllers/propostaController";
+import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte } from "../controllers/propostaController";
 import multer from "multer";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
@@ -13,6 +13,9 @@ const upload = multer({ storage });
 
 // Rotta per ottenere tutte le proposte
 router.get("/", getAllProposte);
+
+// Rotta per la ricerca delle proposte
+router.get("/search", searchProposte);
 
 // Proposte in attesa di revisione
 router.get("/pending", authMiddleware, requireRole("operatore"), getPendingProposte as any);

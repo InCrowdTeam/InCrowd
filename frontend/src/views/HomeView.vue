@@ -34,14 +34,14 @@ function processImageUrl(foto: any): string {
 }
 
 // CATEGORIE
-const categorie = [
-  { label: "Cultura", value: "cultura" },
-  { label: "Concerti", value: "concerti" },
-  { label: "Mostre e installazioni", value: "mostreInstallazioni" },
-  { label: "Sport", value: "sport" },
-  { label: "Workshop e corsi", value: "workshopCorsi" },
-  { label: "Conferenze", value: "conferenze" }
-]
+// const categorie = [
+//   { label: "Cultura", value: "cultura" },
+//   { label: "Concerti", value: "concerti" },
+//   { label: "Mostre e installazioni", value: "mostreInstallazioni" },
+//   { label: "Sport", value: "sport" },
+//   { label: "Workshop e corsi", value: "workshopCorsi" },
+//   { label: "Conferenze", value: "conferenze" }
+// ]
 
 const categoriaSelezionata = ref<string | null>(null)
 const proposte = ref<IProposta[]>([])
@@ -209,6 +209,19 @@ function getUserName(commento: any) {
   return `${commento.utente.nome || ''} ${commento.utente.cognome || ''}`.trim() || 'Utente';
 }
 
+// Funzione per ottenere l'etichetta della categoria
+function getCategoryLabel(categoria: string) {
+  const categories: Record<string, string> = {
+    cultura: '🎭 Cultura',
+    concerti: '🎵 Concerti',
+    mostreInstallazioni: '🖼️ Mostre e installazioni',
+    sport: '⚽ Sport',
+    workshopCorsi: '📚 Workshop e corsi',
+    conferenze: '🎤 Conferenze'
+  }
+  return categories[categoria] || categoria
+}
+
 onMounted(async () => {
   isLoading.value = true
   try {
@@ -326,7 +339,7 @@ watch(propostaSelezionata, (newProposta) => {
       <div v-else>
         <!--SEZIONE ESPLORA-->
         <!--sezione categorie-->
-        <div class="categorie-section">
+        <!-- <div class="categorie-section">
           <h2 class="categorie-title">Categorie</h2>
           <div class="categorie-list">
             <button
@@ -343,35 +356,82 @@ watch(propostaSelezionata, (newProposta) => {
               {{ cat.label }}
             </button>
           </div>
-        </div>
+        </div> -->
 
         <!--sezione nuove proposte--> 
-        <h2>Nuove Proposte</h2>
-        <div v-if="isLoading" class="loading-container">
-          <div class="loading-spinner"></div>
-          <p>Caricamento proposte...</p>
-        </div>
-        <div v-else>
-          <div class="proposte-grid"  
-              :class="{ 'with-panel': propostaSelezionata }">
+        <div class="proposte-section">
+          <div class="section-header">
+            <h2 class="section-title">✨ Nuove Proposte</h2>
+            <p class="section-subtitle">Scopri le ultime idee della community</p>
+          </div>
+          
+          <div v-if="isLoading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Caricamento proposte...</p>
+          </div>
+          
+          <div v-else-if="proposteFiltrate.length === 0" class="empty-proposte">
+            <div class="empty-icon">📝</div>
+            <h3>Nessuna proposta ancora</h3>
+            <p>Sii il primo a condividere un'idea con la community!</p>
+            <RouterLink v-if="userStore.user" to="/addProposta" class="cta-button">
+              ➕ Aggiungi la tua proposta
+            </RouterLink>
+          </div>
+          
+          <div v-else>
+            <div class="proposte-grid" :class="{ 'with-panel': propostaSelezionata }">
               <div
-                  v-for="proposta in proposteFiltrate"
-                  :key="proposta.titolo"
-                  class="proposta-card"
-                  @click="apriDettaglio(proposta)"
-                  style="cursor:pointer"
-                >
-                    <img
-                      v-if="proposta.foto"
-                      :src="processImageUrl(proposta.foto)"
-                      alt="Immagine proposta"
-                      class="proposta-img"
-                    />
-                    
-                    <div class="proposta-title">{{ proposta.titolo }}</div>
+                v-for="proposta in proposteFiltrate"
+                :key="proposta.titolo"
+                class="proposta-card"
+                @click="apriDettaglio(proposta)"
+              >
+                <div class="proposta-image-container">
+                  <img
+                    v-if="proposta.foto"
+                    :src="processImageUrl(proposta.foto)"
+                    alt="Immagine proposta"
+                    class="proposta-img"
+                  />
+                  <div v-else class="proposta-img-placeholder">
+                    <span class="placeholder-icon">📸</span>
+                  </div>
+                  
+                  <!-- Badge categoria -->
+                  <div v-if="proposta.categoria" class="categoria-badge">
+                    {{ getCategoryLabel(proposta.categoria) }}
+                  </div>
+                  
+                  <!-- Badge hyper count -->
+                  <div class="hyper-badge">
+                    <span class="hyper-icon">⚡</span>
+                    <span class="hyper-count">{{ proposta.listaHyper?.length || 0 }}</span>
                   </div>
                 </div>
-                <p v-if="!isLoading && !proposteFiltrate.length">Nessuna proposta trovata.</p>
+                
+                <div class="proposta-content">
+                  <h3 class="proposta-title">{{ proposta.titolo }}</h3>
+                  <p class="proposta-description">
+                    {{ proposta.descrizione.substring(0, 80) }}{{ proposta.descrizione.length > 80 ? '...' : '' }}
+                  </p>
+                  
+                  <div class="proposta-footer">
+                    <div class="proposta-meta">
+                      <span v-if="proposta.luogo?.citta" class="meta-item">
+                        <span class="meta-icon">📍</span>
+                        {{ proposta.luogo.citta }}
+                      </span>
+                      <span class="meta-item">
+                        <span class="meta-icon">📅</span>
+                        {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -979,42 +1039,228 @@ ul {
 }
 
 /* Proposte Grid */
+.proposte-section {
+  margin-top: 2rem;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
+  border-radius: 1.5rem;
+  margin: 0 1.5rem 2rem 1.5rem;
+  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
+}
+
+.section-title {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.section-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.empty-proposte {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #fff;
+  border-radius: 1.5rem;
+  margin: 0 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.empty-proposte .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.empty-proposte h3 {
+  color: #404149;
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.empty-proposte p {
+  color: #666;
+  font-size: 1rem;
+  margin: 0 0 2rem 0;
+  line-height: 1.5;
+}
+
+.cta-button {
+  display: inline-block;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  text-decoration: none;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
+  background: linear-gradient(135deg, #e63946, #dc3545);
+}
+
 .proposte-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+  padding: 0 1.5rem;
   margin-top: 1.5rem;
 }
 
 .proposta-card {
   background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  padding: 1rem;
-  width: 180px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: box-shadow 0.2s;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .proposta-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 35px rgba(0,0,0,0.15);
+  border-color: rgba(254, 70, 84, 0.2);
+}
+
+.proposta-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
 }
 
 .proposta-img {
   width: 100%;
-  height: 100px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 0.7rem;
-  margin-bottom: 0.7rem;
-  background: #eee;
+  transition: transform 0.3s ease;
+}
+
+.proposta-card:hover .proposta-img {
+  transform: scale(1.05);
+}
+
+.proposta-img-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  color: #adb5bd;
+  opacity: 0.7;
+}
+
+.categoria-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #404149;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.hyper-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(254, 70, 84, 0.95);
+  color: #fff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(254, 70, 84, 0.3);
+}
+
+.hyper-badge .hyper-icon {
+  font-size: 1.5rem;
+}
+
+.proposta-content {
+  padding: 1.5rem;
 }
 
 .proposta-title {
-  font-weight: bold;
-  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: #404149;
+  margin: 0 0 0.8rem 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.proposta-description {
+  color: #6c757d;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.proposta-footer {
+  border-top: 1px solid #f1f3f4;
+  padding-top: 1rem;
+}
+
+.proposta-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.meta-icon {
+  font-size: 0.9rem;
 }
 
 .proposte-grid.with-panel {
@@ -1223,7 +1469,7 @@ ul {
 .hyper-count {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #fe4654;
+  color: #ffffff;
 }
 
 .hyper-disabled-text {
