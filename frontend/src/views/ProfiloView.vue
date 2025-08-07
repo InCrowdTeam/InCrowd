@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, nextTick } from "vue";
+import { useRouter } from "vue-router";
 import type { IProposta } from "../types/Proposta";
 import { useUserStore } from "@/stores/userStore";
+import { linkGoogleAccount } from "@/api/authApi";
 import axios from "axios";
 
+// Dichiarazione globale per Google Sign-In
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 const userStore = useUserStore();
+const router = useRouter();
 
 // Computed per verificare se è un operatore
 const isOperatore = computed(() => userStore.isOperatore);
@@ -65,6 +75,16 @@ onMounted(async () => {
       console.error("❌ Utente non autenticato");
       return;
     }
+    
+    // Inizializza il form del profilo con i dati dell'utente
+    profileForm.value = {
+      nome: userStore.user.nome || '',
+      cognome: userStore.user.cognome || '',
+      email: userStore.user.credenziali?.email || '',
+      biografia: userStore.user.biografia || '',
+      fotoProfilo: null
+    };
+    console.log("📝 ProfileForm inizializzato:", profileForm.value);
     
     // Carica le MIE proposte usando l'API dedicata
     try {
@@ -158,6 +178,323 @@ const unhypeProposta = async (proposta: IProposta) => {
     alert(errorMessage);
   }
 };
+
+// State
+const showSettingsModal = ref(false);
+
+// Impostazioni state  
+const activeSection = ref('profilo');
+const settingsLoading = ref(false);
+const saving = ref(false);
+const message = ref({ text: '', type: '' });
+
+const profileForm = ref({
+  nome: '',
+  cognome: '',
+  email: '',
+  biografia: '',
+  fotoProfilo: null as File | null
+});
+
+const credentialsForm = ref({
+  newPassword: '',
+  confirmPassword: ''
+});
+
+const fileInput = ref<HTMLInputElement | null>(null);
+
+// Computed per autenticazioni
+const hasLocalAuth = computed(() => userStore.user?.credenziali?.hasPassword);
+const hasGoogleAuth = computed(() => userStore.user?.credenziali?.oauthCode);
+
+// State per Google Sign-In
+let googleInitialized = false;
+
+const goToSettings = () => {
+  showSettingsModal.value = true;
+  activeSection.value = 'profilo';
+  // Inizializza i dati del form con i dati attuali dell'utente
+  if (userStore.user) {
+    profileForm.value = {
+      nome: userStore.user.nome || '',
+      cognome: userStore.user.cognome || '',
+      email: userStore.user.credenziali?.email || '',
+      biografia: userStore.user.biografia || '',
+      fotoProfilo: null
+    };
+  }
+  // Inizializza Google Sign-In se necessario per la sezione credenziali
+  if (hasLocalAuth.value && !hasGoogleAuth.value) {
+    nextTick(() => {
+      initializeGoogleSignIn();
+    });
+  }
+};
+
+const closeSettingsModal = () => {
+  showSettingsModal.value = false;
+  clearMessage();
+};
+
+const setActiveSection = (section: string) => {
+  activeSection.value = section;
+  clearMessage();
+  
+  // Inizializza Google Sign-In quando si va alla sezione credenziali
+  if (section === 'credenziali') {
+    setTimeout(() => initializeGoogleSignIn(), 100);
+  }
+};
+
+// Metodi per gestione messaggi
+const showMessage = (text: string, type: 'success' | 'error' = 'success') => {
+  message.value = { text, type };
+  setTimeout(() => {
+    message.value = { text: '', type: '' };
+  }, 5000);
+};
+
+const clearMessage = () => {
+  message.value = { text: '', type: '' };
+};
+
+// Metodi per upload immagine
+const triggerFileUpload = () => {
+  fileInput.value?.click();
+};
+
+const handleFileUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  
+  if (file) {
+    // Validazione del file
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      showMessage('Seleziona un file immagine valido', 'error');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      showMessage('Il file deve essere inferiore a 5MB', 'error');
+      return;
+    }
+    
+    profileForm.value.fotoProfilo = file;
+  }
+};
+
+const loadProfileData = () => {
+  if (userStore.user) {
+    profileForm.value = {
+      nome: userStore.user.nome || '',
+      cognome: userStore.user.cognome || '',
+      email: userStore.user.credenziali?.email || '',
+      biografia: userStore.user.biografia || '',
+      fotoProfilo: null
+    };
+  }
+};
+
+const validateProfileForm = () => {
+  if (!profileForm.value.nome.trim()) {
+    showMessage('Il nome è obbligatorio', 'error');
+    return false;
+  }
+  
+  if (!profileForm.value.cognome.trim()) {
+    showMessage('Il cognome è obbligatorio', 'error');
+    return false;
+  }
+  
+  if (profileForm.value.biografia.length > 500) {
+    showMessage('La biografia non può superare i 500 caratteri', 'error');
+    return false;
+  }
+  
+  return true;
+};
+
+const saveProfileChanges = async () => {
+  if (!validateProfileForm()) return;
+  
+  try {
+    saving.value = true;
+    clearMessage();
+    
+    const formData = new FormData();
+    formData.append('nome', profileForm.value.nome);
+    formData.append('cognome', profileForm.value.cognome);
+    formData.append('biografia', profileForm.value.biografia);
+    
+    if (profileForm.value.fotoProfilo) {
+      formData.append('fotoProfilo', profileForm.value.fotoProfilo);
+    }
+    
+    const response = await axios.patch(
+      `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`,
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${userStore.token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    
+    if (response.data.user) {
+      userStore.setUser(response.data.user);
+      showMessage('Profilo aggiornato con successo!');
+      profileForm.value.fotoProfilo = null;
+    }
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || 'Errore durante l\'aggiornamento del profilo';
+    showMessage(errorMessage, 'error');
+  } finally {
+    saving.value = false;
+  }
+};
+
+const validatePasswordForm = () => {
+  if (!credentialsForm.value.newPassword) {
+    showMessage('Inserisci la nuova password', 'error');
+    return false;
+  }
+  
+  if (credentialsForm.value.newPassword.length < 6) {
+    showMessage('La password deve contenere almeno 6 caratteri', 'error');
+    return false;
+  }
+  
+  if (credentialsForm.value.newPassword !== credentialsForm.value.confirmPassword) {
+    showMessage('Le password non coincidono', 'error');
+    return false;
+  }
+  
+  return true;
+};
+
+const setPassword = async () => {
+  if (!validatePasswordForm()) return;
+  
+  try {
+    saving.value = true;
+    clearMessage();
+    
+    await axios.patch(
+      `${import.meta.env.VITE_BACKEND_URL}/api/users/password`,
+      {
+        newPassword: credentialsForm.value.newPassword
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${userStore.token}`
+        }
+      }
+    );
+    
+    showMessage('Password impostata con successo!');
+    credentialsForm.value.newPassword = '';
+    credentialsForm.value.confirmPassword = '';
+    
+    // Ricarica i dati utente
+    await loadUserData();
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || 'Errore durante l\'impostazione della password';
+    showMessage(errorMessage, 'error');
+  } finally {
+    saving.value = false;
+  }
+};
+
+// Inizializza Google Sign-In
+const initializeGoogleSignIn = async (): Promise<void> => {
+  if (googleInitialized) return;
+  
+  try {
+    if (!document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      
+      const scriptLoaded = new Promise((resolve, reject) => {
+        script.onload = () => resolve(true);
+        script.onerror = () => reject(new Error('Errore caricamento script Google'));
+      });
+      
+      document.head.appendChild(script);
+      await scriptLoaded;
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    // @ts-ignore
+    if (typeof google === 'undefined') return;
+
+    // @ts-ignore
+    google.accounts.id.initialize({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
+      callback: handleGoogleConnectResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      use_fedcm_for_prompt: true,
+      itp_support: true
+    });
+
+    const settingsContainer = document.getElementById('google-signin-settings');
+    if (settingsContainer) {
+      // @ts-ignore
+      google.accounts.id.renderButton(settingsContainer, {
+        theme: 'outline',
+        size: 'large',
+        shape: 'pill',
+        logo_alignment: 'left',
+      });
+      googleInitialized = true;
+    }
+  } catch (error) {
+    console.error('Errore inizializzazione Google:', error);
+  }
+};
+
+const handleGoogleConnectResponse = async (response: any) => {
+  try {
+    saving.value = true;
+    clearMessage();
+    
+    const result = await linkGoogleAccount(response.credential, userStore.token);
+    
+    if (result.user) {
+      userStore.setUser(result.user);
+      showMessage('Account Google collegato con successo!');
+      await loadUserData();
+    }
+  } catch (error: any) {
+    const errorMessage = error.message || 'Errore nel collegamento dell\'account Google';
+    showMessage(errorMessage, 'error');
+  } finally {
+    saving.value = false;
+  }
+};
+
+const loadUserData = async () => {
+  try {
+    const response = await axios.get(
+      `${import.meta.env.VITE_BACKEND_URL}/api/users/me`,
+      {
+        headers: {
+          'Authorization': `Bearer ${userStore.token}`
+        }
+      }
+    );
+    
+    if (response.data) {
+      userStore.setUser(response.data);
+    }
+  } catch (error) {
+    console.error('Errore nel caricamento dati utente:', error);
+  }
+};
 </script>
 
 <template>
@@ -189,7 +526,13 @@ const unhypeProposta = async (proposta: IProposta) => {
           </div>
         </div>
         <div class="profile-info">
-          <h1 class="profile-name">{{ nomeCompleto }}</h1>
+          <div class="profile-header-top">
+            <h1 class="profile-name">{{ nomeCompleto }}</h1>
+            <button class="settings-button" @click="goToSettings" title="Impostazioni">
+              <span class="settings-emoji">⚙️</span>
+              <span class="settings-text">Impostazioni</span>
+            </button>
+          </div>
           <p class="profile-bio">
             {{ biografiaUtente }}
           </p>
@@ -331,6 +674,247 @@ const unhypeProposta = async (proposta: IProposta) => {
       </div>
     </div>
   </div>
+
+  <!-- Modal Impostazioni -->
+  <div v-if="showSettingsModal" class="modal-overlay" @click="closeSettingsModal">
+    <div class="modal-content settings-modal" @click.stop>
+      <div class="modal-header">
+        <h3>⚙️ Impostazioni</h3>
+        <button @click="closeSettingsModal" class="close-btn">×</button>
+      </div>
+
+      <!-- Messaggi -->
+      <div v-if="message.text" :class="['message', message.type]">
+        <span class="message-icon">{{ message.type === 'error' ? '⚠️' : '✅' }}</span>
+        {{ message.text }}
+      </div>
+
+      <div class="modal-body">
+        <!-- Toggle per scegliere la sezione -->
+        <div class="toggle-container">
+          <div class="toggle-switch">
+            <div class="toggle-slider" :class="{ 'slide-right': activeSection === 'credenziali' }"></div>
+            <button
+              class="toggle-option"
+              :class="{ active: activeSection === 'profilo' }"
+              @click="setActiveSection('profilo')"
+            >
+              Profilo
+            </button>
+            <button
+              class="toggle-option"
+              :class="{ active: activeSection === 'credenziali' }"
+              @click="setActiveSection('credenziali')"
+            >
+              Credenziali
+            </button>
+          </div>
+        </div>
+        <!-- Sezione Profilo -->
+        <div v-if="activeSection === 'profilo'" class="section">
+          <form @submit.prevent="saveProfileChanges" class="profile-form">
+            <!-- Foto profilo -->
+            <div class="form-group photo-group">
+              <label class="form-label">Foto profilo</label>
+              <div class="photo-container">
+                <div class="current-photo">
+                  <img
+                    v-if="fotoProfiloUrl"
+                    :src="fotoProfiloUrl"
+                    alt="Foto profilo attuale"
+                    class="profile-photo"
+                  />
+                  <div v-else class="photo-placeholder">
+                    <span>{{ (profileForm.nome[0] || '?').toUpperCase() }}</span>
+                  </div>
+                </div>
+                <div class="photo-actions">
+                  <button type="button" @click="triggerFileUpload" class="photo-button">
+                    📷 Cambia foto
+                  </button>
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*"
+                    @change="handleFileUpload"
+                    style="display: none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Nome -->
+            <div class="form-group">
+              <label for="nome" class="form-label">Nome *</label>
+              <input
+                id="nome"
+                v-model="profileForm.nome"
+                type="text"
+                class="form-input"
+                required
+              />
+            </div>
+
+            <!-- Cognome -->
+            <div class="form-group">
+              <label for="cognome" class="form-label">Cognome *</label>
+              <input
+                id="cognome"
+                v-model="profileForm.cognome"
+                type="text"
+                class="form-input"
+                required
+              />
+            </div>
+
+            <!-- Email (read-only) -->
+            <div class="form-group">
+              <label for="email" class="form-label">Email</label>
+              <div class="readonly-field-container">
+                <input
+                  id="email"
+                  :value="userStore.user?.credenziali?.email || 'Email non disponibile'"
+                  type="email"
+                  class="form-input readonly-input"
+                  readonly
+                  title="L'email non può essere modificata"
+                />
+                <span class="readonly-icon">🔒</span>
+              </div>
+            </div>
+
+            <!-- Codice Fiscale (read-only) -->
+            <div class="form-group">
+              <label for="codiceFiscale" class="form-label">Codice Fiscale</label>
+              <div class="readonly-field-container">
+                <input
+                  id="codiceFiscale"
+                  :value="userStore.user?.codiceFiscale || 'Non disponibile'"
+                  type="text"
+                  class="form-input readonly-input"
+                  readonly
+                  title="Il codice fiscale non può essere modificato"
+                />
+                <span class="readonly-icon">🔒</span>
+              </div>
+            </div>
+
+            <!-- Biografia -->
+            <div class="form-group">
+              <label for="biografia" class="form-label">Biografia</label>
+              <textarea
+                id="biografia"
+                v-model="profileForm.biografia"
+                class="form-textarea"
+                rows="3"
+                placeholder="Racconta qualcosa di te..."
+                maxlength="500"
+              ></textarea>
+              <div class="char-count">{{ profileForm.biografia.length }}/500</div>
+            </div>
+
+            <button
+              type="submit"
+              :disabled="saving"
+              class="save-button"
+            >
+              <span v-if="saving">🔄 Salvando...</span>
+              <span v-else>💾 Salva modifiche</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Sezione Credenziali -->
+        <div v-if="activeSection === 'credenziali'" class="section">
+          <!-- Stato autenticazioni -->
+          <div class="auth-status">
+            <div class="auth-method">
+              <div class="auth-info">
+                <h4>Password locale</h4>
+                <p v-if="hasLocalAuth">Password configurata</p>
+                <p v-else>Nessuna password impostata</p>
+              </div>
+              <div class="auth-status-indicator">
+                <span v-if="hasLocalAuth" class="status-active">✅ Attiva</span>
+                <span v-else class="status-inactive">❌ Non attiva</span>
+              </div>
+            </div>
+
+            <div class="auth-method">
+              <div class="auth-info">
+                <h4>Account Google</h4>
+                <p v-if="hasGoogleAuth">Account Google collegato</p>
+                <p v-else>Nessun account Google collegato</p>
+              </div>
+              <div class="auth-status-indicator">
+                <span v-if="hasGoogleAuth" class="status-active">✅ Collegato</span>
+                <span v-else class="status-inactive">❌ Non collegato</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form per impostare password (per utenti Google) -->
+          <div v-if="hasGoogleAuth && !hasLocalAuth" class="credentials-form">
+            <h4>Imposta una password</h4>
+            <p>Crea una password per accedere anche senza Google</p>
+
+            <form @submit.prevent="setPassword">
+              <div class="form-group">
+                <label for="newPassword" class="form-label">Nuova password *</label>
+                <input
+                  id="newPassword"
+                  v-model="credentialsForm.newPassword"
+                  type="password"
+                  class="form-input"
+                  placeholder="Minimo 6 caratteri"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="confirmPassword" class="form-label">Conferma password *</label>
+                <input
+                  id="confirmPassword"
+                  v-model="credentialsForm.confirmPassword"
+                  type="password"
+                  class="form-input"
+                  placeholder="Ripeti la password"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                :disabled="saving"
+                class="save-button"
+              >
+                <span v-if="saving">🔄 Impostando...</span>
+                <span v-else">🔑 Imposta password</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Opzione per collegare Google (per utenti con password) -->
+          <div v-if="hasLocalAuth && !hasGoogleAuth" class="credentials-form">
+            <h4>Collega account Google</h4>
+            <p>Collega il tuo account Google per un accesso più rapido</p>
+
+            <div id="google-signin-settings" class="google-signin-container">
+              <!-- Il pulsante Google verrà renderizzato qui automaticamente -->
+            </div>
+          </div>
+
+          <!-- Entrambe le opzioni attive -->
+          <div v-if="hasLocalAuth && hasGoogleAuth" class="credentials-complete">
+            <div class="success-message">
+              🎉 Perfetto! Hai configurato entrambe le modalità di accesso
+            </div>
+            <p>Puoi accedere sia con email e password che con Google</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -409,6 +993,50 @@ const unhypeProposta = async (proposta: IProposta) => {
 
 .profile-info {
   flex: 1;
+}
+
+.profile-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.settings-button {
+  background: #fff;
+  color: #404149;
+  border: 2px solid #e0e0e0;
+  border-radius: 1.5rem;
+  padding: 0.85rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.settings-button:hover {
+  background: #fe4654;
+  color: #fff;
+  border-color: #fe4654;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.3);
+}
+
+.settings-button:active {
+  transform: translateY(0);
+}
+
+.settings-emoji {
+  font-size: 1.1rem;
+}
+
+.settings-text {
+  font-weight: 600;
 }
 
 .profile-name {
@@ -771,12 +1399,469 @@ const unhypeProposta = async (proposta: IProposta) => {
     padding: 1.5rem;
   }
   
+  .profile-header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .settings-button {
+    align-self: center;
+    font-size: 0.85rem;
+    padding: 0.6rem 1rem;
+  }
+  
   .profile-tabs {
     margin: 0 1rem 1.5rem 1rem;
   }
   
   .profile-content {
     padding: 0 1rem 2rem 1rem;
+  }
+}
+
+/* Modal Styles - Ispirato al design della UserList */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  max-width: 700px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+.settings-modal {
+  color: #404149;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #404149;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.modal-body {
+  padding: 2rem;
+  overflow-y: auto;
+  max-height: calc(90vh - 100px);
+}
+
+/* Toggle Styles - Copiato dalla HomeView */
+.toggle-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.toggle-switch {
+  position: relative;
+  display: flex;
+  background: #e6e6e6;
+  border-radius: 2rem;
+  padding: 0.25rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 280px;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  height: calc(100% - 0.5rem);
+  background: #fe4654;
+  border-radius: 1.75rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.toggle-slider.slide-right {
+  transform: translateX(100%);
+}
+
+.toggle-option {
+  position: relative;
+  z-index: 2;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  color: #404149;
+  font-size: 1rem;
+  border-radius: 1.75rem;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  flex: 1;
+  text-align: center;
+  font-weight: 500;
+}
+
+.toggle-option.active {
+  color: #fff;
+  font-weight: bold;
+}
+
+/* Message styles */
+.message {
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.message.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.message.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Form styles - Design dell'app */
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-weight: 600;
+  color: #404149;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+.form-input,
+.form-textarea {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  background: #fff;
+  color: #404149;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #fe4654;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.readonly-input {
+  background: #f8f7f3 !important;
+  color: #666 !important;
+  cursor: not-allowed;
+}
+
+.readonly-field-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.readonly-field-container .form-input {
+  flex: 1;
+  padding-right: 3rem;
+}
+
+.readonly-icon {
+  position: absolute;
+  right: 1rem;
+  font-size: 1.1rem;
+  color: #666;
+  pointer-events: none;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+/* Photo group styles */
+.photo-group {
+  align-items: flex-start;
+}
+
+.photo-container {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.current-photo {
+  flex-shrink: 0;
+}
+
+.current-photo .profile-photo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fe4654;
+}
+
+.photo-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #fe4654;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+}
+
+.photo-button {
+  padding: 0.6rem 1.2rem;
+  border: 2px solid #fe4654;
+  border-radius: 1rem;
+  background: white;
+  color: #fe4654;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.photo-button:hover {
+  background: #fe4654;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.3);
+}
+
+/* Auth status styles */
+.auth-status {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.auth-method {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1rem;
+  background: #f8f7f3;
+}
+
+.auth-info h4 {
+  margin: 0 0 0.25rem 0;
+  color: #404149;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.auth-info p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.status-active {
+  color: #28a745;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status-inactive {
+  color: #dc3545;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Credentials form styles */
+.credentials-form {
+  background: #f8f7f3;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 2px solid #e0e0e0;
+}
+
+.credentials-form h4 {
+  margin: 0 0 0.5rem 0;
+  color: #404149;
+  font-weight: 600;
+}
+
+.credentials-form p {
+  margin: 0 0 1.5rem 0;
+  color: #666;
+}
+
+.credentials-complete {
+  text-align: center;
+  padding: 2rem;
+  background: #f8f7f3;
+  border-radius: 1rem;
+  border: 2px solid #e0e0e0;
+}
+
+.success-message {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #28a745;
+  margin-bottom: 0.5rem;
+}
+
+.google-signin-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* Button styles */
+.save-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+.save-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.4);
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive modal */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    margin: 1rem;
+    max-height: 95vh;
+  }
+
+  .modal-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+
+  .photo-container {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .auth-method {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .toggle-switch {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .toggle-option {
+    flex: 1;
+    min-width: auto;
+    font-size: 0.9rem;
   }
 }
 </style>

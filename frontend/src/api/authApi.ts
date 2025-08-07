@@ -75,3 +75,22 @@ export async function completeGoogleSignup(formData: FormData, isEnte: boolean =
 
   return res.json();
 }
+
+// Collega account Google
+export async function linkGoogleAccount(idToken: string, authToken: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/link-google`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    },
+    body: JSON.stringify({ idToken }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nel collegamento dell\'account Google');
+  }
+
+  return res.json();
+}

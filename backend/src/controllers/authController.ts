@@ -177,3 +177,74 @@ export const googleLogin = async (req: Request, res: Response) => {
     res.status(500).json({ message: `Errore login Google: ${message}` });
   }
 };
+
+// Collega un account Google a un utente esistente
+export const linkGoogleAccount = async (req: Request, res: Response) => {
+  const { idToken } = req.body;
+  const userId = (req as any).user?.userId;
+
+  if (!idToken) return res.status(400).json({ message: "Token mancante" });
+  if (!userId) return res.status(401).json({ message: "Utente non autenticato" });
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    
+    if (!payload?.email || !payload.sub) {
+      return res.status(400).json({ message: "Token non valido" });
+    }
+
+    // Verifica che l'email del token Google corrisponda a quella dell'utente
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utente non trovato" });
+    }
+
+    if (user.credenziali?.email !== payload.email) {
+      return res.status(400).json({ 
+        message: "L'email dell'account Google deve corrispondere a quella del profilo" 
+      });
+    }
+
+    // Verifica che l'account Google non sia già collegato a un altro utente
+    const existingUser = await User.findOne({
+      "credenziali.oauthCode": payload.sub,
+      _id: { $ne: userId }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ 
+        message: "Questo account Google è già collegato a un altro profilo" 
+      });
+    }
+
+    // Collega l'account Google
+    const currentEmail = user.credenziali?.email || payload.email;
+    if (!user.credenziali) {
+      user.credenziali = { email: currentEmail, oauthCode: payload.sub };
+    } else {
+      user.credenziali.oauthCode = payload.sub;
+    }
+
+    // Aggiorna foto profilo se non presente e disponibile su Google
+    if (!user.fotoProfilo && payload.picture) {
+      const fotoProfilo = await downloadImageAsBase64(payload.picture);
+      if (fotoProfilo) {
+        user.fotoProfilo = fotoProfilo;
+      }
+    }
+
+    await user.save();
+
+    res.json({ 
+      message: "Account Google collegato con successo",
+      user: await User.findById(userId).select("-credenziali.password")
+    });
+  } catch (err: any) {
+    const message = err?.message || err.toString();
+    res.status(500).json({ message: `Errore collegamento Google: ${message}` });
+  }
+};
