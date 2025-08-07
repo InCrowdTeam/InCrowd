@@ -1,11 +1,37 @@
 <template>
   <div class="signup-container">
-    <div class="signup-card">
-      <div class="header-section">
-        <h1 class="signup-title">Completa la Registrazione</h1>
-        <p class="signup-subtitle">✨ Ultimi dettagli per completare il tuo profilo Google</p>
-      </div>
+    <!-- Header compatto -->
+    <div class="header-section">
+      <h1 class="main-title">Unisciti a InCrowd</h1>
+      <p class="subtitle">Crea il tuo account in pochi semplici passi</p>
       
+      <!-- Progress Bar simile a SignupView -->
+      <div class="progress-container">
+        <div class="step-indicators">
+          <div class="step-indicator completed">
+            <div class="step-circle">
+              <span>✓</span>
+            </div>
+            <span class="step-label">Tipo Account</span>
+          </div>
+          <div class="step-indicator completed">
+            <div class="step-circle">
+              <span>✓</span>
+            </div>
+            <span class="step-label">Google Login</span>
+          </div>
+          <div class="step-indicator active">
+            <div class="step-circle">
+              <span>3</span>
+            </div>
+            <span class="step-label">Dettagli</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Container -->
+    <div class="form-container">
       <!-- Preview foto profilo con design migliorato -->
       <div v-if="fotoProfiloPreview" class="google-photo-section">
         <div class="profile-photo-container">
@@ -16,138 +42,145 @@
       </div>
       
       <!-- Messaggi -->
-      <div v-if="errorMessage" class="message error">
-        <span class="message-icon">⚠️</span>
+      <div v-if="errorMessage" class="error">
         {{ errorMessage }}
       </div>
       
-      <div v-if="successMessage" class="message success">
-        <span class="message-icon">✅</span>
+      <div v-if="successMessage" class="info">
         {{ successMessage }}
       </div>
-      
-      <!-- Tipo account selezionato -->
-      <div class="account-type-display">
-        <h3>Tipo di account selezionato</h3>
-        <div class="selected-type">
-          <span class="type-icon">{{ type === 'user' ? '👤' : '🏢' }}</span>
-          <span class="type-text">{{ type === 'user' ? 'Utente Privato' : 'Ente/Organizzazione' }}</span>
-        </div>
-      </div>
-      
-      <form @submit.prevent="handleSignUp" class="signup-form">
-        <div class="form-grid">
-          <div class="form-column">
-            <div class="form-group">
-              <label for="nome">
-                <span class="label-text">
-                  <span class="label-icon">{{ type === 'ente' ? '🏢' : '👤' }}</span>
-                  Nome{{ type === 'ente' ? ' dell\'Ente' : '' }}
-                </span>
-                <span class="required">*</span>
-              </label>
-              <input 
-                id="nome" 
-                v-model="form.nome" 
-                type="text" 
-                required 
-                :disabled="!!nomeGoogle"
-                class="form-input"
-                :class="{ disabled: !!nomeGoogle }"
-              />
-              <small v-if="!!nomeGoogle" class="input-note">Importato da Google</small>
-            </div>
-            
-            <div v-if="showCognome" class="form-group">
-              <label for="cognome">
-                <span class="label-text">
-                  <span class="label-icon">👤</span>
-                  Cognome
-                </span>
-                <span class="required">*</span>
-              </label>
-              <input 
-                id="cognome" 
-                v-model="form.cognome" 
-                type="text" 
-                required 
-                :disabled="!!cognomeGoogle"
-                class="form-input"
-                :class="{ disabled: !!cognomeGoogle }"
-              />
-              <small v-if="!!cognomeGoogle" class="input-note">Importato da Google</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="codiceFiscale">
-                <span class="label-text">
-                  <span class="label-icon">📄</span>
-                  Codice Fiscale
-                </span>
-                <span class="required">*</span>
-              </label>
-              <input 
-                id="codiceFiscale" 
-                v-model="form.codiceFiscale" 
-                type="text" 
-                required 
-                class="form-input"
-                placeholder="Inserisci il tuo codice fiscale"
-              />
+
+      <form @submit.prevent="handleSignUp">
+        <!-- Step Content simile a SignupView -->
+        <div class="step-content step-content-wide">
+          <div class="step-header">
+            <h2>Completa il tuo profilo</h2>
+          </div>
+          
+          <!-- Tipo account selezionato -->
+          <div class="account-type-display">
+            <div class="selected-type">
+              <span class="type-icon">{{ type === 'user' ? '👤' : '🏢' }}</span>
+              <span class="type-text">{{ type === 'user' ? 'Utente Privato' : 'Ente/Organizzazione' }}</span>
             </div>
           </div>
           
-          <div class="form-column">
-            <div class="form-group">
-              <label for="biografia">
-                <span class="label-text">
-                  <span class="label-icon">📝</span>
-                  Biografia
-                </span>
-              </label>
-              <textarea 
-                id="biografia" 
-                v-model="form.biografia" 
-                class="form-textarea"
-                :placeholder="type === 'user' ? 'Racconta qualcosa di te...' : 'Descrivi la tua organizzazione...'"
-              ></textarea>
+          <div class="form-grid">
+            <div class="form-column">
+              <div class="form-group">
+                <label for="nome" class="form-label">
+                  <span class="label-icon">{{ type === 'ente' ? '🏢' : '👤' }}</span>
+                  {{ type === 'ente' ? 'Nome dell\'Ente' : 'Nome' }}
+                </label>
+                <input 
+                  type="text" 
+                  id="nome" 
+                  v-model="form.nome" 
+                  class="form-input"
+                  :class="{ 'disabled': !!nomeGoogle }"
+                  :placeholder="type === 'ente' ? 'Es: Comune di Milano' : 'Es: Mario'"
+                  required 
+                  :disabled="!!nomeGoogle"
+                />
+                <small v-if="!!nomeGoogle" class="input-note">Importato da Google</small>
+              </div>
+              
+              <div v-if="type === 'user'" class="form-group">
+                <label for="cognome" class="form-label">
+                  <span class="label-icon">👤</span>
+                  Cognome
+                </label>
+                <input 
+                  type="text" 
+                  id="cognome" 
+                  v-model="form.cognome" 
+                  class="form-input"
+                  :class="{ 'disabled': !!cognomeGoogle }"
+                  placeholder="Es: Rossi"
+                  required 
+                  :disabled="!!cognomeGoogle"
+                />
+                <small v-if="!!cognomeGoogle" class="input-note">Importato da Google</small>
+              </div>
+              
+              <div class="form-group">
+                <label for="codiceFiscale" class="form-label">
+                  <span class="label-icon">📄</span>
+                  Codice Fiscale
+                </label>
+                <input 
+                  type="text" 
+                  id="codiceFiscale" 
+                  v-model="form.codiceFiscale" 
+                  class="form-input"
+                  placeholder="Es: RSSMRA80A01H501Z"
+                  required 
+                />
+              </div>
             </div>
             
-            <div class="form-group">
-              <label for="fotoProfilo">
-                <span class="label-text">
-                  <span class="label-icon">📷</span>
-                  Foto Profilo
-                </span>
-              </label>
-              <p class="input-description">Puoi caricare una nuova foto o mantenere quella di Google</p>
-              <div class="file-input-wrapper">
-                <input 
-                  id="fotoProfilo" 
-                  type="file" 
-                  accept="image/*" 
-                  @change="handleFileUpload"
-                  class="file-input"
-                />
-                <label for="fotoProfilo" class="file-input-label">
-                  <span class="file-icon">📷</span>
-                  <span>Carica nuova foto</span>
+            <div class="form-column">
+              <div class="form-group">
+                <label for="biografia" class="form-label">
+                  <span class="label-icon">�</span>
+                  Biografia
                 </label>
+                <textarea 
+                  id="biografia" 
+                  v-model="form.biografia" 
+                  class="form-textarea"
+                  :placeholder="type === 'ente' ? 'Descrivi la tua organizzazione...' : 'Raccontaci qualcosa di te...'"
+                  required
+                ></textarea>
+              </div>
+              
+              <div class="form-group">
+                <label for="fotoProfilo" class="form-label">
+                  <span class="label-icon">📷</span>
+                  Foto Profilo (opzionale)
+                </label>
+                <div class="upload-area" @click="triggerFileInput">
+                  <div v-if="!form.fotoProfilo.data" class="upload-placeholder">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">Clicca per selezionare</p>
+                  </div>
+                  <div v-else class="upload-preview">
+                    <img :src="previewUrl" alt="Preview" class="preview-image" />
+                    <button type="button" @click.stop="removePhoto" class="remove-btn">✕</button>
+                  </div>
+                </div>
+                <input 
+                  type="file" 
+                  id="fotoProfilo" 
+                  ref="fileInput"
+                  @change="handleFileUpload" 
+                  class="file-input-hidden"
+                  accept="image/*"
+                />
               </div>
             </div>
           </div>
         </div>
-        
-        <button type="submit" class="signup-btn" :disabled="isSubmitting">
-          <span v-if="!isSubmitting" class="btn-text">
-            <span class="btn-icon">🚀</span>
-            Completa Registrazione
-          </span>
-          <span v-else class="btn-loading">
-            <span class="loading-spinner"></span>
-            Registrazione in corso...
-          </span>
-        </button>
+
+        <!-- Navigation Buttons simile a SignupView -->
+        <div class="navigation-buttons">
+          <button 
+            type="button" 
+            @click="goBack"
+            class="btn btn-secondary"
+          >
+            Indietro
+          </button>
+          
+          <button 
+            type="submit" 
+            class="btn btn-success"
+            :disabled="isSubmitting || !canProceed"
+          >
+            <span v-if="isSubmitting" class="spinner"></span>
+            {{ isSubmitting ? 'Creazione in corso...' : 'Crea Account' }}
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -168,7 +201,9 @@ const userStore = useUserStore();
 const errorMessage = ref('');
 const successMessage = ref('');
 const fotoProfiloPreview = ref('');
+const previewUrl = ref('');
 const isSubmitting = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // Parametri dalla query (teniamo il GET come richiesto)
 const type = computed(() => route.query.type as string || 'user');
@@ -191,6 +226,7 @@ onMounted(() => {
       const fotoData = JSON.parse(route.query.fotoProfilo as string);
       if (fotoData && fotoData.data) {
         fotoProfiloPreview.value = `data:${fotoData.contentType || 'image/jpeg'};base64,${fotoData.data}`;
+        previewUrl.value = fotoProfiloPreview.value;
       }
     } catch (error) {
       console.warn('Errore processamento foto Google:', error);
@@ -215,6 +251,29 @@ const form = ref({
 
 const showCognome = computed(() => type.value === 'user');
 
+const canProceed = computed(() => {
+  const baseFields = form.value.nome && form.value.codiceFiscale && form.value.biografia;
+  
+  if (type.value === 'user') {
+    return baseFields && form.value.cognome;
+  }
+  return baseFields;
+});
+
+function triggerFileInput() {
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
+}
+
+function removePhoto() {
+  form.value.fotoProfilo.data = null;
+  previewUrl.value = '';
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+}
+
 function handleFileUpload(event: any) {
   const file = event.target.files[0];
   if (file) {
@@ -224,10 +283,14 @@ function handleFileUpload(event: any) {
     // Aggiorna preview
     const reader = new FileReader();
     reader.onload = (e) => {
-      fotoProfiloPreview.value = e.target?.result as string;
+      previewUrl.value = e.target?.result as string;
     };
     reader.readAsDataURL(file);
   }
+}
+
+function goBack() {
+  router.push('/addUser');
 }
 
 async function handleSignUp() {
@@ -301,44 +364,130 @@ async function handleSignUp() {
 </script>
 
 <style scoped>
-.signup-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f8f7f3 0%, #fff 50%, #f8f7f3 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
+* {
+  box-sizing: border-box;
 }
 
-.signup-card {
-  background: #fff;
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-  padding: 2.5rem;
-  width: 100%;
-  max-width: 800px;
+.signup-container {
+  min-height: 100vh;
+  background: #f8f7f3;
+  padding: 2rem 1rem;
+  margin: -2rem -1rem;
+  position: relative;
 }
 
 .header-section {
   text-align: center;
   margin-bottom: 2rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.signup-title {
-  font-size: 2rem;
+.main-title {
+  font-size: 1.8rem;
   font-weight: 700;
   color: #404149;
   margin: 0 0 0.5rem 0;
 }
 
-.signup-subtitle {
+.subtitle {
+  font-size: 1rem;
   color: #666;
-  font-size: 0.95rem;
-  margin: 0;
-  font-style: italic;
+  margin: 0 0 1.5rem 0;
+  font-weight: 400;
 }
 
-/* Foto Google Section */
+/* Progress Indicators */
+.progress-container {
+  margin: 0 auto;
+}
+
+.step-indicators {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+}
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.step-indicator.active .step-circle {
+  background: linear-gradient(135deg, #fe4654, #e73c47);
+  color: white;
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.4);
+  transform: scale(1.05);
+}
+
+.step-indicator.completed .step-circle {
+  background: linear-gradient(135deg, #404149, #2d3748);
+  color: white;
+  box-shadow: 0 4px 12px rgba(64, 65, 73, 0.4);
+}
+
+.step-label {
+  font-size: 0.75rem;
+  color: #666;
+  text-align: center;
+  font-weight: 500;
+}
+
+.step-indicator.active .step-label {
+  color: #fe4654;
+  font-weight: 600;
+}
+
+/* Form Container */
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  overflow: hidden;
+}
+
+.step-content {
+  padding: 2rem;
+}
+
+.step-content-wide {
+  padding: 2rem 3rem;
+}
+
+.step-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.step-header h2 {
+  font-size: 1.25rem;
+  color: #404149;
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Google Photo Section */
 .google-photo-section {
   text-align: center;
   margin-bottom: 2rem;
@@ -383,46 +532,10 @@ async function handleSignUp() {
   font-style: italic;
 }
 
-/* Messages */
-.message {
-  padding: 0.8rem;
-  border-radius: 0.8rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.message.error {
-  color: #dc3545;
-  background: #f8d7da;
-  border: 1px solid #f5c6cb;
-}
-
-.message.success {
-  color: #155724;
-  background: #d4edda;
-  border: 1px solid #c3e6cb;
-}
-
-.message-icon {
-  font-size: 1rem;
-}
-
 /* Account Type Display */
 .account-type-display {
   margin-bottom: 2rem;
   text-align: center;
-}
-
-.account-type-display h3 {
-  color: #404149;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 1rem 0;
 }
 
 .selected-type {
@@ -441,44 +554,31 @@ async function handleSignUp() {
   font-size: 1.2rem;
 }
 
-/* Form Styles */
-.signup-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
+/* Form Grid Layout */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
-  margin-bottom: 1rem;
 }
 
 .form-column {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
+/* Form Elements */
 .form-group {
   display: flex;
   flex-direction: column;
 }
 
-.form-group label {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #404149;
-  font-size: 0.95rem;
+.form-label {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-}
-
-.label-text {
-  color: #404149;
   font-weight: 600;
+  color: #404149;
+  margin-bottom: 0.5rem;
   font-size: 0.95rem;
   display: flex;
   align-items: center;
@@ -489,33 +589,21 @@ async function handleSignUp() {
   font-size: 1rem;
 }
 
-.required {
-  color: #fe4654;
-  font-weight: bold;
-}
-
-.input-description {
-  font-size: 0.85rem;
-  color: #666;
-  margin: 0 0 0.5rem 0;
-}
-
-.input-note {
-  font-size: 0.8rem;
-  color: #666;
-  font-style: italic;
-  margin-top: 0.3rem;
+.label-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
 }
 
 .form-input,
 .form-textarea {
+  width: 100%;
   padding: 0.8rem 1.2rem;
   border: 2px solid #e0e0e0;
   border-radius: 1.2rem;
   font-size: 1rem;
-  outline: none;
   transition: all 0.3s ease;
   background: #fafafa;
+  outline: none;
 }
 
 .form-input:focus,
@@ -533,108 +621,191 @@ async function handleSignUp() {
 }
 
 .form-textarea {
-  min-height: 80px;
+  min-height: 120px;
   resize: vertical;
   font-family: inherit;
 }
 
-/* File Input */
-.file-input-wrapper {
-  position: relative;
+.input-note {
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+  margin-top: 0.3rem;
 }
 
-.file-input {
-  position: absolute;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
+/* Upload Area */
+.upload-area {
+  border: 2px dashed #e0e0e0;
+  border-radius: 1.2rem;
+  padding: 1rem;
+  text-align: center;
   cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
 }
 
-.file-input-label {
+.upload-area:hover {
+  border-color: #fe4654;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.upload-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.7;
+}
+
+.upload-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.upload-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-image {
+  max-width: 80px;
+  max-height: 80px;
+  border-radius: 1.2rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.8rem;
-  padding: 0.6rem 1rem;
-  border: 2px dashed #e0e0e0;
-  border-radius: 1.2rem;
-  background: #fafafa;
-  color: #404149;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.file-input-label:hover {
-  border-color: #fe4654;
-  background: #fff;
-  color: #fe4654;
+.file-input-hidden {
+  display: none;
 }
 
-.file-icon {
-  font-size: 1.2rem;
+/* Navigation Buttons */
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  background: #f8f7f3;
+  gap: 1rem;
 }
 
-/* Signup Button */
-.signup-btn {
-  background: linear-gradient(135deg, #fe4654, #404149);
-  color: #fff;
+.btn {
+  padding: 0.8rem 1.5rem;
   border: none;
-  border-radius: 1.5rem;
-  padding: 1rem;
-  font-size: 1.1rem;
+  border-radius: 1.2rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 1rem;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #6b7280, #404149);
+  color: white;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: white;
+  margin-left: auto;
+  border-radius: 1.5rem;
+  font-weight: 600;
   box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
 }
 
-.signup-btn:hover:not(:disabled) {
+.btn-success:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
 }
 
-.signup-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.btn-text,
-.btn-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-icon {
-  font-size: 1.1rem;
-}
-
-/* Loading Spinner */
-.loading-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
+/* Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* Responsive */
-@media (max-width: 640px) {
-  .signup-card {
-    padding: 2rem 1.5rem;
-    margin: 1rem;
-    max-width: none;
+/* Messages */
+.error {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 1.2rem;
+  padding: 0.8rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.info {
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 1.2rem;
+  padding: 0.8rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .form-container {
+    margin: 0 0.5rem;
+  }
+  
+  .step-content-wide {
+    padding: 1.5rem;
   }
   
   .form-grid {
@@ -642,23 +813,38 @@ async function handleSignUp() {
     gap: 1rem;
   }
   
-  .signup-title {
-    font-size: 1.7rem;
+  .navigation-buttons {
+    padding: 1rem;
+    flex-direction: column;
+  }
+  
+  .btn-success {
+    margin-left: 0;
+  }
+  
+  .step-indicators {
+    gap: 1rem;
+  }
+  
+  .step-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+  
+  .step-label {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-title {
+    font-size: 1.5rem;
   }
   
   .profile-photo {
     width: 70px;
     height: 70px;
-  }
-}
-
-@media (max-width: 480px) {
-  .signup-card {
-    padding: 1.5rem 1rem;
-  }
-  
-  .signup-title {
-    font-size: 1.5rem;
   }
   
   .selected-type {
