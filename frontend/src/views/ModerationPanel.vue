@@ -150,6 +150,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
+import { getPendingProposte, changePropostaState } from '@/api/propostaApi'
 
 const store = useUserStore()
 const proposte = ref<any[]>([])
@@ -162,10 +163,8 @@ const rejectComment = ref('')
 const fetchProposte = async () => {
   try {
     loading.value = true
-    const res = await fetch('http://localhost:3000/api/proposte/pending', {
-      headers: { Authorization: `Bearer ${store.token}` }
-    })
-    proposte.value = await res.json()
+    const data = await getPendingProposte(store.token)
+    proposte.value = data
   } catch (error) {
     console.error('Errore nel caricamento proposte:', error)
   } finally {
@@ -175,17 +174,7 @@ const fetchProposte = async () => {
 
 const changeState = async (titolo: string, stato: string, commento: string = '') => {
   try {
-    await fetch(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(titolo)}/stato`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${store.token}`
-        },
-        body: JSON.stringify({ stato, commento })
-      }
-    )
+    await changePropostaState(titolo, stato, store.token, commento)
     // Rimuovi la proposta dalla lista
     proposte.value = proposte.value.filter(p => p.titolo !== titolo)
   } catch (error) {
