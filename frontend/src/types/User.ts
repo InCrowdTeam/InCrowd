@@ -11,4 +11,23 @@ export interface IUser {
   credenziali: ICredenziali;
   createdAt: Date;
   updatedAt: Date;
-};
+}
+
+// Tipi per le API di autenticazione
+export interface LoginCredentials {
+  email: string;
+  password?: string;
+  oauthCode?: string;
+}
+
+export interface GoogleLoginData {
+  idToken: string;
+}
+
+export interface SignupData {
+  nome: string;
+  cognome?: string;
+  codiceFiscale: string;
+  biografia?: string;
+  credenziali: ICredenziali;
+}

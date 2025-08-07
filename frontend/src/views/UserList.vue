@@ -396,7 +396,7 @@ const loadUsers = async () => {
     
     // Carica sia utenti che enti in parallelo
     const [usersResponse, entiResponse] = await Promise.allSettled([
-      axios.get('http://localhost:3000/api/users', {
+      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users`, {
         headers: {
           'Authorization': `Bearer ${store.token}`
         },

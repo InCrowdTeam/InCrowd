@@ -69,7 +69,7 @@ onMounted(async () => {
     // Carica le MIE proposte usando l'API dedicata
     try {
       console.log("📡 Chiamando API /my con token...");
-      const mieProposteRes = await axios.get("http://localhost:3000/api/proposte/my", {
+      const mieProposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
         headers: {
           Authorization: `Bearer ${userStore.token}`
         }
@@ -82,7 +82,7 @@ onMounted(async () => {
     
     // Carica tutte le proposte approvate per i filtri degli hyped
     try {
-      const proposteRes = await axios.get("http://localhost:3000/api/proposte");
+      const proposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`);
       const allProposte = proposteRes.data;
       
       hypedProposte.value = allProposte.filter(
@@ -96,7 +96,7 @@ onMounted(async () => {
     const userId = userStore.user?._id;
     if (userId && !userStore.user?.biografia) {
       try {
-        const userRes = await axios.get(`http://localhost:3000/api/users/${userId}`);
+        const userRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`);
         userStore.user = { ...userStore.user, ...userRes.data };
       } catch (err) {
         console.error("Errore nel caricamento dati utente:", err);
@@ -115,7 +115,7 @@ const rimuoviProposta = async (proposta: IProposta) => {
   
   try {
     const response = await axios.delete(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(proposta.titolo)}`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/proposte/${encodeURIComponent(proposta.titolo)}`,
       {
         headers: {
           'Authorization': `Bearer ${userStore.token}`
@@ -139,7 +139,7 @@ const unhypeProposta = async (proposta: IProposta) => {
   try {
     // Usa l'endpoint hyper che fa il toggle - se già hypata, la rimuove
     const response = await axios.patch(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(proposta.titolo)}/hyper`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/proposte/${encodeURIComponent(proposta.titolo)}/hyper`,
       {},
       {
         headers: {

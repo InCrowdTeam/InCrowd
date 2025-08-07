@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue'
-import axios from 'axios'
 import type { IProposta } from "../types/Proposta"
 import { useUserStore } from '@/stores/userStore'
-import { searchProposte, type SearchFilters } from '@/api/propostaApi'
+import { 
+  searchProposte, 
+  type SearchFilters, 
+  getAllProposte, 
+  getCommenti, 
+  addCommento, 
+  toggleHyperProposta 
+} from '@/api/propostaApi'
 
 // Stato di caricamento
 const isLoading = ref(false)
@@ -124,19 +130,11 @@ async function caricaCommenti() {
   
   isCommentsLoading.value = true
   try {
-    const res = await axios.get(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/commenti`,
-      {
-        headers: userStore.token ? { Authorization: `Bearer ${userStore.token}` } : {}
-      }
-    );
-    commentiProposta.value = res.data.commenti || [];
+    const data = await getCommenti(propostaSelezionata.value.titolo);
+    commentiProposta.value = data.commenti || [];
   } catch (err: any) {
     console.error("Errore nel caricamento commenti:", err);
     commentiProposta.value = [];
-    if (err.response?.status === 401) {
-      console.log("Utente non autenticato per visualizzare i commenti");
-    }
   } finally {
     isCommentsLoading.value = false
   }
@@ -150,17 +148,10 @@ async function inviaCommento() {
   isLoading.value = true
   
   try {
-    await axios.post(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/commenti`,
-      {
-        contenuto: commentoTemp,
-        userId: userStore.user._id,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${userStore.token}`
-        }
-      }
+    await addCommento(
+      propostaSelezionata.value.titolo,
+      commentoTemp,
+      userStore.token
     );
     
     await caricaCommenti();
@@ -207,30 +198,25 @@ async function handleHyper() {
   isHyperLoading.value = true
   
   try {
-    const res = await axios.patch(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(propostaSelezionata.value.titolo)}/hyper`,
-      { userId: userStore.user._id },
-      {
-        headers: {
-          Authorization: `Bearer ${userStore.token}`
-        }
-      }
+    const updatedProposta = await toggleHyperProposta(
+      propostaSelezionata.value.titolo,
+      userStore.token
     );
     
     // Aggiorna la proposta selezionata
-    propostaSelezionata.value = res.data;
+    propostaSelezionata.value = updatedProposta;
     
     // Aggiorna anche la proposta nella lista principale
     const index = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
     if (index !== -1) {
-      proposte.value[index] = res.data;
+      proposte.value[index] = updatedProposta;
     }
     
     // Aggiorna anche la proposta nei risultati di ricerca se presenti
     if (searchExecuted.value && searchResults.value.length > 0) {
       const searchIndex = searchResults.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
       if (searchIndex !== -1) {
-        searchResults.value[searchIndex] = res.data;
+        searchResults.value[searchIndex] = updatedProposta;
       }
     }
   } catch (err: any) {
@@ -320,8 +306,8 @@ const executeSearch = async () => {
 onMounted(async () => {
   isLoading.value = true
   try {
-    const res = await axios.get('http://localhost:3000/api/proposte')
-    proposte.value = res.data
+    const data = await getAllProposte()
+    proposte.value = data
   } catch (error) {
     console.error('Errore nel recupero proposte:', error)
   } finally {

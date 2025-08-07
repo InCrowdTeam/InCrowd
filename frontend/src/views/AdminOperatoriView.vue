@@ -115,6 +115,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
+import { getAllOperatori, createOperatoreAdmin, deleteOperatore } from '@/api/operatoreApi'
 
 const operatori = ref<any[]>([])
 const form = ref({ nome: '', cognome: '', email: '', password: '' })
@@ -129,18 +130,11 @@ const successMessage = ref('')
 const fetchOperatori = async () => {
   try {
     loading.value = true
-    const res = await fetch('http://localhost:3000/api/admin/operatori', {
-      headers: { Authorization: `Bearer ${store.token}` }
-    })
-    
-    if (!res.ok) {
-      throw new Error('Errore nel caricamento operatori')
-    }
-    
-    operatori.value = await res.json()
-  } catch (err) {
+    const data = await getAllOperatori(store.token)
+    operatori.value = data
+  } catch (err: any) {
     console.error('Errore:', err)
-    errorMessage.value = 'Errore nel caricamento degli operatori'
+    errorMessage.value = err.message || 'Errore nel caricamento degli operatori'
   } finally {
     loading.value = false
   }
@@ -152,25 +146,7 @@ const create = async () => {
     errorMessage.value = ''
     successMessage.value = ''
     
-    const res = await fetch('http://localhost:3000/api/admin/operatori', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        Authorization: `Bearer ${store.token}` 
-      },
-      body: JSON.stringify(form.value)
-    })
-    
-    const data = await res.json()
-    
-    if (!res.ok) {
-      if (res.status === 409) {
-        errorMessage.value = 'Email già registrata nel sistema. Scegli un\'altra email.'
-      } else {
-        errorMessage.value = data.message || 'Errore nella creazione dell\'operatore'
-      }
-      return
-    }
+    await createOperatoreAdmin(form.value, store.token)
     
     successMessage.value = `Operatore ${form.value.nome} ${form.value.cognome} creato con successo!`
     form.value = { nome: '', cognome: '', email: '', password: '' }
@@ -181,9 +157,9 @@ const create = async () => {
     }, 3000)
     
     fetchOperatori()
-  } catch (err) {
+  } catch (err: any) {
     console.error('Errore:', err)
-    errorMessage.value = 'Errore di rete nella creazione dell\'operatore'
+    errorMessage.value = err.message || 'Errore nella creazione dell\'operatore'
   } finally {
     submitting.value = false
   }
@@ -199,16 +175,7 @@ const remove = async (id: string) => {
   try {
     errorMessage.value = ''
     
-    const res = await fetch(`http://localhost:3000/api/admin/operatori/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${store.token}` }
-    })
-    
-    if (!res.ok) {
-      const data = await res.json()
-      errorMessage.value = data.message || 'Errore nella rimozione dell\'operatore'
-      return
-    }
+    await deleteOperatore(id, store.token)
     
     successMessage.value = 'Operatore rimosso con successo!'
     
@@ -218,9 +185,9 @@ const remove = async (id: string) => {
     }, 3000)
     
     fetchOperatori()
-  } catch (err) {
+  } catch (err: any) {
     console.error('Errore:', err)
-    errorMessage.value = 'Errore di rete nella rimozione dell\'operatore'
+    errorMessage.value = err.message || 'Errore nella rimozione dell\'operatore'
   }
 }
 

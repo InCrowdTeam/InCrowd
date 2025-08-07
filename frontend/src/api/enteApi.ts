@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3000/api/enti'
+const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api/enti`
 
 export async function getAllEnti(token: string) {
   const res = await fetch(BASE_URL, {
@@ -22,6 +22,21 @@ export async function createEnte(data: any) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.message || 'Errore nella creazione ente')
+  }
+
+  return res.json()
+}
+
+// Creazione ente con FormData (per file upload)
+export async function createEnteWithFormData(formData: FormData) {
+  const res = await fetch(BASE_URL, {
+    method: 'POST',
+    body: formData
   })
 
   if (!res.ok) {
