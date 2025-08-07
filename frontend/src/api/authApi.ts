@@ -94,4 +94,3 @@ export async function linkGoogleAccount(idToken: string, authToken: string): Pro
 
   return res.json();
 }
-
