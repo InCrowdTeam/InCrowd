@@ -124,7 +124,7 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import SearchProposte from '@/components/SearchProposte.vue'
-import axios from 'axios'
+import { toggleHyperProposta } from '@/api/propostaApi'
 
 // Store
 const userStore = useUserStore()
@@ -161,17 +161,12 @@ const handleHyper = async () => {
   isHyperLoading.value = true
   
   try {
-    const response = await axios.patch(
-      `http://localhost:3000/api/proposte/${encodeURIComponent(selectedProposta.value.titolo)}/hyper`,
-      { userId: userStore.user._id },
-      {
-        headers: {
-          Authorization: `Bearer ${userStore.token}`
-        }
-      }
+    const updatedProposta = await toggleHyperProposta(
+      selectedProposta.value.titolo,
+      userStore.token
     )
     
-    selectedProposta.value = response.data
+    selectedProposta.value = updatedProposta
     
   } catch (error: any) {
     console.error('Errore hyper:', error)

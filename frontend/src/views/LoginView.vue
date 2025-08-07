@@ -44,9 +44,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
+import { login as loginApi, googleLogin as googleLoginApi } from '@/api/authApi';
 
 const email = ref('');
 const password = ref('');
@@ -56,35 +56,35 @@ const userStore = useUserStore();
 
 const login = async () => {
   try {
-    const res = await axios.post('http://localhost:3000/api/auth/login', {
+    const res = await loginApi({
       email: email.value,
       password: password.value,
     });
 
-    userStore.setToken(res.data.token);
-    userStore.setUserType(res.data.userType);
+    userStore.setToken(res.token);
+    userStore.setUserType(res.userType);
     
     // Per l'admin creiamo un oggetto user specifico
-    if (res.data.userType === 'admin') {
+    if (res.userType === 'admin') {
       userStore.setUser({ 
         email: email.value,
         nome: 'Admin',
         cognome: 'Sistema'
       });
     } else {
-      userStore.setUser(res.data.user);
+      userStore.setUser(res.user);
     }
 
     // Navigazione post-login in base al tipo utente
-    if (res.data.userType === 'admin') {
+    if (res.userType === 'admin') {
       router.push('/admin/operatori'); // Pannello admin
-    } else if (res.data.userType === 'operatore') {
+    } else if (res.userType === 'operatore') {
       router.push('/pannello-operatore'); // Pannello operatori
     } else {
       router.push('/'); // Home per Enti e Utenti
     }
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || 'Errore durante il login';
+    errorMessage.value = err.message || 'Errore durante il login';
   }
 };
 
@@ -136,14 +136,18 @@ const initializeGoogleSignIn = async () => {
 
 const handleGoogleResponse = async (response: any) => {
   try {
-    const res = await axios.post('http://localhost:3000/api/auth/google', {
+    errorMessage.value = ''; // Clear previous errors
+    console.log('🚀 Processando login Google...');
+    
+    const res = await googleLoginApi({
       idToken: response.credential,
     });
 
-    if (res.data.needsRegistration) {
+    if (res.needsRegistration) {
+      console.log('📝 Registrazione necessaria, reindirizzamento...');
       // Determina tipo: se c'è cognome, è user, altrimenti ente
-      let nome = res.data.data.nome || '';
-      let cognome = res.data.data.cognome || '';
+      let nome = res.data.nome || '';
+      let cognome = res.data.cognome || '';
       let type = 'user';
       // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
       if (!cognome) {
@@ -162,60 +166,32 @@ const handleGoogleResponse = async (response: any) => {
         query: {
           nome,
           cognome,
-          email: res.data.data.email,
-          oauthCode: res.data.data.oauthCode,
+          email: res.data.email,
+          oauthCode: res.data.oauthCode,
           type,
-          fotoProfilo: res.data.data.fotoProfilo ? JSON.stringify(res.data.data.fotoProfilo) : undefined
+          fotoProfilo: res.data.fotoProfilo ? JSON.stringify(res.data.fotoProfilo) : undefined
         },
       });
       return;
     }
 
-    userStore.setUser(res.data.user);
-    userStore.setToken(res.data.token);
-    userStore.setUserType(res.data.userType);
+    console.log('✅ Login Google riuscito, impostazione store e redirect...');
+    // Login riuscito - imposta i dati nello store
+    userStore.setUser(res.user);
+    userStore.setToken(res.token);
+    userStore.setUserType(res.userType);
 
     // Navigazione post-login in base al tipo utente
-    if (res.data.userType === 'admin') {
+    if (res.userType === 'admin') {
       router.push('/admin/operatori'); // Pannello admin
-    } else if (res.data.userType === 'operatore') {
+    } else if (res.userType === 'operatore') {
       router.push('/pannello-operatore'); // Pannello operatori
     } else {
       router.push('/'); // Home per Enti e Utenti
     }
   } catch (err: any) {
-    // Controlla se l'errore è relativo alla necessità di registrazione
-    if (err.response?.status === 404 && err.response?.data?.needsRegistration) {
-      // Determina tipo: se c'è cognome, è user, altrimenti ente
-      let nome = err.response.data.data.nome || '';
-      let cognome = err.response.data.data.cognome || '';
-      let type = 'user';
-      // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
-      if (!cognome) {
-        type = 'ente';
-        cognome = '';
-      } else {
-        // Split nome Google in nome/cognome se possibile
-        const parts = nome.split(' ');
-        if (parts.length > 1) {
-          nome = parts[0];
-          cognome = parts.slice(1).join(' ');
-        }
-      }
-      router.push({
-        name: 'completeGoogleSignup',
-        query: {
-          nome,
-          cognome,
-          email: err.response.data.data.email,
-          oauthCode: err.response.data.data.oauthCode,
-          type,
-          fotoProfilo: err.response.data.data.fotoProfilo ? JSON.stringify(err.response.data.data.fotoProfilo) : undefined
-        },
-      });
-      return;
-    }
-    errorMessage.value = err.response?.data?.message || 'Errore login Google';
+    console.error('Errore Google login:', err);
+    errorMessage.value = err.message || 'Errore durante il login con Google';
   }
 };
 
@@ -229,18 +205,18 @@ onMounted(() => {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8f7f3 0%, #fff 50%, #f8f7f3 100%);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: 5vh 1rem 1rem;
 }
 
 .login-card {
   background: #fff;
   border-radius: 1.5rem;
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-  padding: 2.5rem;
+  padding: 2rem 3rem;
   width: 100%;
-  max-width: 400px;
+  max-width: 600px;
 }
 
 .login-title {
@@ -248,14 +224,14 @@ onMounted(() => {
   font-weight: 700;
   color: #404149;
   text-align: center;
-  margin: 0 0 2rem 0;
+  margin: 0 0 1.5rem 0;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
-  margin-bottom: 2rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .form-group {
@@ -306,7 +282,7 @@ onMounted(() => {
 
 .divider {
   text-align: center;
-  margin: 2rem 0;
+  margin: 1.5rem 0;
   position: relative;
 }
 

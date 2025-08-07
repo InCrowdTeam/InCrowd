@@ -1,96 +1,317 @@
-<!-- filepath: /Users/annu/Desktop/InCrowd/frontend/src/views/SignupView.vue -->
 <template>
   <div class="signup-container">
-    <div class="signup-card">
-      <h1 class="signup-title">Registrati su InCrowd</h1>
+    <!-- Header compatto -->
+    <div class="header-section">
+      <h1 class="main-title">Unisciti a InCrowd</h1>
+      <p class="subtitle">Crea il tuo account in pochi semplici passi</p>
       
-      <!-- Google Sign-in in cima -->
-      <div class="google-section">
-        <p class="google-text">✨ Usa Google per non dover ricordare la password</p>
-        <div id="google-signup-main" class="google-signin-container"></div>
-      </div>
-
-      <div class="divider">
-        <span>oppure usa email e password</span>
-      </div>
-
-      <p v-if="registrationMessage" :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error' : 'info'">{{ registrationMessage }}</p>
-      
-      <!-- Tasti segmentati migliorati -->
-      <div class="user-type-selector">
-        <h3>Che tipo di account vuoi creare?</h3>
-        <div class="segmented-control">
-          <button 
-            type="button"
-            :class="{ active: type === 'user' }" 
-            @click="type = 'user'"
-            class="segment-btn"
+      <!-- Progress Bar compatta -->
+      <div class="progress-container">
+        <div class="step-indicators">
+          <div 
+            v-for="(step, index) in steps" 
+            :key="index"
+            class="step-indicator"
+            :class="{ 
+              'active': currentStep === index + 1, 
+              'completed': currentStep > index + 1 
+            }"
           >
-            <span class="segment-icon">👤</span>
-            <span class="segment-text">Utente</span>
-          </button>
-          <button 
-            type="button"
-            :class="{ active: type === 'ente' }" 
-            @click="type = 'ente'"
-            class="segment-btn"
-          >
-            <span class="segment-icon">🏢</span>
-            <span class="segment-text">Ente</span>
-          </button>
+            <div class="step-circle">
+              <span v-if="currentStep > index + 1">✓</span>
+              <span v-else>{{ index + 1 }}</span>
+            </div>
+            <span class="step-label">{{ step.label }}</span>
+          </div>
         </div>
       </div>
+    </div>
 
-      <form @submit.prevent="handleSignUp" enctype="multipart/form-data" class="signup-form">
-        <div class="form-group">
-          <label for="nome">Nome<span v-if="type === 'ente'"> dell'Ente</span>:</label>
-          <input type="text" id="nome" v-model="form.nome" required class="form-input" />
-        </div>
+    <!-- Form Container -->
+    <div class="form-container">
+      <form @submit.prevent="handleSignUp" enctype="multipart/form-data">
         
-        <div v-if="type === 'user'" class="form-group">
-          <label for="cognome">Cognome:</label>
-          <input type="text" id="cognome" v-model="form.cognome" required class="form-input" />
+        <!-- Step 1: Tipo di Account -->
+        <div v-show="currentStep === 1" class="step-content">
+          <div class="step-header">
+            <h2>Che tipo di account vuoi creare?</h2>
+          </div>
+          
+          <div class="account-type-grid">
+            <div 
+              class="account-type-card"
+              :class="{ active: type === 'user' }"
+              @click="selectAccountType('user')"
+            >
+              <div class="card-content">
+                <div class="card-icon">👤</div>
+                <div class="card-info">
+                  <h3>Utente</h3>
+                  <p>Partecipa agli eventi e crea proposte</p>
+                </div>
+              </div>
+            </div>
+            
+            <div 
+              class="account-type-card"
+              :class="{ active: type === 'ente' }"
+              @click="selectAccountType('ente')"
+            >
+              <div class="card-content">
+                <div class="card-icon">🏢</div>
+                <div class="card-info">
+                  <h3>Ente/Organizzazione</h3>
+                  <p>Organizza eventi e gestisci proposte</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <div class="form-group">
-          <label for="codiceFiscale">Codice Fiscale:</label>
-          <input type="text" id="codiceFiscale" v-model="form.codiceFiscale" required class="form-input" />
+
+        <!-- Step 2: Metodo di Registrazione -->
+        <div v-show="currentStep === 2" class="step-content">
+          <div class="step-header">
+            <h2>Come preferisci registrarti?</h2>
+          </div>
+
+          <div class="auth-methods-horizontal">
+            <!-- Google Sign-in -->
+            <div class="auth-method google-method">
+              <div class="method-header">
+                <div class="method-icon">🚀</div>
+                <h3>Accesso con Google</h3>
+              </div>
+              <div id="google-signup-main" class="google-signin-container"></div>
+            </div>
+
+            <div class="divider-vertical">
+              <span>o</span>
+            </div>
+
+            <!-- Email e Password -->
+            <div class="auth-method email-method">
+              <div class="method-header">
+                <div class="method-icon">📧</div>
+                <h3>Email e Password</h3>
+              </div>
+              <button 
+                type="button" 
+                class="email-signup-btn"
+                @click="chooseEmailSignup"
+              >
+                Continua con Email
+              </button>
+            </div>
+          </div>
+
+          <p v-if="registrationMessage" :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error' : 'info'">
+            {{ registrationMessage }}
+          </p>
         </div>
-        
-        <div class="form-group">
-          <label for="biografia">Biografia:</label>
-          <textarea id="biografia" v-model="form.biografia" required class="form-textarea"></textarea>
+
+        <!-- Step 3: Dettagli Account (layout orizzontale) -->
+        <div v-show="currentStep === 3" class="step-content step-content-wide">
+          <div class="step-header">
+            <h2>Completa il tuo profilo</h2>
+          </div>
+          
+          <div class="form-grid">
+            <div class="form-column">
+              <div class="form-group">
+                <label for="nome" class="form-label">
+                  <span class="label-icon">{{ type === 'ente' ? '🏢' : '👤' }}</span>
+                  {{ type === 'ente' ? 'Nome dell\'Ente' : 'Nome' }}
+                </label>
+                <input 
+                  type="text" 
+                  id="nome" 
+                  v-model="form.nome" 
+                  class="form-input"
+                  :placeholder="type === 'ente' ? 'Es: Comune di Milano' : 'Es: Mario'"
+                  required 
+                />
+              </div>
+              
+              <div v-if="type === 'user'" class="form-group">
+                <label for="cognome" class="form-label">
+                  <span class="label-icon">👤</span>
+                  Cognome
+                </label>
+                <input 
+                  type="text" 
+                  id="cognome" 
+                  v-model="form.cognome" 
+                  class="form-input"
+                  placeholder="Es: Rossi"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="codiceFiscale" class="form-label">
+                  <span class="label-icon">📄</span>
+                  Codice Fiscale
+                </label>
+                <input 
+                  type="text" 
+                  id="codiceFiscale" 
+                  v-model="form.codiceFiscale" 
+                  class="form-input"
+                  placeholder="Es: RSSMRA80A01H501Z"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="email" class="form-label">
+                  <span class="label-icon">�</span>
+                  Email
+                </label>
+                <input 
+                  type="email" 
+                  id="email" 
+                  v-model="form.credenziali.email" 
+                  class="form-input"
+                  placeholder="mario.rossi@example.com"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="password" class="form-label">
+                  <span class="label-icon">�</span>
+                  Password
+                </label>
+                <input 
+                  type="password" 
+                  id="password" 
+                  v-model="form.credenziali.password" 
+                  class="form-input"
+                  placeholder="Scegli una password sicura"
+                  required 
+                />
+              </div>
+            </div>
+            
+            <div class="form-column">
+              <div class="form-group">
+                <label for="biografia" class="form-label">
+                  <span class="label-icon">📋</span>
+                  Biografia
+                </label>
+                <textarea 
+                  id="biografia" 
+                  v-model="form.biografia" 
+                  class="form-textarea"
+                  :placeholder="type === 'ente' ? 'Descrivi la tua organizzazione...' : 'Raccontaci qualcosa di te...'"
+                  required
+                ></textarea>
+              </div>
+              
+              <div class="form-group">
+                <label for="fotoProfilo" class="form-label">
+                  <span class="label-icon">�</span>
+                  Foto Profilo (opzionale)
+                </label>
+                <div class="upload-area" @click="triggerFileInput">
+                  <div v-if="!form.fotoProfilo.data" class="upload-placeholder">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">Clicca per selezionare</p>
+                  </div>
+                  <div v-else class="upload-preview">
+                    <img :src="previewUrl" alt="Preview" class="preview-image" />
+                    <button type="button" @click.stop="removePhoto" class="remove-btn">✕</button>
+                  </div>
+                </div>
+                <input 
+                  type="file" 
+                  id="fotoProfilo" 
+                  ref="fileInput"
+                  @change="handleFileUpload" 
+                  class="file-input-hidden"
+                  accept="image/*"
+                />
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <div class="form-group">
-          <label for="fotoProfilo">Foto Profilo:</label>
-          <input type="file" id="fotoProfilo" @change="handleFileUpload" class="form-file" />
+
+        <!-- Navigation Buttons -->
+        <div class="navigation-buttons">
+          <button 
+            v-if="currentStep > 1"
+            type="button" 
+            @click="previousStep"
+            class="btn btn-secondary"
+          >
+            ← Indietro
+          </button>
+          
+          <button 
+            v-if="currentStep === 1"
+            type="button" 
+            @click="nextStep"
+            class="btn btn-primary"
+            :disabled="!type"
+          >
+            Continua →
+          </button>
+          
+          <button 
+            v-if="currentStep === 2"
+            type="button" 
+            @click="nextStep"
+            class="btn btn-primary"
+            :disabled="!authMethodChosen"
+          >
+            Continua →
+          </button>
+          
+          <button 
+            v-if="currentStep === 3"
+            type="submit" 
+            class="btn btn-success"
+            :disabled="isSubmitting || !canProceedStep3"
+          >
+            <span v-if="isSubmitting" class="spinner"></span>
+            {{ isSubmitting ? 'Creazione in corso...' : 'Crea Account' }}
+          </button>
         </div>
-        
-        <div class="form-group">
-          <label for="email">Email:</label>
-          <input type="email" id="email" v-model="form.credenziali.email" required class="form-input" />
-        </div>
-        
-        <div v-if="showPassword" class="form-group">
-          <label for="password">Password:</label>
-          <input type="password" id="password" v-model="form.credenziali.password" required class="form-input" />
-        </div>
-        
-        <button type="submit" class="signup-btn">Crea Account</button>
       </form>
+    </div>
+
+    <!-- Success Modal -->
+    <div v-if="showSuccessModal" class="modal-overlay" @click="closeSuccessModal">
+      <div class="success-modal" @click.stop>
+        <div class="success-icon">🎉</div>
+        <h3>Account creato con successo!</h3>
+        <p>Benvenuto in InCrowd! Ora puoi iniziare a esplorare e partecipare alla community.</p>
+        <button @click="closeSuccessModal" class="btn btn-primary">Inizia subito!</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios';
+
 export default {
   data() {
     return {
-      type: 'user',
+      currentStep: 1,
+      isSubmitting: false,
+      showSuccessModal: false,
+      previewUrl: null,
+      type: '',
       showPassword: true,
       registrationMessage: '',
+      isEmailSignup: false,
+      googleSignInCompleted: false,
+      steps: [
+        { label: 'Tipo Account' },
+        { label: 'Metodo' },
+        { label: 'Dettagli' }
+      ],
       form: {
         nome: "",
         cognome: "",
@@ -99,7 +320,7 @@ export default {
         fotoProfilo: {
           data: null,
           contentType: "",
-        }, // File immagine
+        },
         credenziali: {
           email: "",
           password: "",
@@ -108,14 +329,87 @@ export default {
       },
     };
   },
+  computed: {
+    progressPercentage() {
+      return (this.currentStep / this.steps.length) * 100;
+    },
+    authMethodChosen() {
+      // L'utente ha scelto un metodo di autenticazione se ha fatto il login con Google 
+      // o se ha scelto di procedere con email (isEmailSignup = true)
+      return this.isEmailSignup || this.googleSignInCompleted;
+    },
+    canProceedStep3() {
+      const baseFields = this.form.nome && this.form.codiceFiscale && 
+                        this.form.biografia && this.form.credenziali.email && 
+                        this.form.credenziali.password;
+      
+      if (this.type === 'user') {
+        return baseFields && this.form.cognome;
+      }
+      return baseFields;
+    }
+  },
   methods: {
+    selectAccountType(accountType) {
+      this.type = accountType;
+      this.registrationMessage = '';
+    },
+    
+    nextStep() {
+      if (this.currentStep < this.steps.length) {
+        this.currentStep++;
+      }
+    },
+    
+    previousStep() {
+      if (this.currentStep > 1) {
+        this.currentStep--;
+      }
+    },
+    
+    chooseEmailSignup() {
+      this.isEmailSignup = true;
+      this.currentStep = 3;
+    },
+    
+    triggerFileInput() {
+      this.$refs.fileInput.click();
+    },
+    
+    removePhoto() {
+      this.form.fotoProfilo.data = null;
+      this.previewUrl = null;
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = '';
+      }
+    },
+    
     handleFileUpload(event) {
       const file = event.target.files[0];
-      this.form.fotoProfilo.data = file;
-      this.form.fotoProfilo.contentType = file ? file.type : "";
+      if (file) {
+        this.form.fotoProfilo.data = file;
+        this.form.fotoProfilo.contentType = file.type;
+        
+        // Crea preview URL
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.previewUrl = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
     },
+    
+    closeSuccessModal() {
+      this.showSuccessModal = false;
+      // Redirect to login or home
+      this.$router.push('/login');
+    },
+    
     async handleSignUp() {
       try {
+        this.isSubmitting = true;
+        this.registrationMessage = '';
+        
         const formData = new FormData();
         formData.append("nome", this.form.nome);
         if (this.type === 'user') {
@@ -135,23 +429,36 @@ export default {
         }
 
         const url = this.type === 'ente'
-          ? 'http://localhost:3000/api/enti'
-          : 'http://localhost:3000/api/users';
+          ? `${import.meta.env.VITE_BACKEND_URL}/api/enti`
+          : `${import.meta.env.VITE_BACKEND_URL}/api/users`;
 
         const response = await fetch(url, {
           method: "POST",
           body: formData,
         });
 
-        if (!response.ok) throw new Error("Failed to create user");
-        alert("Registrazione completata!");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to create user");
+        }
+        
+        this.showSuccessModal = true;
       } catch (error) {
         console.error("Error creating user:", error);
-        alert("Errore durante la registrazione");
+        this.registrationMessage = `Errore durante la registrazione: ${error.message}`;
+      } finally {
+        this.isSubmitting = false;
       }
     },
+    
     async initializeGoogle() {
       try {
+        if (!this.$el) {
+          console.log('Componente non ancora montato, riprovo...');
+          setTimeout(() => this.initializeGoogle(), 100);
+          return;
+        }
+
         if (!document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
           const script = document.createElement('script');
           script.src = 'https://accounts.google.com/gsi/client';
@@ -165,9 +472,12 @@ export default {
           await scriptLoaded;
           await new Promise(r => setTimeout(r, 1500));
         }
-        // @ts-ignore
-        if (typeof google === 'undefined') return;
-        // @ts-ignore
+
+        if (typeof google === 'undefined') {
+          console.warn('Google SDK non disponibile');
+          return;
+        }
+
         google.accounts.id.initialize({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           callback: this.handleGoogle,
@@ -176,138 +486,319 @@ export default {
           use_fedcm_for_prompt: true,
           itp_support: true,
         });
+
         const main = document.getElementById('google-signup-main');
         if (main) {
-          // @ts-ignore
           google.accounts.id.renderButton(main, {
             theme: 'outline',
             size: 'large',
             shape: 'pill',
             logo_alignment: 'left',
+            width: '100%'
           });
+          console.log('✅ Pulsante Google renderizzato con successo');
+        } else {
+          console.warn('Elemento google-signup-main non trovato');
         }
       } catch (error) {
         console.error('Errore inizializzazione Google:', error);
+        this.registrationMessage = 'Errore durante l\'inizializzazione dell\'autenticazione Google';
       }
     },
+    
     async handleGoogle(response) {
       try {
-        const res = await axios.post('http://localhost:3000/api/auth/google', {
+        this.registrationMessage = '';
+        console.log('🚀 Processando registrazione Google...');
+        
+        const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/auth/google`, {
           idToken: response.credential,
         });
 
         if (res.data.needsRegistration) {
-          // Prepara i dati per la view di completamento
-          let nome = res.data.data.nome || '';
-          let cognome = res.data.data.cognome || '';
-          if (this.type === 'user') {
-            // Split nome Google in nome/cognome se possibile
-            const parts = nome.split(' ');
-            if (parts.length > 1) {
-              nome = parts[0];
-              cognome = parts.slice(1).join(' ');
-            }
-          } else {
-            // Se ente, tutto in nome, cognome vuoto
-            cognome = '';
-          }
-          this.$router.push({
-            name: 'completeGoogleSignup',
-            query: {
-              nome,
-              cognome,
-              email: res.data.data.email,
-              oauthCode: res.data.data.oauthCode,
-              type: this.type,
-              fotoProfilo: res.data.data.fotoProfilo ? JSON.stringify(res.data.data.fotoProfilo) : undefined
-            },
-          });
+          console.log('📝 Registrazione necessaria, reindirizzamento...');
+          this.googleSignInCompleted = true;
+          this.redirectToCompleteSignup(res.data.data);
           return;
         }
 
+        console.log('✅ Login Google riuscito, redirect alla home...');
         this.$router.push('/');
       } catch (err) {
-        // Controlla se l'errore è relativo alla necessità di registrazione
+        console.error('Errore Google registrazione:', err);
         if (err.response?.status === 404 && err.response?.data?.needsRegistration) {
-          // Prepara i dati per la view di completamento
-          let nome = err.response.data.data.nome || '';
-          let cognome = err.response.data.data.cognome || '';
-          if (this.type === 'user') {
-            // Split nome Google in nome/cognome se possibile
-            const parts = nome.split(' ');
-            if (parts.length > 1) {
-              nome = parts[0];
-              cognome = parts.slice(1).join(' ');
-            }
-          } else {
-            // Se ente, tutto in nome, cognome vuoto
-            cognome = '';
-          }
-          this.$router.push({
-            name: 'completeGoogleSignup',
-            query: {
-              nome,
-              cognome,
-              email: err.response.data.data.email,
-              oauthCode: err.response.data.data.oauthCode,
-              type: this.type,
-              fotoProfilo: err.response.data.data.fotoProfilo ? JSON.stringify(err.response.data.data.fotoProfilo) : undefined
-            },
-          });
+          console.log('📝 Registrazione necessaria (da errore), reindirizzamento...');
+          this.googleSignInCompleted = true;
+          this.redirectToCompleteSignup(err.response.data.data);
           return;
         }
-        // Mostra feedback errore come in LoginView.vue
-        let message = (err && err.response && err.response.data && err.response.data.message)
-          ? err.response.data.message
-          : 'Errore login Google';
-        this.registrationMessage = message;
+        this.registrationMessage = err.response?.data?.message || 'Errore durante la registrazione con Google';
       }
     },
+    
+    redirectToCompleteSignup(data) {
+      let nome = data.nome || '';
+      let cognome = data.cognome || '';
+      let accountType = this.type;
+      
+      if (accountType === 'user') {
+        if (!cognome && nome.includes(' ')) {
+          const parts = nome.split(' ');
+          nome = parts[0];
+          cognome = parts.slice(1).join(' ');
+        }
+      } else {
+        if (cognome) {
+          nome = `${nome} ${cognome}`;
+          cognome = '';
+        }
+      }
+      
+      this.$router.push({
+        name: 'completeGoogleSignup',
+        query: {
+          nome,
+          cognome,
+          email: data.email,
+          oauthCode: data.oauthCode,
+          type: accountType,
+          fotoProfilo: data.fotoProfilo ? JSON.stringify(data.fotoProfilo) : undefined
+        },
+      });
+    },
   },
+  
+  watch: {
+    type() {
+      this.registrationMessage = '';
+    },
+    
+    currentStep(newStep) {
+      if (newStep === 2) {
+        this.$nextTick(() => {
+          setTimeout(() => {
+            this.initializeGoogle();
+          }, 100);
+        });
+      }
+    }
+  },
+  
   mounted() {
-    this.initializeGoogle();
+    // Google verrà inizializzato quando si arriva allo step 2
   },
 };
 </script>
 
 <style scoped>
+* {
+  box-sizing: border-box;
+}
+
 .signup-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8f7f3 0%, #fff 50%, #f8f7f3 100%);
+  background: #f8f7f3;
+  padding: 2rem 1rem;
+  margin: -2rem -1rem;
+  position: relative;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 2rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.main-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #404149;
+  margin: 0 0 0.5rem 0;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: #666;
+  margin: 0 0 1.5rem 0;
+  font-weight: 400;
+}
+
+/* Progress Indicators */
+.progress-container {
+  margin: 0 auto;
+}
+
+.step-indicators {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+}
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
 }
 
-.signup-card {
-  background: #fff;
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-  padding: 2.5rem;
-  width: 100%;
-  max-width: 500px;
+.step-indicator.active .step-circle {
+  background: #fe4654;
+  color: white;
 }
 
-.signup-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #404149;
+.step-indicator.completed .step-circle {
+  background: #404149;
+  color: white;
+}
+
+.step-label {
+  font-size: 0.75rem;
+  color: #666;
   text-align: center;
-  margin: 0 0 2rem 0;
+  font-weight: 500;
 }
 
-/* Google Section */
-.google-section {
+.step-indicator.active .step-label {
+  color: #fe4654;
+  font-weight: 600;
+}
+
+/* Form Container */
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  overflow: hidden;
+}
+
+.step-content {
+  padding: 2rem;
+}
+
+.step-content-wide {
+  padding: 2rem 3rem;
+}
+
+.step-header {
   text-align: center;
   margin-bottom: 1.5rem;
 }
 
-.google-text {
-  color: #666;
-  font-size: 0.95rem;
-  margin: 0 0 1rem 0;
-  font-style: italic;
+.step-header h2 {
+  font-size: 1.25rem;
+  color: #404149;
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Account Type Selection */
+.account-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 0;
+}
+
+.account-type-card {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fafafa;
+}
+
+.account-type-card:hover {
+  border-color: #fe4654;
+  background: white;
+}
+
+.account-type-card.active {
+  border-color: #fe4654;
+  background: #fee;
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.card-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.card-info h3 {
+  font-size: 1rem;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+}
+
+.card-info p {
+  color: #64748b;
+  font-size: 0.875rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Auth Methods - Horizontal Layout */
+.auth-methods-horizontal {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin: 0;
+}
+
+.auth-method {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  background: #fafafa;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.auth-method:hover {
+  border-color: #fe4654;
+  background: white;
+}
+
+.method-header {
+  margin-bottom: 1rem;
+}
+
+.method-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.method-header h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .google-signin-container {
@@ -315,196 +806,380 @@ export default {
   justify-content: center;
 }
 
-.google-signin-container > div {
-  width: 100% !important;
-  max-width: none !important;
-}
-
-.google-signin-container iframe {
-  width: 100% !important;
-  max-width: none !important;
-}
-
-/* Divider */
-.divider {
-  text-align: center;
-  margin: 2rem 0;
-  position: relative;
-}
-
-.divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e0e0e0;
-  z-index: 1;
-}
-
-.divider span {
-  background: #fff;
-  padding: 0 1rem;
-  color: #666;
-  font-size: 0.9rem;
-  position: relative;
-  z-index: 2;
-}
-
-/* User Type Selector */
-.user-type-selector {
-  margin-bottom: 2rem;
-}
-
-.user-type-selector h3 {
-  color: #404149;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 1rem 0;
-  text-align: center;
-}
-
-.segmented-control {
-  display: flex;
-  background: #f8f7f3;
-  border-radius: 1.5rem;
-  padding: 0.3rem;
-  border: 2px solid #e0e0e0;
-}
-
-.segment-btn {
-  flex: 1;
-  padding: 0.8rem 1rem;
-  border: none;
-  background: transparent;
-  border-radius: 1.2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.segment-btn.active {
+.email-signup-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
   background: #fe4654;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
-  transform: translateY(-1px);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.segment-icon {
-  font-size: 1.5rem;
+.email-signup-btn:hover {
+  background: #e73c47;
 }
 
-.segment-text {
+.divider-vertical {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #f1f5f9;
+  border-radius: 50%;
+  color: #64748b;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
-/* Form Styles */
-.signup-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
+/* Form Grid Layout */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
 }
 
+.form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Form Elements */
 .form-group {
   display: flex;
   flex-direction: column;
 }
 
-.form-group label {
-  font-weight: 600;
+.form-label {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  color: #374151;
   margin-bottom: 0.5rem;
-  color: #404149;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
+}
+
+.label-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
 }
 
 .form-input,
-.form-textarea,
-.form-file {
-  padding: 0.8rem 1.2rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 1.2rem;
-  font-size: 1rem;
+.form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: white;
   outline: none;
-  transition: all 0.3s ease;
-  background: #fafafa;
 }
 
 .form-input:focus,
 .form-textarea:focus {
   border-color: #fe4654;
-  background: #fff;
   box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
 }
 
 .form-textarea {
-  min-height: 80px;
+  min-height: 120px;
   resize: vertical;
   font-family: inherit;
 }
 
-.form-file {
-  padding: 0.6rem 1rem;
+/* Upload Area */
+.upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
   background: #fafafa;
-  border-style: dashed;
 }
 
-.signup-btn {
-  background: linear-gradient(135deg, #fe4654, #404149);
-  color: #fff;
+.upload-area:hover {
+  border-color: #fe4654;
+  background: #fef7f7;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.upload-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.7;
+}
+
+.upload-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.upload-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-image {
+  max-width: 80px;
+  max-height: 80px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   border: none;
-  border-radius: 1.5rem;
-  padding: 1rem;
-  font-size: 1.1rem;
-  font-weight: 600;
+  background: #ef4444;
+  color: white;
   cursor: pointer;
-  margin-top: 1rem;
-  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+/* Navigation Buttons */
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  background: #f8f7f3;
+  gap: 1rem;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #6b7280, #404149);
+  color: white;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: white;
+  margin-left: auto;
+  border-radius: 1.5rem;
+  font-weight: 600;
   box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
 }
 
-.signup-btn:hover {
+.btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
 }
 
+.btn-success {
+  background: linear-gradient(135deg, #fe4654, #404149);
+  color: white;
+  margin-left: auto;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
+}
+
+/* Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Messages */
 .error {
-  color: #dc3545;
-  background: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 0.8rem;
-  padding: 0.8rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
   text-align: center;
 }
 
 .info {
-  color: #0c5460;
-  background: #d1ecf1;
-  border: 1px solid #bee5eb;
-  border-radius: 0.8rem;
-  padding: 0.8rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
   text-align: center;
 }
 
-/* Responsive */
-@media (max-width: 640px) {
-  .signup-card {
-    padding: 2rem 1.5rem;
-    margin: 1rem;
+/* Success Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.success-modal {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: center;
+  max-width: 400px;
+  margin: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.success-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.success-modal h3 {
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.success-modal p {
+  color: #64748b;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.5;
+  font-size: 0.875rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .form-container {
+    margin: 0 0.5rem;
   }
   
-  .signup-title {
-    font-size: 1.7rem;
+  .step-content-wide {
+    padding: 1.5rem;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .account-type-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .auth-methods-horizontal {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .divider-vertical {
+    display: none;
+  }
+  
+  .navigation-buttons {
+    padding: 1rem;
+    flex-direction: column;
+  }
+  
+  .btn-primary,
+  .btn-success {
+    margin-left: 0;
+  }
+  
+  .step-indicators {
+    gap: 1rem;
+  }
+  
+  .step-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+  
+  .step-label {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-title {
+    font-size: 1.5rem;
+  }
+  
+  .card-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  
+  .card-icon {
+    font-size: 1.5rem;
   }
 }
 </style>

@@ -1,7 +1,23 @@
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api/proposte`
 
 export async function addProposta(userData: any) {
-  const res = await fetch(BASE_URL, {
+  const res = awaiexport async function addCommento(propostaId: string, testoCommento: string, token: string) {
+  const res = await fetch(`${BASE_URL}/${encodeURIComponent(propostaId)}/commenti`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ contenuto: testoCommento })
+  });
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nell\'aggiunta commento');
+  }
+
+  return res.json();
+} {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData)

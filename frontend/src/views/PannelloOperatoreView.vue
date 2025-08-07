@@ -2,36 +2,39 @@
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { getOperatoreStats } from '@/api/operatoreApi'
 
 const userStore = useUserStore()
 const router = useRouter()
 
-// Stati
-const loading = ref(true)
-const error = ref('')
+// Se non è operatore, reindirizza
+if (userStore.userType !== 'operatore') {
+  router.push('/')
+}
+
 const stats = ref({
-  utentiTotali: 0,
   proposteInAttesa: 0,
   proposteApprovate: 0,
-  proposteRifiutate: 0
+  proposteRifiutate: 0,
+  utentiRegistrati: 0,
+  entiRegistrati: 0,
+  commentiTotali: 0,
+  utentiTotali: 0
 })
 
-// Funzioni di navigazione
-const goToUserManagement = () => {
-  router.push('/users')
+const loading = ref(true)
+const error = ref('')
+
+const reloadPage = () => {
+  window.location.reload()
 }
 
 const goToModeration = () => {
   router.push('/moderation')
 }
 
-const goToProposalStats = () => {
-  router.push('/operatore/statistiche')
-}
-
-const reloadPage = () => {
-  window.location.reload()
+const goToUserManagement = () => {
+  router.push('/users')
 }
 
 // Carica statistiche reali dal backend
@@ -39,16 +42,11 @@ onMounted(async () => {
   try {
     loading.value = true
     
-    const response = await axios.get('http://localhost:3000/api/operatori/stats', {
-      headers: {
-        Authorization: `Bearer ${userStore.token}`
-      }
-    })
-    
-    stats.value = response.data
-  } catch (err) {
+    const data = await getOperatoreStats(userStore.token)
+    stats.value = data
+  } catch (err: any) {
     console.error('Errore nel caricamento statistiche:', err)
-    error.value = 'Errore nel caricamento delle statistiche'
+    error.value = err.message || 'Errore nel caricamento delle statistiche'
   } finally {
     loading.value = false
   }

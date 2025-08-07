@@ -10,6 +10,7 @@ import ProfiloView from '@/views/ProfiloView.vue'
 import ModerationPanel from '@/views/ModerationPanel.vue'
 import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
+import NotFoundView from '@/views/NotFoundView.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes = [
@@ -72,6 +73,11 @@ const routes = [
     name: 'notLogged',
     component: NotLoggedView
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'notFound',
+    component: NotFoundView
+  }
 ]
 
 const router = createRouter({

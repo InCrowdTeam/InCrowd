@@ -1,8 +1,10 @@
 <template>
   <div class="signup-container">
     <div class="signup-card">
-      <h1 class="signup-title">Completa la Registrazione</h1>
-      <p class="signup-subtitle">✨ Ultimi dettagli per completare il tuo profilo Google</p>
+      <div class="header-section">
+        <h1 class="signup-title">Completa la Registrazione</h1>
+        <p class="signup-subtitle">✨ Ultimi dettagli per completare il tuo profilo Google</p>
+      </div>
       
       <!-- Preview foto profilo con design migliorato -->
       <div v-if="fotoProfiloPreview" class="google-photo-section">
@@ -34,84 +36,105 @@
       </div>
       
       <form @submit.prevent="handleSignUp" class="signup-form">
-        <div class="form-group">
-          <label for="nome">
-            <span class="label-text">Nome{{ type === 'ente' ? ' dell\'Ente' : '' }}</span>
-            <span class="required">*</span>
-          </label>
-          <input 
-            id="nome" 
-            v-model="form.nome" 
-            type="text" 
-            required 
-            :disabled="!!nomeGoogle"
-            class="form-input"
-            :class="{ disabled: !!nomeGoogle }"
-          />
-          <small v-if="!!nomeGoogle" class="input-note">Importato da Google</small>
-        </div>
-        
-        <div v-if="showCognome" class="form-group">
-          <label for="cognome">
-            <span class="label-text">Cognome</span>
-            <span class="required">*</span>
-          </label>
-          <input 
-            id="cognome" 
-            v-model="form.cognome" 
-            type="text" 
-            required 
-            :disabled="!!cognomeGoogle"
-            class="form-input"
-            :class="{ disabled: !!cognomeGoogle }"
-          />
-          <small v-if="!!cognomeGoogle" class="input-note">Importato da Google</small>
-        </div>
-        
-        <div class="form-group">
-          <label for="codiceFiscale">
-            <span class="label-text">Codice Fiscale</span>
-            <span class="required">*</span>
-          </label>
-          <input 
-            id="codiceFiscale" 
-            v-model="form.codiceFiscale" 
-            type="text" 
-            required 
-            class="form-input"
-            placeholder="Inserisci il tuo codice fiscale"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="biografia">
-            <span class="label-text">Biografia</span>
-          </label>
-          <textarea 
-            id="biografia" 
-            v-model="form.biografia" 
-            class="form-textarea"
-            :placeholder="type === 'user' ? 'Racconta qualcosa di te...' : 'Descrivi la tua organizzazione...'"
-          ></textarea>
-        </div>
-        
-        <div class="form-group">
-          <label for="fotoProfilo">
-            <span class="label-text">Foto Profilo</span>
-          </label>
-          <p class="input-description">Puoi caricare una nuova foto o mantenere quella di Google</p>
-          <div class="file-input-wrapper">
-            <input 
-              id="fotoProfilo" 
-              type="file" 
-              accept="image/*" 
-              @change="handleFileUpload"
-              class="file-input"
-            />
-            <label for="fotoProfilo" class="file-input-label">
-              <span class="file-icon">📷</span>
-              <span>Carica nuova foto</span>
-            </label>
+        <div class="form-grid">
+          <div class="form-column">
+            <div class="form-group">
+              <label for="nome">
+                <span class="label-text">
+                  <span class="label-icon">{{ type === 'ente' ? '🏢' : '👤' }}</span>
+                  Nome{{ type === 'ente' ? ' dell\'Ente' : '' }}
+                </span>
+                <span class="required">*</span>
+              </label>
+              <input 
+                id="nome" 
+                v-model="form.nome" 
+                type="text" 
+                required 
+                :disabled="!!nomeGoogle"
+                class="form-input"
+                :class="{ disabled: !!nomeGoogle }"
+              />
+              <small v-if="!!nomeGoogle" class="input-note">Importato da Google</small>
+            </div>
+            
+            <div v-if="showCognome" class="form-group">
+              <label for="cognome">
+                <span class="label-text">
+                  <span class="label-icon">👤</span>
+                  Cognome
+                </span>
+                <span class="required">*</span>
+              </label>
+              <input 
+                id="cognome" 
+                v-model="form.cognome" 
+                type="text" 
+                required 
+                :disabled="!!cognomeGoogle"
+                class="form-input"
+                :class="{ disabled: !!cognomeGoogle }"
+              />
+              <small v-if="!!cognomeGoogle" class="input-note">Importato da Google</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="codiceFiscale">
+                <span class="label-text">
+                  <span class="label-icon">📄</span>
+                  Codice Fiscale
+                </span>
+                <span class="required">*</span>
+              </label>
+              <input 
+                id="codiceFiscale" 
+                v-model="form.codiceFiscale" 
+                type="text" 
+                required 
+                class="form-input"
+                placeholder="Inserisci il tuo codice fiscale"
+              />
+            </div>
+          </div>
+          
+          <div class="form-column">
+            <div class="form-group">
+              <label for="biografia">
+                <span class="label-text">
+                  <span class="label-icon">📝</span>
+                  Biografia
+                </span>
+              </label>
+              <textarea 
+                id="biografia" 
+                v-model="form.biografia" 
+                class="form-textarea"
+                :placeholder="type === 'user' ? 'Racconta qualcosa di te...' : 'Descrivi la tua organizzazione...'"
+              ></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="fotoProfilo">
+                <span class="label-text">
+                  <span class="label-icon">📷</span>
+                  Foto Profilo
+                </span>
+              </label>
+              <p class="input-description">Puoi caricare una nuova foto o mantenere quella di Google</p>
+              <div class="file-input-wrapper">
+                <input 
+                  id="fotoProfilo" 
+                  type="file" 
+                  accept="image/*" 
+                  @change="handleFileUpload"
+                  class="file-input"
+                />
+                <label for="fotoProfilo" class="file-input-label">
+                  <span class="file-icon">📷</span>
+                  <span>Carica nuova foto</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -134,6 +157,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
+import { login, completeGoogleSignup } from '@/api/authApi';
+import { createUserWithFormData } from '@/api/userApi';
+import { createEnteWithFormData } from '@/api/enteApi';
 
 const route = useRoute();
 const router = useRouter();
@@ -209,86 +235,64 @@ async function handleSignUp() {
   successMessage.value = '';
   isSubmitting.value = true;
   
-  const formData = new FormData();
-  formData.append('nome', form.value.nome.trim());
-  
-  if (showCognome.value) {
-    formData.append('cognome', form.value.cognome.trim());
-  }
-  
-  formData.append('codiceFiscale', form.value.codiceFiscale.trim());
-  formData.append('biografia', form.value.biografia.trim());
-  
-  // Foto profilo se caricata
-  if (form.value.fotoProfilo.data) {
-    formData.append('fotoProfilo', form.value.fotoProfilo.data);
-  } else if (route.query.fotoProfilo && route.query.fotoProfilo !== 'undefined') {
-    // Se non è stata caricata una nuova foto ma abbiamo quella di Google
-    formData.append('fotoProfiloGoogle', route.query.fotoProfilo as string);
-  }
-  
-  formData.append('email', form.value.credenziali.email);
-  formData.append('oauthCode', form.value.credenziali.oauthCode);
-
-  const url = showCognome.value
-    ? 'http://localhost:3000/api/users'
-    : 'http://localhost:3000/api/enti';
-
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: formData,
-    });
+    const formData = new FormData();
+    formData.append('nome', form.value.nome.trim());
+    
+    if (showCognome.value) {
+      formData.append('cognome', form.value.cognome.trim());
+    }
+    
+    formData.append('codiceFiscale', form.value.codiceFiscale.trim());
+    formData.append('biografia', form.value.biografia.trim());
+    
+    // Foto profilo se caricata
+    if (form.value.fotoProfilo.data) {
+      formData.append('fotoProfilo', form.value.fotoProfilo.data);
+    } else if (route.query.fotoProfilo && route.query.fotoProfilo !== 'undefined') {
+      // Se non è stata caricata una nuova foto ma abbiamo quella di Google
+      formData.append('fotoProfiloGoogle', route.query.fotoProfilo as string);
+    }
+    
+    formData.append('email', form.value.credenziali.email);
+    formData.append('oauthCode', form.value.credenziali.oauthCode);
 
-    if (!res.ok) {
-      const data = await res.json();
-      errorMessage.value = data.message || "Errore nella registrazione.";
-      return;
+    // Usa le nuove API
+    if (showCognome.value) {
+      await createUserWithFormData(formData);
+    } else {
+      await createEnteWithFormData(formData);
     }
 
     successMessage.value = "✅ Registrazione completata! Accesso in corso...";
     
     // Login automatico
     try {
-      const loginRes = await fetch('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: form.value.credenziali.email,
-          oauthCode: form.value.credenziali.oauthCode,
-        }),
+      const loginData = await login({
+        email: form.value.credenziali.email,
+        oauthCode: form.value.credenziali.oauthCode,
       });
 
-      if (loginRes.ok) {
-        const loginData = await loginRes.json();
-        
-        userStore.setUser(loginData.user);
-        userStore.setToken(loginData.token);
-        userStore.setUserType(loginData.userType);
+      userStore.setUser(loginData.user);
+      userStore.setToken(loginData.token);
+      userStore.setUserType(loginData.userType);
 
-        setTimeout(() => {
-          if (loginData.userType === 'admin') {
-            router.push('/admin/operatori');
-          } else if (loginData.userType === 'operatore') {
-            router.push('/pannello-operatore');
-          } else {
-            router.push('/');
-          }
-        }, 1500);
-      } else {
-        setTimeout(() => {
-          router.push('/login');
-        }, 1500);
-      }
+      setTimeout(() => {
+        if (loginData.userType === 'admin') {
+          router.push('/admin/operatori');
+        } else if (loginData.userType === 'operatore') {
+          router.push('/pannello-operatore');
+        } else {
+          router.push('/');
+        }
+      }, 1500);
     } catch (loginErr) {
       setTimeout(() => {
         router.push('/login');
       }, 1500);
     }
-  } catch (err) {
-    errorMessage.value = "Errore di connessione. Verifica la tua connessione internet.";
+  } catch (err: any) {
+    errorMessage.value = err.message || "Errore di connessione. Verifica la tua connessione internet.";
     console.error('Errore registrazione:', err);
   } finally {
     isSubmitting.value = false;
@@ -312,23 +316,26 @@ async function handleSignUp() {
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
   padding: 2.5rem;
   width: 100%;
-  max-width: 500px;
+  max-width: 800px;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 2rem;
 }
 
 .signup-title {
   font-size: 2rem;
   font-weight: 700;
   color: #404149;
-  text-align: center;
   margin: 0 0 0.5rem 0;
 }
 
 .signup-subtitle {
   color: #666;
   font-size: 0.95rem;
-  margin: 0 0 2rem 0;
+  margin: 0;
   font-style: italic;
-  text-align: center;
 }
 
 /* Foto Google Section */
@@ -438,6 +445,19 @@ async function handleSignUp() {
 .signup-form {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.form-column {
+  display: flex;
+  flex-direction: column;
   gap: 1.2rem;
 }
 
@@ -460,6 +480,13 @@ async function handleSignUp() {
   color: #404149;
   font-weight: 600;
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label-icon {
+  font-size: 1rem;
 }
 
 .required {
@@ -607,6 +634,12 @@ async function handleSignUp() {
   .signup-card {
     padding: 2rem 1.5rem;
     margin: 1rem;
+    max-width: none;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .signup-title {

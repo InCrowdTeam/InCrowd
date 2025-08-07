@@ -1,15 +1,12 @@
 <template>
   <div class="add-proposta-container">
-    <!-- Header con progress bar -->
+    <!-- Header compatto -->
     <div class="header-section">
-      <h1 class="main-title">✨ Crea la tua Proposta</h1>
+      <h1 class="main-title">Crea la tua Proposta</h1>
       <p class="subtitle">Condividi la tua idea con la community</p>
       
-      <!-- Progress Bar -->
+      <!-- Progress Bar compatta -->
       <div class="progress-container">
-        <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
-        </div>
         <div class="step-indicators">
           <div 
             v-for="(step, index) in steps" 
@@ -37,61 +34,65 @@
         <!-- Step 1: Informazioni Base -->
         <div v-show="currentStep === 1" class="step-content">
           <div class="step-header">
-            <h2>📝 Informazioni Base</h2>
-            <p>Iniziamo con le informazioni principali della tua proposta</p>
+            <h2>Informazioni Base</h2>
           </div>
           
-          <div class="form-group">
-            <label for="titolo" class="form-label">
-              <span class="label-icon">🎯</span>
-              Titolo della proposta
-            </label>
-            <input 
-              type="text" 
-              id="titolo" 
-              v-model="form.titolo" 
-              class="form-input"
-              placeholder="Es: Workshop di fotografia urbana"
-              required 
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="descrizione" class="form-label">
-              <span class="label-icon">📋</span>
-              Descrizione dettagliata
-            </label>
-            <textarea 
-              id="descrizione" 
-              v-model="form.descrizione" 
-              class="form-textarea"
-              placeholder="Descrivi la tua proposta in dettaglio..."
-              required
-            ></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label for="categoria" class="form-label">
-              <span class="label-icon">🏷️</span>
-              Categoria
-            </label>
-            <select id="categoria-select" v-model="form.categoria" class="form-select" required>
-              <option value="">Seleziona una categoria</option>
-              <option value="cultura">🎭 Cultura</option>
-              <option value="concerti">🎵 Concerti</option>
-              <option value="mostreInstallazioni">🖼️ Mostre e installazioni</option>
-              <option value="sport">⚽ Sport</option>
-              <option value="workshopCorsi">📚 Workshop e corsi</option>
-              <option value="conferenze">🎤 Conferenze</option>
-            </select>
+          <div class="form-grid">
+            <div class="form-column">
+              <div class="form-group">
+                <label for="titolo" class="form-label">
+                  <span class="label-icon">🎯</span>
+                  Titolo della proposta
+                </label>
+                <input 
+                  type="text" 
+                  id="titolo" 
+                  v-model="form.titolo" 
+                  class="form-input"
+                  placeholder="Es: Workshop di fotografia urbana"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="categoria" class="form-label">
+                  <span class="label-icon">🏷️</span>
+                  Categoria
+                </label>
+                <select id="categoria-select" v-model="form.categoria" class="form-select" required>
+                  <option value="">Seleziona una categoria</option>
+                  <option value="cultura">🎭 Cultura</option>
+                  <option value="concerti">🎵 Concerti</option>
+                  <option value="mostreInstallazioni">🖼️ Mostre e installazioni</option>
+                  <option value="sport">⚽ Sport</option>
+                  <option value="workshopCorsi">📚 Workshop e corsi</option>
+                  <option value="conferenze">🎤 Conferenze</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-column">
+              <div class="form-group">
+                <label for="descrizione" class="form-label">
+                  <span class="label-icon">📋</span>
+                  Descrizione dettagliata
+                </label>
+                <textarea 
+                  id="descrizione" 
+                  v-model="form.descrizione" 
+                  class="form-textarea"
+                  placeholder="Descrivi la tua proposta in dettaglio..."
+                  required
+                ></textarea>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Step 2: Foto -->
         <div v-show="currentStep === 2" class="step-content">
           <div class="step-header">
-            <h2>📸 Aggiungi una Foto</h2>
-            <p>Un'immagine vale più di mille parole</p>
+            <h2>Aggiungi una Foto</h2>
           </div>
           
           <div class="upload-container">
@@ -119,113 +120,106 @@
           </div>
         </div>
 
-        <!-- Step 3: Luogo -->
+        <!-- Step 3: Luogo e Data -->
         <div v-show="currentStep === 3" class="step-content">
           <div class="step-header">
-            <h2>📍 Dove si svolgerà?</h2>
-            <p>Indica il luogo dell'evento</p>
+            <h2>Dove e Quando</h2>
           </div>
           
-          <div class="form-row">
-            <div class="form-group">
-              <label for="citta" class="form-label">
-                <span class="label-icon">🏙️</span>
-                Città
-              </label>
-              <input 
-                type="text" 
-                id="citta" 
-                v-model="form.indirizzo.citta" 
-                class="form-input"
-                placeholder="Es: Milano"
-                required 
-              />
+          <div class="form-grid">
+            <div class="form-column">
+              <div class="form-group">
+                <label for="citta" class="form-label">
+                  <span class="label-icon">🏙️</span>
+                  Città
+                </label>
+                <input 
+                  type="text" 
+                  id="citta" 
+                  v-model="form.indirizzo.citta" 
+                  class="form-input"
+                  placeholder="Es: Milano"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="cap" class="form-label">
+                  <span class="label-icon">📮</span>
+                  CAP
+                </label>
+                <input 
+                  type="text" 
+                  id="cap" 
+                  v-model="form.indirizzo.cap" 
+                  class="form-input"
+                  placeholder="20100"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="via" class="form-label">
+                  <span class="label-icon">🛣️</span>
+                  Via
+                </label>
+                <input 
+                  type="text" 
+                  id="via" 
+                  v-model="form.indirizzo.via" 
+                  class="form-input"
+                  placeholder="Es: Via Roma"
+                  required 
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="civico" class="form-label">
+                  <span class="label-icon">🏠</span>
+                  Civico
+                </label>
+                <input 
+                  type="text" 
+                  id="civico" 
+                  v-model="form.indirizzo.civico" 
+                  class="form-input"
+                  placeholder="42"
+                  required 
+                />
+              </div>
             </div>
             
-            <div class="form-group">
-              <label for="cap" class="form-label">
-                <span class="label-icon">📮</span>
-                CAP
-              </label>
-              <input 
-                type="text" 
-                id="cap" 
-                v-model="form.indirizzo.cap" 
-                class="form-input"
-                placeholder="20100"
-                required 
-              />
-            </div>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label for="via" class="form-label">
-                <span class="label-icon">🛣️</span>
-                Via
-              </label>
-              <input 
-                type="text" 
-                id="via" 
-                v-model="form.indirizzo.via" 
-                class="form-input"
-                placeholder="Es: Via Roma"
-                required 
-              />
-            </div>
-            
-            <div class="form-group">
-              <label for="civico" class="form-label">
-                <span class="label-icon">🏠</span>
-                Civico
-              </label>
-              <input 
-                type="text" 
-                id="civico" 
-                v-model="form.indirizzo.civico" 
-                class="form-input"
-                placeholder="42"
-                required 
-              />
-            </div>
-          </div>
-        </div>
+            <div class="form-column">
+              <div class="form-group">
+                <label for="data" class="form-label">
+                  <span class="label-icon">🗓️</span>
+                  Data prevista
+                </label>
+                <input 
+                  type="date" 
+                  id="data" 
+                  v-model="form.dataIpotetica" 
+                  class="form-input"
+                  required 
+                />
+              </div>
 
-        <!-- Step 4: Data e Conferma -->
-        <div v-show="currentStep === 4" class="step-content">
-          <div class="step-header">
-            <h2>📅 Quando e Conferma</h2>
-            <p>Ultima fase: scegli la data e rivedi tutto</p>
-          </div>
-          
-          <div class="form-group">
-            <label for="data" class="form-label">
-              <span class="label-icon">🗓️</span>
-              Data prevista
-            </label>
-            <input 
-              type="date" 
-              id="data" 
-              v-model="form.dataIpotetica" 
-              class="form-input"
-              required 
-            />
-          </div>
-
-          <!-- Riepilogo -->
-          <div class="summary-card">
-            <h3>📋 Riepilogo della tua proposta</h3>
-            <div class="summary-item">
-              <strong>Titolo:</strong> {{ form.titolo || 'Non specificato' }}
-            </div>
-            <div class="summary-item">
-              <strong>Categoria:</strong> {{ getCategoryLabel(form.categoria) || 'Non specificata' }}
-            </div>
-            <div class="summary-item">
-              <strong>Luogo:</strong> {{ form.indirizzo.via }} {{ form.indirizzo.civico }}, {{ form.indirizzo.citta }} {{ form.indirizzo.cap }}
-            </div>
-            <div class="summary-item">
-              <strong>Data:</strong> {{ formatDate(form.dataIpotetica) || 'Non specificata' }}
+              <!-- Riepilogo -->
+              <div class="summary-card">
+                <h3>📋 Riepilogo</h3>
+                <div class="summary-item">
+                  <strong>Titolo:</strong> {{ form.titolo || 'Non specificato' }}
+                </div>
+                <div class="summary-item">
+                  <strong>Categoria:</strong> {{ getCategoryLabel(form.categoria) || 'Non specificata' }}
+                </div>
+                <div class="summary-item">
+                  <strong>Luogo:</strong> {{ form.indirizzo.via }} {{ form.indirizzo.civico }}, {{ form.indirizzo.citta }} {{ form.indirizzo.cap }}
+                </div>
+                <div class="summary-item">
+                  <strong>Data:</strong> {{ formatDate(form.dataIpotetica) || 'Non specificata' }}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -258,7 +252,7 @@
             :disabled="isSubmitting || !canProceed"
           >
             <span v-if="isSubmitting" class="spinner"></span>
-            {{ isSubmitting ? 'Creazione in corso...' : '✨ Crea Proposta' }}
+            {{ isSubmitting ? 'Creazione in corso...' : 'Crea Proposta' }}
           </button>
         </div>
       </form>
@@ -293,8 +287,7 @@ export default {
       steps: [
         { label: 'Info Base' },
         { label: 'Foto' },
-        { label: 'Luogo' },
-        { label: 'Conferma' }
+        { label: 'Luogo & Data' }
       ],
       form: {
         titolo: "",
@@ -327,9 +320,8 @@ export default {
           return true; // Foto è opzionale
         case 3:
           return this.form.indirizzo.citta && this.form.indirizzo.cap && 
-                 this.form.indirizzo.via && this.form.indirizzo.civico;
-        case 4:
-          return this.form.dataIpotetica;
+                 this.form.indirizzo.via && this.form.indirizzo.civico &&
+                 this.form.dataIpotetica;
         default:
           return false;
       }
@@ -474,7 +466,7 @@ export default {
           commento: this.form.stato.commento ?? ""
         }));
 
-        const response = await fetch("http://localhost:3000/api/proposte", {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`, {
           method: "POST",
           headers: {
             'Authorization': `Bearer ${this.userStore.token}`
@@ -505,7 +497,7 @@ export default {
 
 .add-proposta-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, rgba(254, 70, 84, 0.5) 0%, rgba(64, 65, 73, 0.5) 100%);
+  background: #f8f7f3;
   padding: 2rem 1rem;
   margin: -2rem -1rem;
   position: relative;
@@ -514,163 +506,149 @@ export default {
 .header-section {
   text-align: center;
   margin-bottom: 2rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .main-title {
-  font-size: 2.5rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  color: white;
+  color: #404149;
   margin: 0 0 0.5rem 0;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .subtitle {
-  font-size: 1.1rem;
-  color: rgba(255,255,255,0.9);
-  margin: 0 0 2rem 0;
-  font-weight: 300;
+  font-size: 1rem;
+  color: #666;
+  margin: 0 0 1.5rem 0;
+  font-weight: 400;
 }
 
-/* Progress Bar */
+/* Progress Indicators */
 .progress-container {
-  max-width: 600px;
   margin: 0 auto;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 1.5rem;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #fe4654 0%, #ff6b7a 100%);
-  border-radius: 3px;
-  transition: width 0.4s ease;
 }
 
 .step-indicators {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  gap: 2rem;
 }
 
 .step-indicator {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
 }
 
 .step-circle {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.2);
+  background: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  color: white;
+  font-size: 0.875rem;
+  color: #666;
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
-  border: 2px solid transparent;
 }
 
 .step-indicator.active .step-circle {
-  background: linear-gradient(135deg, #fe4654 0%, #ff6b7a 100%);
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.4);
-  transform: scale(1.1);
+  background: #fe4654;
+  color: white;
 }
 
 .step-indicator.completed .step-circle {
   background: #404149;
-  box-shadow: 0 4px 15px rgba(64, 65, 73, 0.4);
+  color: white;
 }
 
 .step-label {
-  font-size: 0.9rem;
-  color: rgba(255,255,255,0.8);
+  font-size: 0.75rem;
+  color: #666;
   text-align: center;
+  font-weight: 500;
 }
 
 .step-indicator.active .step-label {
-  color: white;
+  color: #fe4654;
   font-weight: 600;
 }
 
 /* Form Container */
 .form-container {
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
   background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
   overflow: hidden;
 }
 
 .step-content {
-  padding: 2.5rem;
-  min-height: 400px;
+  padding: 2rem 3rem;
 }
 
 .step-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .step-header h2 {
-  font-size: 1.8rem;
-  color: #333;
-  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  color: #404149;
+  margin: 0;
   font-weight: 600;
 }
 
-.step-header p {
-  color: #666;
-  font-size: 1rem;
-  margin: 0;
+/* Form Grid Layout */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 /* Form Elements */
 .form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .form-label {
   display: flex;
   align-items: center;
-  font-weight: 600;
-  color: #333;
+  font-weight: 500;
+  color: #374151;
   margin-bottom: 0.5rem;
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .label-icon {
   margin-right: 0.5rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .form-input,
 .form-textarea,
 .form-select {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e1e5e9;
-  border-radius: 12px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: #f8f9fa;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: white;
   outline: none;
 }
 
@@ -678,9 +656,7 @@ export default {
 .form-textarea:focus,
 .form-select:focus {
   border-color: #fe4654;
-  background: white;
   box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
-  transform: translateY(-2px);
 }
 
 .form-textarea {
@@ -696,17 +672,21 @@ export default {
 /* Upload Area */
 .upload-container {
   margin: 1rem 0;
+  display: flex;
+  justify-content: center;
 }
 
 .upload-area {
-  border: 3px dashed #d1d5db;
-  border-radius: 16px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
   padding: 2rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: #f9fafb;
+  transition: all 0.2s ease;
+  background: #fafafa;
   position: relative;
+  width: 100%;
+  max-width: 400px;
 }
 
 .upload-area:hover {
@@ -721,20 +701,20 @@ export default {
 }
 
 .upload-icon {
-  font-size: 3rem;
+  font-size: 2.5rem;
   margin-bottom: 1rem;
   opacity: 0.7;
 }
 
 .upload-text {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 500;
   color: #374151;
   margin: 0 0 0.5rem 0;
 }
 
 .upload-subtext {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: #6b7280;
   margin: 0;
 }
@@ -745,21 +725,21 @@ export default {
 }
 
 .preview-image {
-  max-width: 200px;
+  max-width: 250px;
   max-height: 200px;
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .preview-overlay {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  top: -8px;
+  right: -8px;
 }
 
 .remove-btn {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: none;
   background: #ef4444;
@@ -769,13 +749,11 @@ export default {
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-  transition: all 0.2s ease;
+  font-size: 0.875rem;
 }
 
 .remove-btn:hover {
   background: #dc2626;
-  transform: scale(1.1);
 }
 
 .file-input-hidden {
@@ -784,25 +762,26 @@ export default {
 
 /* Summary Card */
 .summary-card {
-  background: linear-gradient(135deg, #f8f7f3 0%, #fff 100%);
-  border-radius: 16px;
+  background: #f8f7f3;
+  border-radius: 12px;
   padding: 1.5rem;
-  margin-top: 1.5rem;
-  border: 1px solid #f8f7f3;
+  margin-top: 1rem;
+  border: 1px solid #e2e8f0;
 }
 
 .summary-card h3 {
   margin: 0 0 1rem 0;
   color: #404149;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .summary-item {
   margin-bottom: 0.75rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(64, 65, 73, 0.1);
+  border-bottom: 1px solid #e2e8f0;
   color: #374151;
+  font-size: 0.875rem;
 }
 
 .summary-item:last-child {
@@ -811,7 +790,7 @@ export default {
 }
 
 .summary-item strong {
-  color: #404149;
+  color: #1e293b;
   margin-right: 0.5rem;
 }
 
@@ -819,69 +798,76 @@ export default {
 .navigation-buttons {
   display: flex;
   justify-content: space-between;
-  padding: 1.5rem 2.5rem 2rem;
-  background: #f8f9fa;
+  padding: 1.5rem 3rem 2rem;
+  background: #f8f7f3;
   gap: 1rem;
 }
 
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 120px;
-  position: relative;
+  min-width: 100px;
 }
 
 .btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
 }
 
 .btn-secondary {
-  background: #404149;
+  background: linear-gradient(135deg, #6b7280, #404149);
   color: white;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.3);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #2a2b30;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 65, 73, 0.4);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #fe4654 0%, #ff6b7a 100%);
+  background: linear-gradient(135deg, #fe4654, #404149);
   color: white;
   margin-left: auto;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.4);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
 }
 
 .btn-success {
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
+  background: linear-gradient(135deg, #fe4654, #404149);
   color: white;
   margin-left: auto;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
 }
 
 .btn-success:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.4);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
+  background: #059669;
 }
 
 /* Spinner */
 .spinner {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: 2px solid transparent;
   border-top: 2px solid currentColor;
   border-radius: 50%;
@@ -907,70 +893,50 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .success-modal {
   background: white;
-  padding: 2.5rem;
-  border-radius: 20px;
+  padding: 2rem;
+  border-radius: 16px;
   text-align: center;
   max-width: 400px;
   margin: 1rem;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 .success-icon {
-  font-size: 4rem;
+  font-size: 3rem;
   margin-bottom: 1rem;
 }
 
 .success-modal h3 {
-  color: #333;
-  margin: 0 0 1rem 0;
-  font-size: 1.5rem;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
   font-weight: 600;
 }
 
 .success-modal p {
-  color: #666;
-  margin: 0 0 2rem 0;
+  color: #64748b;
+  margin: 0 0 1.5rem 0;
   line-height: 1.5;
+  font-size: 0.875rem;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .add-proposta-container {
-    padding: 1rem 0.5rem;
-  }
-  
-  .main-title {
-    font-size: 2rem;
+  .form-container {
+    margin: 0 0.5rem;
   }
   
   .step-content {
     padding: 1.5rem;
   }
   
-  .form-row {
+  .form-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .navigation-buttons {
@@ -983,29 +949,40 @@ export default {
     margin-left: 0;
   }
   
-  .step-label {
-    font-size: 0.8rem;
+  .step-indicators {
+    gap: 1rem;
   }
   
   .step-circle {
-    width: 35px;
-    height: 35px;
-    font-size: 0.9rem;
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+  
+  .step-label {
+    font-size: 0.7rem;
+  }
+  
+  .upload-area {
+    padding: 1.5rem;
   }
 }
 
 @media (max-width: 480px) {
-  .step-indicators {
-    display: none;
-  }
-  
   .main-title {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
   }
   
   .step-content {
     padding: 1rem;
-    min-height: 350px;
+  }
+  
+  .upload-area {
+    padding: 1rem;
+  }
+  
+  .upload-icon {
+    font-size: 2rem;
   }
 }
 </style>
