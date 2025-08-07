@@ -244,7 +244,7 @@
             @click="previousStep"
             class="btn btn-secondary"
           >
-            ← Indietro
+            Indietro
           </button>
           
           <button 
@@ -254,7 +254,7 @@
             class="btn btn-primary"
             :disabled="!type"
           >
-            Continua →
+            Continua
           </button>
           
           <button 
@@ -264,7 +264,7 @@
             class="btn btn-primary"
             :disabled="!authMethodChosen"
           >
-            Continua →
+            Continua
           </button>
           
           <button 
@@ -644,28 +644,32 @@ export default {
 }
 
 .step-circle {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.875rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: #666;
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .step-indicator.active .step-circle {
-  background: #fe4654;
+  background: linear-gradient(135deg, #fe4654, #e73c47);
   color: white;
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.4);
+  transform: scale(1.05);
 }
 
 .step-indicator.completed .step-circle {
-  background: #404149;
+  background: linear-gradient(135deg, #404149, #2d3748);
   color: white;
+  box-shadow: 0 4px 12px rgba(64, 65, 73, 0.4);
 }
 
 .step-label {
@@ -808,19 +812,21 @@ export default {
 
 .email-signup-btn {
   width: 100%;
-  padding: 0.75rem 1rem;
-  background: #fe4654;
+  padding: 0.8rem 1.2rem;
+  background: linear-gradient(135deg, #fe4654, #404149);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(254, 70, 84, 0.3);
 }
 
 .email-signup-btn:hover {
-  background: #e73c47;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.4);
 }
 
 .divider-vertical {
@@ -858,10 +864,10 @@ export default {
 .form-label {
   display: flex;
   align-items: center;
-  font-weight: 500;
-  color: #374151;
+  font-weight: 600;
+  color: #404149;
   margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
 }
 
 .label-icon {
@@ -872,18 +878,19 @@ export default {
 .form-input,
 .form-textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  background: white;
+  padding: 0.8rem 1.2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1.2rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: #fafafa;
   outline: none;
 }
 
 .form-input:focus,
 .form-textarea:focus {
   border-color: #fe4654;
+  background: #fff;
   box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
 }
 
@@ -895,18 +902,19 @@ export default {
 
 /* Upload Area */
 .upload-area {
-  border: 2px dashed #d1d5db;
-  border-radius: 8px;
+  border: 2px dashed #e0e0e0;
+  border-radius: 1.2rem;
   padding: 1rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   background: #fafafa;
 }
 
 .upload-area:hover {
   border-color: #fe4654;
-  background: #fef7f7;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
 }
 
 .upload-placeholder {
@@ -936,8 +944,8 @@ export default {
 .preview-image {
   max-width: 80px;
   max-height: 80px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 1.2rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
 
 .remove-btn {
@@ -972,17 +980,17 @@ export default {
 }
 
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.8rem 1.5rem;
   border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 100px;
+  min-width: 120px;
 }
 
 .btn:disabled {
@@ -1157,9 +1165,9 @@ export default {
   }
   
   .step-circle {
-    width: 28px;
-    height: 28px;
-    font-size: 0.75rem;
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
   }
   
   .step-label {
