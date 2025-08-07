@@ -55,16 +55,42 @@ onMounted(async () => {
   try {
     loading.value = true;
     
-    // Carica le proposte
-    const proposteRes = await axios.get("http://localhost:3000/api/proposte");
-    const allProposte = proposteRes.data;
+    // Debug: verifica autenticazione
+    console.log("🔍 Debug - Token presente:", !!userStore.token);
+    console.log("🔍 Debug - User presente:", !!userStore.user);
+    console.log("🔍 Debug - User ID:", userStore.user?._id);
     
-    mieProposte.value = allProposte.filter(
-      (p: IProposta) => p.proponenteID === userStore.user?._id
-    );
-    hypedProposte.value = allProposte.filter(
-      (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
-    );
+    // Verifica che l'utente sia autenticato
+    if (!userStore.token || !userStore.user) {
+      console.error("❌ Utente non autenticato");
+      return;
+    }
+    
+    // Carica le MIE proposte usando l'API dedicata
+    try {
+      console.log("📡 Chiamando API /my con token...");
+      const mieProposteRes = await axios.get("http://localhost:3000/api/proposte/my", {
+        headers: {
+          Authorization: `Bearer ${userStore.token}`
+        }
+      });
+      console.log("✅ Proposte ricevute:", mieProposteRes.data);
+      mieProposte.value = mieProposteRes.data;
+    } catch (err) {
+      console.error("❌ Errore nel caricamento delle mie proposte:", err);
+    }
+    
+    // Carica tutte le proposte approvate per i filtri degli hyped
+    try {
+      const proposteRes = await axios.get("http://localhost:3000/api/proposte");
+      const allProposte = proposteRes.data;
+      
+      hypedProposte.value = allProposte.filter(
+        (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
+      );
+    } catch (err) {
+      console.error("Errore nel caricamento proposte hyped:", err);
+    }
     
     // Aggiorna dati utente se necessario
     const userId = userStore.user?._id;

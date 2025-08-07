@@ -5,7 +5,7 @@ import Commento from "../models/Commento";
 
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
-    const proposte = await Proposta.find();
+    const proposte = await Proposta.find({"stato.stato": "approvata"});
     const proposteProcessate = proposte.map(p => {
       const obj = p.toObject();
       // se è ancora Buffer lo converto, altrimenti lascio la stringa
@@ -18,6 +18,172 @@ export const getAllProposte = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Errore nel recupero proposte:", error);
     res.status(500).json({ message: "Errore interno" });
+  }
+};
+
+export const getMyProposte = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    console.log("🔍 Debug getMyProposte - req.user:", req.user);
+    
+    // Verifica che l'utente sia autenticato
+    if (!req.user || !req.user.userId) {
+      console.log("❌ Utente non autenticato in getMyProposte");
+      return res.status(401).json({ message: "Utente non autenticato" });
+    }
+
+    console.log("🔍 Debug - User ID:", req.user.userId);
+
+    // Recupera TUTTE le proposte dell'utente, indipendentemente dallo stato
+    const proposte = await Proposta.find({ proponenteID: req.user.userId })
+      .sort({ createdAt: -1 }); // Ordina per data di creazione (più recenti prima)
+    
+    console.log("🔍 Debug - Proposte trovate:", proposte.length);
+    
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      // se è ancora Buffer lo converto, altrimenti lascio la stringa
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    
+    console.log("✅ Inviando proposte:", proposteProcessate.length);
+    res.json(proposteProcessate);
+  } catch (error) {
+    console.error("❌ Errore nel recupero proposte utente:", error);
+    res.status(500).json({ message: "Errore interno nel recupero delle proposte" });
+  }
+};
+
+export const searchProposte = async (req: Request, res: Response) => {
+  try {
+    const { 
+      q,           // query di ricerca generale
+      categoria,   // filtro per categoria
+      citta,       // filtro per città
+      stato,       // filtro per stato (approvata, in_approvazione, rifiutata)
+      sortBy,      // ordinamento (createdAt, listaHyper, titolo)
+      sortOrder,   // direzione ordinamento (asc, desc)
+      limit,       // limite risultati
+      skip         // skip per paginazione
+    } = req.query;
+
+    // Costruzione del filtro di ricerca
+    let filter: any = {
+      "stato.stato": "approvata" // Mostra solo proposte approvate
+    };
+
+    // Ricerca testuale su titolo e descrizione
+    if (q && typeof q === 'string') {
+      filter.$or = [
+        { titolo: { $regex: q, $options: 'i' } },
+        { descrizione: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    // Filtro per categoria
+    if (categoria && typeof categoria === 'string') {
+      filter.categoria = categoria;
+    }
+
+    // Filtro per città
+    if (citta && typeof citta === 'string') {
+      filter['luogo.citta'] = { $regex: citta, $options: 'i' };
+    }
+
+    // Filtro per stato - manteniamo sempre approvata come base
+    // ma permettiamo ulteriori filtri solo se sono stati "validi"
+    if (stato && typeof stato === 'string') {
+      // Solo per admin/operatori: permettere di cercare anche altri stati
+      // Per ora manteniamo solo "approvata"
+      if (stato === 'approvata') {
+        filter['stato.stato'] = stato;
+      }
+      // Se vuoi permettere la ricerca di altri stati, decommentare:
+      // filter['stato.stato'] = stato;
+    }
+
+    // Costruzione dell'ordinamento
+    let sort: any = {};
+    if (sortBy && typeof sortBy === 'string') {
+      switch (sortBy) {
+        case 'createdAt':
+          sort.createdAt = sortOrder === 'asc' ? 1 : -1;
+          break;
+        case 'listaHyper':
+          // Per ordinare per numero di hyper, usiamo la pipeline di aggregazione
+          const pipeline: any[] = [
+            { $match: filter },
+            {
+              $addFields: {
+                hyperCount: { $size: { $ifNull: ["$listaHyper", []] } }
+              }
+            },
+            { $sort: { hyperCount: sortOrder === 'asc' ? 1 : -1 } }
+          ];
+          
+          if (skip && typeof skip === 'string') {
+            pipeline.push({ $skip: parseInt(skip) });
+          }
+          
+          if (limit && typeof limit === 'string') {
+            pipeline.push({ $limit: parseInt(limit) });
+          }
+
+          const risultatiAggregazione = await Proposta.aggregate(pipeline);
+          const proposteProcessate = risultatiAggregazione.map(p => {
+            if (p.foto?.data && Buffer.isBuffer(p.foto.data)) {
+              p.foto.data = p.foto.data.toString('base64');
+            }
+            return p;
+          });
+
+          return res.json({
+            proposte: proposteProcessate,
+            total: await Proposta.countDocuments(filter)
+          });
+        case 'titolo':
+          sort.titolo = sortOrder === 'asc' ? 1 : -1;
+          break;
+        default:
+          sort.createdAt = -1; // Default: più recenti prima
+      }
+    } else {
+      sort.createdAt = -1; // Default: più recenti prima
+    }
+
+    // Query con paginazione
+    let query = Proposta.find(filter).sort(sort);
+    
+    if (skip && typeof skip === 'string') {
+      query = query.skip(parseInt(skip));
+    }
+    
+    if (limit && typeof limit === 'string') {
+      query = query.limit(parseInt(limit));
+    }
+
+    const proposte = await query.exec();
+    const total = await Proposta.countDocuments(filter);
+
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+
+    res.json({
+      proposte: proposteProcessate,
+      total,
+      hasMore: (parseInt(skip as string || '0') + proposteProcessate.length) < total
+    });
+
+  } catch (error) {
+    console.error("Errore nella ricerca proposte:", error);
+    res.status(500).json({ message: "Errore nella ricerca" });
   }
 };
 

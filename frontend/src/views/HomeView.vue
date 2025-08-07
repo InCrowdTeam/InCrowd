@@ -3,6 +3,7 @@ import { onMounted, ref, computed, watch } from 'vue'
 import axios from 'axios'
 import type { IProposta } from "../types/Proposta"
 import { useUserStore } from '@/stores/userStore'
+import { searchProposte, type SearchFilters } from '@/api/propostaApi'
 
 // Stato di caricamento
 const isLoading = ref(false)
@@ -34,19 +35,36 @@ function processImageUrl(foto: any): string {
 }
 
 // CATEGORIE
-const categorie = [
-  { label: "Cultura", value: "cultura" },
-  { label: "Concerti", value: "concerti" },
-  { label: "Mostre e installazioni", value: "mostreInstallazioni" },
-  { label: "Sport", value: "sport" },
-  { label: "Workshop e corsi", value: "workshopCorsi" },
-  { label: "Conferenze", value: "conferenze" }
-]
+// const categorie = [
+//   { label: "Cultura", value: "cultura" },
+//   { label: "Concerti", value: "concerti" },
+//   { label: "Mostre e installazioni", value: "mostreInstallazioni" },
+//   { label: "Sport", value: "sport" },
+//   { label: "Workshop e corsi", value: "workshopCorsi" },
+//   { label: "Conferenze", value: "conferenze" }
+// ]
 
 const categoriaSelezionata = ref<string | null>(null)
 const proposte = ref<IProposta[]>([])
 const selected = ref<'classifica' | 'esplora'>('esplora')
 const userStore = useUserStore()
+
+// Stato per la ricerca
+const searchQuery = ref('')
+const showFilters = ref(false)
+const isSearching = ref(false)
+const searchResults = ref<IProposta[]>([])
+const searchExecuted = ref(false)
+
+const searchFilters = ref<SearchFilters>({
+  categoria: '',
+  citta: '',
+  stato: '',
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+  limit: 20,
+  skip: 0
+})
 
 // Stato per controllare la visibilità del banner
 const showBanner = ref(true)
@@ -55,12 +73,35 @@ function closeBanner() {
   showBanner.value = false
 }
 
-// PROPOSTE FILTRATE PER CATEGORIA
-const proposteFiltrate = computed(() =>
-  categoriaSelezionata.value
+// PROPOSTE FILTRATE PER CATEGORIA E RICERCA
+const proposteFiltrate = computed(() => {
+  // Se c'è una ricerca attiva, mostra i risultati della ricerca
+  if (searchExecuted.value && (searchQuery.value || hasActiveFilters.value)) {
+    return searchResults.value
+  }
+  
+  // Altrimenti filtra per categoria se selezionata
+  return categoriaSelezionata.value
     ? proposte.value.filter(p => p.categoria === categoriaSelezionata.value)
     : proposte.value
-)
+})
+
+// Computed unificato per gestire tutte le visualizzazioni
+const proposteVisualizzate = computed(() => {
+  if (selected.value === 'classifica') {
+    return classificaProposte.value
+  }
+  
+  return proposteFiltrate.value
+})
+
+// Computed per verificare se ci sono filtri attivi
+const hasActiveFilters = computed(() => {
+  return searchQuery.value || 
+         searchFilters.value.categoria || 
+         searchFilters.value.citta || 
+         searchFilters.value.stato
+})
 
 // CLASSIFICA - proposte ordinate per numero di hyper
 const classificaProposte = computed(() => {
@@ -179,10 +220,18 @@ async function handleHyper() {
     // Aggiorna la proposta selezionata
     propostaSelezionata.value = res.data;
     
-    // Aggiorna anche la proposta nella lista
+    // Aggiorna anche la proposta nella lista principale
     const index = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
     if (index !== -1) {
       proposte.value[index] = res.data;
+    }
+    
+    // Aggiorna anche la proposta nei risultati di ricerca se presenti
+    if (searchExecuted.value && searchResults.value.length > 0) {
+      const searchIndex = searchResults.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
+      if (searchIndex !== -1) {
+        searchResults.value[searchIndex] = res.data;
+      }
     }
   } catch (err: any) {
     console.error("Errore hyper:", err);
@@ -207,6 +256,65 @@ function getUserBadge(commento: any) {
 function getUserName(commento: any) {
   if (!commento.utente) return 'Utente';
   return `${commento.utente.nome || ''} ${commento.utente.cognome || ''}`.trim() || 'Utente';
+}
+
+// Funzione per ottenere l'etichetta della categoria
+function getCategoryLabel(categoria: string) {
+  const categories: Record<string, string> = {
+    cultura: '🎭 Cultura',
+    concerti: '🎵 Concerti',
+    mostreInstallazioni: '🖼️ Mostre e installazioni',
+    sport: '⚽ Sport',
+    workshopCorsi: '📚 Workshop e corsi',
+    conferenze: '🎤 Conferenze'
+  }
+  return categories[categoria] || categoria
+}
+
+// Funzioni per la ricerca
+let searchTimeout: number
+
+const toggleFilters = () => {
+  showFilters.value = !showFilters.value
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  searchExecuted.value = false
+  searchResults.value = []
+}
+
+const onSearch = () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    executeSearch()
+  }, 300)
+}
+
+const executeSearch = async () => {
+  if (!searchQuery.value && !hasActiveFilters.value) {
+    searchExecuted.value = false
+    searchResults.value = []
+    return
+  }
+
+  isSearching.value = true
+  try {
+    const filters: SearchFilters = {
+      ...searchFilters.value,
+      q: searchQuery.value || undefined
+    }
+
+    const response = await searchProposte(filters)
+    searchResults.value = response.proposte
+    searchExecuted.value = true
+    
+  } catch (error) {
+    console.error('Errore nella ricerca:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
 }
 
 onMounted(async () => {
@@ -248,19 +356,141 @@ watch(propostaSelezionata, (newProposta) => {
       </div>
     </div>
 
-    <div class="toggle-bar">
-      <button
-        :class="{ active: selected === 'classifica' }"
-        @click="selected = 'classifica'"
-      >
-        Classifica
-      </button>
-      <button
-        :class="{ active: selected === 'esplora' }"
-        @click="selected = 'esplora'"
-      >
-        Esplora
-      </button>
+    <!-- Barra di ricerca -->
+    <div class="search-container">
+      <div class="search-bar">
+        <div class="search-input-container">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Cerca proposte per titolo o descrizione..."
+            class="search-input"
+            @input="onSearch"
+          />
+          <button 
+            v-if="searchQuery" 
+            @click="clearSearch" 
+            class="clear-btn"
+            title="Cancella ricerca"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <button 
+          @click="toggleFilters" 
+          class="filters-btn"
+          :class="{ active: showFilters }"
+        >
+          <span class="filter-icon">🔍</span>
+          Filtri
+        </button>
+      </div>
+
+      <!-- Pannello filtri avanzati -->
+      <Transition name="slide-down">
+        <div v-if="showFilters" class="filters-panel">
+          <div class="filters-grid">
+            <!-- Filtro categoria -->
+            <div class="filter-group">
+              <label class="filter-label">Categoria</label>
+              <select v-model="searchFilters.categoria" @change="onSearch" class="filter-select">
+                <option value="">Tutte le categorie</option>
+                <option value="cultura">🎭 Cultura</option>
+                <option value="concerti">🎵 Concerti</option>
+                <option value="mostreInstallazioni">🖼️ Mostre e installazioni</option>
+                <option value="sport">⚽ Sport</option>
+                <option value="workshopCorsi">📚 Workshop e corsi</option>
+                <option value="conferenze">🎤 Conferenze</option>
+              </select>
+            </div>
+
+            <!-- Filtro città -->
+            <div class="filter-group">
+              <label class="filter-label">Città</label>
+              <input 
+                v-model="searchFilters.citta" 
+                @input="onSearch"
+                type="text" 
+                placeholder="Es: Milano, Roma..." 
+                class="filter-input"
+              />
+            </div>
+
+            <!-- Filtro stato -->
+            <div class="filter-group">
+              <label class="filter-label">Stato</label>
+              <select v-model="searchFilters.stato" @change="onSearch" class="filter-select">
+                <option value="">Tutti gli stati</option>
+                <option value="proposta">📝 Proposta</option>
+                <option value="approvata">✅ Approvata</option>
+                <option value="respinta">❌ Respinta</option>
+                <option value="in_corso">🔄 In corso</option>
+                <option value="completata">✅ Completata</option>
+              </select>
+            </div>
+
+            <!-- Ordinamento -->
+            <div class="filter-group">
+              <label class="filter-label">Ordina per</label>
+              <select v-model="searchFilters.sortBy" @change="onSearch" class="filter-select">
+                <option value="createdAt">Data creazione</option>
+                <option value="hyperCount">Numero di hyper</option>
+                <option value="titolo">Titolo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filters-actions">
+            <button @click="showFilters = false" class="close-filters-btn">
+              Chiudi filtri
+            </button>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- Indicatori filtri attivi -->
+      <div v-if="hasActiveFilters" class="active-filters">
+        <span class="active-filters-label">Filtri attivi:</span>
+        <div class="filter-tags">
+          <span v-if="searchQuery" class="filter-tag">
+            Ricerca: "{{ searchQuery }}"
+            <button @click="searchQuery = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+          <span v-if="searchFilters.categoria" class="filter-tag">
+            Categoria: {{ getCategoryLabel(searchFilters.categoria) }}
+            <button @click="searchFilters.categoria = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+          <span v-if="searchFilters.citta" class="filter-tag">
+            Città: {{ searchFilters.citta }}
+            <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+          <span v-if="searchFilters.stato" class="filter-tag">
+            Stato: {{ searchFilters.stato }}
+            <button @click="searchFilters.stato = ''; onSearch()" class="tag-remove">✕</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toggle-container">
+      <div class="toggle-switch">
+        <div class="toggle-slider" :class="{ 'slide-right': selected === 'classifica' }"></div>
+        <button
+          class="toggle-option"
+          :class="{ active: selected === 'esplora' }"
+          @click="selected = 'esplora'"
+        >
+          Esplora
+        </button>
+        <button
+          class="toggle-option"
+          :class="{ active: selected === 'classifica' }"
+          @click="selected = 'classifica'"
+        >
+          Classifica
+        </button>
+      </div>
     </div>
 
     <div class="toggle-content">
@@ -326,7 +556,7 @@ watch(propostaSelezionata, (newProposta) => {
       <div v-else>
         <!--SEZIONE ESPLORA-->
         <!--sezione categorie-->
-        <div class="categorie-section">
+        <!-- <div class="categorie-section">
           <h2 class="categorie-title">Categorie</h2>
           <div class="categorie-list">
             <button
@@ -343,35 +573,85 @@ watch(propostaSelezionata, (newProposta) => {
               {{ cat.label }}
             </button>
           </div>
-        </div>
+        </div> -->
 
         <!--sezione nuove proposte--> 
-        <h2>Nuove Proposte</h2>
-        <div v-if="isLoading" class="loading-container">
-          <div class="loading-spinner"></div>
-          <p>Caricamento proposte...</p>
-        </div>
-        <div v-else>
-          <div class="proposte-grid"  
-              :class="{ 'with-panel': propostaSelezionata }">
+        <div class="proposte-section">
+          <div class="section-header">
+            <h2 class="section-title">✨ Nuove Proposte</h2>
+            <p class="section-subtitle">Scopri le ultime idee della community</p>
+          </div>
+          
+          <div v-if="isLoading || isSearching" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>{{ isSearching ? 'Ricerca in corso...' : 'Caricamento proposte...' }}</p>
+          </div>
+          
+          <div v-else-if="proposteVisualizzate.length === 0" class="empty-proposte">
+            <div class="empty-icon">{{ searchExecuted ? '�' : '�📝' }}</div>
+            <h3>{{ searchExecuted ? 'Nessun risultato trovato' : 'Nessuna proposta ancora' }}</h3>
+            <p>{{ searchExecuted ? 'Prova a modificare i criteri di ricerca' : 'Sii il primo a condividere un\'idea con la community!' }}</p>
+            <RouterLink v-if="userStore.user && !searchExecuted" to="/addProposta" class="cta-button">
+              ➕ Aggiungi la tua proposta
+            </RouterLink>
+            <button v-if="searchExecuted" @click="clearSearch" class="cta-button">
+              🔄 Mostra tutte le proposte
+            </button>
+          </div>
+          
+          <div v-else>
+            <div class="proposte-grid" :class="{ 'with-panel': propostaSelezionata }">
               <div
-                  v-for="proposta in proposteFiltrate"
-                  :key="proposta.titolo"
-                  class="proposta-card"
-                  @click="apriDettaglio(proposta)"
-                  style="cursor:pointer"
-                >
-                    <img
-                      v-if="proposta.foto"
-                      :src="processImageUrl(proposta.foto)"
-                      alt="Immagine proposta"
-                      class="proposta-img"
-                    />
-                    
-                    <div class="proposta-title">{{ proposta.titolo }}</div>
+                v-for="proposta in proposteVisualizzate"
+                :key="proposta.titolo"
+                class="proposta-card"
+                @click="apriDettaglio(proposta)"
+              >
+                <div class="proposta-image-container">
+                  <img
+                    v-if="proposta.foto"
+                    :src="processImageUrl(proposta.foto)"
+                    alt="Immagine proposta"
+                    class="proposta-img"
+                  />
+                  <div v-else class="proposta-img-placeholder">
+                    <span class="placeholder-icon">📸</span>
+                  </div>
+                  
+                  <!-- Badge categoria -->
+                  <div v-if="proposta.categoria" class="categoria-badge">
+                    {{ getCategoryLabel(proposta.categoria) }}
+                  </div>
+                  
+                  <!-- Badge hyper count -->
+                  <div class="hyper-badge">
+                    <span class="hyper-icon">⚡</span>
+                    <span class="hyper-count">{{ proposta.listaHyper?.length || 0 }}</span>
                   </div>
                 </div>
-                <p v-if="!isLoading && !proposteFiltrate.length">Nessuna proposta trovata.</p>
+                
+                <div class="proposta-content">
+                  <h3 class="proposta-title">{{ proposta.titolo }}</h3>
+                  <p class="proposta-description">
+                    {{ proposta.descrizione.substring(0, 80) }}{{ proposta.descrizione.length > 80 ? '...' : '' }}
+                  </p>
+                  
+                  <div class="proposta-footer">
+                    <div class="proposta-meta">
+                      <span v-if="proposta.luogo?.citta" class="meta-item">
+                        <span class="meta-icon">📍</span>
+                        {{ proposta.luogo.citta }}
+                      </span>
+                      <span class="meta-item">
+                        <span class="meta-icon">📅</span>
+                        {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -703,27 +983,54 @@ ul {
   100% { transform: rotate(360deg); }
 }
 
-/* Toggle Bar */
-.toggle-bar {
+/* Toggle Container */
+.toggle-container {
   display: flex;
   justify-content: center;
   margin-bottom: 2rem;
-  gap: 1rem;
 }
 
-.toggle-bar button {
+.toggle-switch {
+  position: relative;
+  display: flex;
+  background: #e6e6e6;
+  border-radius: 2rem;
+  padding: 0.25rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  height: calc(100% - 0.5rem);
+  background: #fe4654;
+  border-radius: 1.75rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.toggle-slider.slide-right {
+  transform: translateX(100%);
+}
+
+.toggle-option {
+  position: relative;
+  z-index: 2;
   padding: 0.5rem 2rem;
   border: none;
-  background: #e6e6e6;
+  background: transparent;
   color: #404149;
   font-size: 1.1rem;
-  border-radius: 2rem;
+  border-radius: 1.75rem;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: color 0.3s ease;
+  min-width: 120px;
+  text-align: center;
 }
 
-.toggle-bar button.active {
-  background: #fe4654;
+.toggle-option.active {
   color: #fff;
   font-weight: bold;
 }
@@ -979,42 +1286,228 @@ ul {
 }
 
 /* Proposte Grid */
+.proposte-section {
+  margin-top: 2rem;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
+  border-radius: 1.5rem;
+  margin: 0 1.5rem 2rem 1.5rem;
+  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.3);
+}
+
+.section-title {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.section-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.empty-proposte {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #fff;
+  border-radius: 1.5rem;
+  margin: 0 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.empty-proposte .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.empty-proposte h3 {
+  color: #404149;
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.empty-proposte p {
+  color: #666;
+  font-size: 1rem;
+  margin: 0 0 2rem 0;
+  line-height: 1.5;
+}
+
+.cta-button {
+  display: inline-block;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  text-decoration: none;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
+  background: linear-gradient(135deg, #e63946, #dc3545);
+}
+
 .proposte-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+  padding: 0 1.5rem;
   margin-top: 1.5rem;
 }
 
 .proposta-card {
   background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  padding: 1rem;
-  width: 180px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: box-shadow 0.2s;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .proposta-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 35px rgba(0,0,0,0.15);
+  border-color: rgba(254, 70, 84, 0.2);
+}
+
+.proposta-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
 }
 
 .proposta-img {
   width: 100%;
-  height: 100px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 0.7rem;
-  margin-bottom: 0.7rem;
-  background: #eee;
+  transition: transform 0.3s ease;
+}
+
+.proposta-card:hover .proposta-img {
+  transform: scale(1.05);
+}
+
+.proposta-img-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  color: #adb5bd;
+  opacity: 0.7;
+}
+
+.categoria-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #404149;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.hyper-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(254, 70, 84, 0.95);
+  color: #fff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(254, 70, 84, 0.3);
+}
+
+.hyper-badge .hyper-icon {
+  font-size: 1.5rem;
+}
+
+.proposta-content {
+  padding: 1.5rem;
 }
 
 .proposta-title {
-  font-weight: bold;
-  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: #404149;
+  margin: 0 0 0.8rem 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.proposta-description {
+  color: #6c757d;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.proposta-footer {
+  border-top: 1px solid #f1f3f4;
+  padding-top: 1rem;
+}
+
+.proposta-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.meta-icon {
+  font-size: 0.9rem;
 }
 
 .proposte-grid.with-panel {
@@ -1223,7 +1716,7 @@ ul {
 .hyper-count {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #fe4654;
+  color: #2B2C34;
 }
 
 .hyper-disabled-text {
@@ -1449,5 +1942,259 @@ ul {
 
 .comments-scroll::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+/* Search styles */
+.search-container {
+  margin-bottom: 2rem;
+  background: #2B2C34;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.search-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input-container {
+  flex: 1;
+  position: relative;
+  min-width: 300px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e6e6e6;
+  border-radius: 2rem;
+  font-size: 1rem;
+  background: #404149;
+  transition: all 0.3s ease;
+  color: #404149;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #fe4654;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #404149;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.clear-btn:hover {
+  background: #fe4654;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #e6e6e6;
+  border: none;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #404149;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.filters-btn:hover {
+  background: #d6d6d6;
+  transform: translateY(-2px);
+}
+
+.filters-btn.active {
+  background: #fe4654;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.filter-icon {
+  font-size: 1.2rem;
+}
+
+.filters-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 1rem;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #404149;
+  font-size: 0.9rem;
+}
+
+.filter-select,
+.filter-input {
+  padding: 0.6rem 1rem;
+  border: 2px solid #e6e6e6;
+  border-radius: 0.8rem;
+  background: white;
+  font-size: 0.9rem;
+  color: #404149;
+  transition: all 0.3s ease;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+  outline: none;
+  border-color: #fe4654;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.filters-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.close-filters-btn {
+  padding: 0.6rem 1.5rem;
+  background: #404149;
+  color: white;
+  border: none;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.close-filters-btn:hover {
+  background: #fe4654;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.active-filters {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.active-filters-label {
+  font-weight: 600;
+  color: #404149;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.tag-remove {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 50%;
+  opacity: 0.8;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@media (max-width: 768px) {
+  .search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-input-container {
+    min-width: auto;
+  }
+  
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 </style>
