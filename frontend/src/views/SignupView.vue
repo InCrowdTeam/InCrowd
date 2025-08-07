@@ -849,6 +849,7 @@ export default {
   gap: 2rem;
 }
 
+
 .form-column {
   display: flex;
   flex-direction: column;
@@ -890,7 +891,6 @@ export default {
 .form-input:focus,
 .form-textarea:focus {
   border-color: #fe4654;
-  background: #fff;
   box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
 }
 
@@ -985,6 +985,27 @@ export default {
   border-radius: 1.2rem;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+/* Navigation Buttons */
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  background: #f8f7f3;
+  gap: 1rem;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;

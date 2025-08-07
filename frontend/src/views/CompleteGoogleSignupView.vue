@@ -580,6 +580,13 @@ async function handleSignUp() {
   color: #404149;
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label-icon {
+  font-size: 1rem;
 }
 
 .label-icon {
