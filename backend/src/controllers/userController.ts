@@ -4,6 +4,10 @@ import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists } from "../utils/emailHelper";
 
+interface AuthenticatedRequest extends Request {
+  user?: any;
+}
+
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await User.find();
@@ -93,5 +97,135 @@ export const getUtente = async (req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).json({ message: "Errore nel recupero utente" });
+  }
+};
+
+// Ottieni i dati dell'utente corrente autenticato
+export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Utente non autenticato" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utente non trovato" });
+    }
+
+    // Crea una versione sicura dell'utente senza la password ma con un flag che indica se esiste
+    const safeUser = user.toObject();
+    if (safeUser.credenziali) {
+      const hasPassword = !!safeUser.credenziali.password;
+      delete safeUser.credenziali.password;
+      // Aggiungiamo un campo hasPassword invece di sovrascrivere password
+      (safeUser.credenziali as any).hasPassword = hasPassword;
+    }
+
+    res.json(safeUser);
+  } catch (error) {
+    console.error("Errore nel recupero utente corrente:", error);
+    res.status(500).json({ message: "Errore interno del server" });
+  }
+};
+
+// Aggiorna il profilo dell'utente corrente
+export const updateProfile = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Utente non autenticato" });
+    }
+
+    const { nome, cognome, biografia } = req.body;
+
+    // Validazioni
+    if (!nome || !nome.trim()) {
+      return res.status(400).json({ message: "Il nome è obbligatorio" });
+    }
+
+    if (!cognome || !cognome.trim()) {
+      return res.status(400).json({ message: "Il cognome è obbligatorio" });
+    }
+
+    if (biografia && biografia.length > 500) {
+      return res.status(400).json({ message: "La biografia non può superare i 500 caratteri" });
+    }
+
+    // Trova l'utente corrente
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utente non trovato" });
+    }
+
+    // Aggiorna i dati (email non modificabile)
+    user.nome = nome.trim();
+    user.cognome = cognome.trim();
+    user.biografia = biografia?.trim() || "";
+
+    // Gestione foto profilo
+    if (req.file) {
+      user.fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype,
+      };
+    }
+
+    await user.save();
+
+    // Rimuovi la password dalla risposta
+    const updatedUser = await User.findById(userId).select("-credenziali.password");
+    
+    res.json({
+      message: "Profilo aggiornato con successo",
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error("Errore nell'aggiornamento del profilo:", error);
+    res.status(500).json({ message: "Errore interno del server" });
+  }
+};
+
+// Aggiorna la password dell'utente corrente
+export const updatePassword = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Utente non autenticato" });
+    }
+
+    const { newPassword } = req.body;
+
+    // Validazioni
+    if (!newPassword) {
+      return res.status(400).json({ message: "La nuova password è obbligatoria" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "La password deve contenere almeno 6 caratteri" });
+    }
+
+    // Trova l'utente
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utente non trovato" });
+    }
+
+    // Cripta la nuova password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Aggiorna la password
+    if (!user.credenziali) {
+      user.credenziali = { email: "", password: hashedPassword };
+    } else {
+      user.credenziali.password = hashedPassword;
+    }
+
+    await user.save();
+
+    res.json({ message: "Password aggiornata con successo" });
+  } catch (error) {
+    console.error("Errore nell'aggiornamento della password:", error);
+    res.status(500).json({ message: "Errore interno del server" });
   }
 };
