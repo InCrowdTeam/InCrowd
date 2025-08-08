@@ -9,6 +9,17 @@ import { OAuth2Client } from "google-auth-library";
 import { findAccountByEmail } from "../utils/emailHelper";
 import fetch from 'node-fetch';
 
+// Helper function per creare un oggetto utente sicuro con hasPassword
+const createSafeUser = (user: any) => {
+  const safeUser = user.toObject();
+  if (safeUser.credenziali) {
+    const hasPassword = !!safeUser.credenziali.password;
+    delete safeUser.credenziali.password;
+    (safeUser.credenziali as any).hasPassword = hasPassword;
+  }
+  return safeUser;
+};
+
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not defined");
@@ -96,7 +107,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       { expiresIn: "7d" }
     );
 
-    return res.json({ token, user: account, userType });
+    return res.json({ token, user: createSafeUser(account), userType });
   } catch (err) {
     return res.status(500).json({ message: "Errore del server", error: err });
   }
@@ -171,7 +182,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       { expiresIn: "7d" }
     );
 
-    res.json({ token, user: account, userType });
+    res.json({ token, user: createSafeUser(account), userType });
   } catch (err: any) {
     const message = err?.message || err.toString();
     res.status(500).json({ message: `Errore login Google: ${message}` });
@@ -239,9 +250,13 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
 
     await user.save();
 
+    // Restituisce i dati aggiornati dell'utente con hasPassword
+    const updatedUser = await User.findById(userId);
+    const safeUser = createSafeUser(updatedUser!);
+
     res.json({ 
       message: "Account Google collegato con successo",
-      user: await User.findById(userId).select("-credenziali.password")
+      user: safeUser
     });
   } catch (err: any) {
     const message = err?.message || err.toString();

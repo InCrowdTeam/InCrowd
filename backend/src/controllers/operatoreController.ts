@@ -5,6 +5,7 @@ import User from "../models/User";
 import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import { emailExists } from "../utils/emailHelper";
+import { validatePassword } from "../utils/passwordValidator";
 
 export const createOperatore = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -15,7 +16,23 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+    // Controlli di sicurezza solo se abilitati
+    const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
+    
+    let hashedPassword: string | undefined = undefined;
+    if (password) {
+      if (securityEnabled) {
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+          res.status(400).json({ 
+            message: "Password non valida", 
+            errors: passwordValidation.errors 
+          });
+          return;
+        }
+      }
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
 
     const newOperatore = new Operatore({
       nome,

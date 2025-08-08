@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import type { IProposta } from "../types/Proposta";
 import { useUserStore } from "@/stores/userStore";
 import { linkGoogleAccount } from "@/api/authApi";
+import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -207,12 +208,38 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const hasLocalAuth = computed(() => userStore.user?.credenziali?.hasPassword);
 const hasGoogleAuth = computed(() => userStore.user?.credenziali?.oauthCode);
 
+// Computed per validazione password
+const securityControlsEnabled = computed(() => areSecurityControlsEnabled());
+const passwordValidation = computed(() => {
+  if (!credentialsForm.value.newPassword) return null;
+  return validatePassword(credentialsForm.value.newPassword);
+});
+const passwordChecks = computed(() => {
+  if (!credentialsForm.value.newPassword) return null;
+  return {
+    length: credentialsForm.value.newPassword.length >= 8,
+    lowercase: /[a-z]/.test(credentialsForm.value.newPassword),
+    uppercase: /[A-Z]/.test(credentialsForm.value.newPassword),
+    number: /\d/.test(credentialsForm.value.newPassword),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(credentialsForm.value.newPassword)
+  };
+});
+
 // State per Google Sign-In
 let googleInitialized = false;
 
 const goToSettings = () => {
   showSettingsModal.value = true;
-  activeSection.value = 'profilo';
+  
+  // Determina la sezione iniziale basata sullo stato delle credenziali
+  if (!hasLocalAuth.value && !hasGoogleAuth.value) {
+    // Nessun metodo configurato - va direttamente a credenziali
+    activeSection.value = 'credenziali';
+  } else {
+    // Ha almeno un metodo - inizia con profilo
+    activeSection.value = 'profilo';
+  }
+  
   // Inizializza i dati del form con i dati attuali dell'utente
   if (userStore.user) {
     profileForm.value = {
@@ -223,8 +250,9 @@ const goToSettings = () => {
       fotoProfilo: null
     };
   }
+  
   // Inizializza Google Sign-In se necessario per la sezione credenziali
-  if (hasLocalAuth.value && !hasGoogleAuth.value) {
+  if (!hasLocalAuth.value || !hasGoogleAuth.value) {
     nextTick(() => {
       initializeGoogleSignIn();
     });
@@ -240,8 +268,9 @@ const setActiveSection = (section: string) => {
   activeSection.value = section;
   clearMessage();
   
-  // Inizializza Google Sign-In quando si va alla sezione credenziali
-  if (section === 'credenziali') {
+  // Reset Google initialization quando si cambia sezione per garantire re-rendering
+  if (section === 'credenziali' || section === 'setup-password') {
+    googleInitialized = false;
     setTimeout(() => initializeGoogleSignIn(), 100);
   }
 };
@@ -361,9 +390,21 @@ const validatePasswordForm = () => {
     return false;
   }
   
-  if (credentialsForm.value.newPassword.length < 6) {
-    showMessage('La password deve contenere almeno 6 caratteri', 'error');
-    return false;
+  // Usa la validazione modulare
+  const securityEnabled = areSecurityControlsEnabled();
+  
+  if (securityEnabled) {
+    const validation = validatePassword(credentialsForm.value.newPassword);
+    if (!validation.isValid) {
+      showMessage(validation.errors[0], 'error');
+      return false;
+    }
+  } else {
+    // Controllo semplificato per sviluppo
+    if (!validatePasswordSimple(credentialsForm.value.newPassword)) {
+      showMessage('La password deve contenere almeno 6 caratteri', 'error');
+      return false;
+    }
   }
   
   if (credentialsForm.value.newPassword !== credentialsForm.value.confirmPassword) {
@@ -381,7 +422,7 @@ const setPassword = async () => {
     saving.value = true;
     clearMessage();
     
-    await axios.patch(
+    const response = await axios.patch(
       `${import.meta.env.VITE_BACKEND_URL}/api/users/password`,
       {
         newPassword: credentialsForm.value.newPassword
@@ -397,8 +438,18 @@ const setPassword = async () => {
     credentialsForm.value.newPassword = '';
     credentialsForm.value.confirmPassword = '';
     
-    // Ricarica i dati utente
-    await loadUserData();
+    // Aggiorna l'utente con i dati ricevuti dal server
+    if (response.data.user) {
+      userStore.setUser(response.data.user);
+    } else {
+      // Fallback: ricarica i dati utente
+      await loadUserData();
+    }
+    
+    // Torna alla sezione credenziali se era in setup
+    if (activeSection.value === 'setup-password') {
+      activeSection.value = 'credenziali';
+    }
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || 'Errore durante l\'impostazione della password';
     showMessage(errorMessage, 'error');
@@ -441,7 +492,10 @@ const initializeGoogleSignIn = async (): Promise<void> => {
       itp_support: true
     });
 
+    // Renderizza nei container disponibili
     const settingsContainer = document.getElementById('google-signin-settings');
+    const initialContainer = document.getElementById('google-signin-settings-initial');
+    
     if (settingsContainer) {
       // @ts-ignore
       google.accounts.id.renderButton(settingsContainer, {
@@ -449,9 +503,25 @@ const initializeGoogleSignIn = async (): Promise<void> => {
         size: 'large',
         shape: 'pill',
         logo_alignment: 'left',
+        width: '100%'
       });
-      googleInitialized = true;
+      console.log('✅ Pulsante Google settings renderizzato');
     }
+    
+    if (initialContainer) {
+      // @ts-ignore
+      google.accounts.id.renderButton(initialContainer, {
+        theme: 'filled_blue',
+        size: 'large',
+        shape: 'pill',
+        logo_alignment: 'left',
+        text: 'signin_with',
+        width: '100%'
+      });
+      console.log('✅ Pulsante Google initial renderizzato');
+    }
+    
+    googleInitialized = true;
   } catch (error) {
     console.error('Errore inizializzazione Google:', error);
   }
@@ -467,7 +537,9 @@ const handleGoogleConnectResponse = async (response: any) => {
     if (result.user) {
       userStore.setUser(result.user);
       showMessage('Account Google collegato con successo!');
-      await loadUserData();
+      
+      // Reset Google initialization per permettere re-rendering se necessario
+      googleInitialized = false;
     }
   } catch (error: any) {
     const errorMessage = error.message || 'Errore nel collegamento dell\'account Google';
@@ -826,37 +898,80 @@ const loadUserData = async () => {
 
         <!-- Sezione Credenziali -->
         <div v-if="activeSection === 'credenziali'" class="section">
-          <!-- Stato autenticazioni -->
-          <div class="auth-status">
-            <div class="auth-method">
-              <div class="auth-info">
-                <h4>Password locale</h4>
-                <p v-if="hasLocalAuth">Password configurata</p>
-                <p v-else>Nessuna password impostata</p>
-              </div>
-              <div class="auth-status-indicator">
-                <span v-if="hasLocalAuth" class="status-active">✅ Attiva</span>
-                <span v-else class="status-inactive">❌ Non attiva</span>
-              </div>
-            </div>
-
-            <div class="auth-method">
-              <div class="auth-info">
-                <h4>Account Google</h4>
-                <p v-if="hasGoogleAuth">Account Google collegato</p>
-                <p v-else>Nessun account Google collegato</p>
-              </div>
-              <div class="auth-status-indicator">
-                <span v-if="hasGoogleAuth" class="status-active">✅ Collegato</span>
-                <span v-else class="status-inactive">❌ Non collegato</span>
+          <!-- Suggerimenti intelligenti - sempre in cima -->
+          <div v-if="!hasLocalAuth && !hasGoogleAuth" class="auth-suggestion danger">
+            <div class="suggestion-content">
+              <div class="suggestion-icon">⚠️</div>
+              <div class="suggestion-text">
+                <h4>Configura il tuo accesso</h4>
+                <p>Per la sicurezza del tuo account, imposta almeno un metodo di accesso.</p>
               </div>
             </div>
           </div>
 
-          <!-- Form per impostare password (per utenti Google) -->
+          <div v-else-if="(!hasLocalAuth || !hasGoogleAuth) && hasLocalAuth" class="auth-suggestion info">
+            <div class="suggestion-content">
+              <div class="suggestion-icon">💡</div>
+              <div class="suggestion-text">
+                <h4>Accesso più veloce</h4>
+                <p>Collega Google per accedere rapidamente senza digitare la password.</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="(!hasLocalAuth || !hasGoogleAuth) && hasGoogleAuth" class="auth-suggestion info">
+            <div class="suggestion-content">
+              <div class="suggestion-icon">💡</div>
+              <div class="suggestion-text">
+                <h4>Backup della sicurezza</h4>
+                <p>Aggiungi una password per accedere anche se Google non è disponibile.</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="auth-suggestion success">
+            <div class="suggestion-content">
+              <div class="suggestion-icon">🎉</div>
+              <div class="suggestion-text">
+                <h4>Account completamente protetto</h4>
+                <p>Hai configurato entrambi i metodi di accesso.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stato autenticazioni -->
+          <div class="auth-status">
+            <div class="auth-method">
+              <div class="auth-info">
+                <h4>🔑 Password locale</h4>
+                <p v-if="hasLocalAuth" class="auth-active">Configurata e pronta all'uso</p>
+                <p v-else class="auth-missing">Non impostata</p>
+              </div>
+              <div class="auth-status-indicator">
+                <span v-if="hasLocalAuth" class="status-active">✅</span>
+                <span v-else class="status-inactive">❌</span>
+              </div>
+            </div>
+
+            <div class="auth-method">
+              <div class="auth-info">
+                <h4>🔗 Account Google</h4>
+                <p v-if="hasGoogleAuth" class="auth-active">Collegato e attivo</p>
+                <p v-else class="auth-missing">Non collegato</p>
+              </div>
+              <div class="auth-status-indicator">
+                <span v-if="hasGoogleAuth" class="status-active">✅</span>
+                <span v-else class="status-inactive">❌</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Imposta password -->
           <div v-if="hasGoogleAuth && !hasLocalAuth" class="credentials-form">
-            <h4>Imposta una password</h4>
-            <p>Crea una password per accedere anche senza Google</p>
+            <div class="form-header">
+              <h4>🔑 Imposta una password</h4>
+              <p>Crea una password per accedere anche senza Google</p>
+            </div>
 
             <form @submit.prevent="setPassword">
               <div class="form-group">
@@ -866,9 +981,48 @@ const loadUserData = async () => {
                   v-model="credentialsForm.newPassword"
                   type="password"
                   class="form-input"
-                  placeholder="Minimo 6 caratteri"
+                  :placeholder="securityControlsEnabled ? 'Minimo 8 caratteri con maiuscole, minuscole, numeri e simboli' : 'Minimo 6 caratteri'"
                   required
                 />
+                
+                <!-- Indicatori sicurezza password (solo se controlli abilitati) -->
+                <div v-if="credentialsForm.newPassword && securityControlsEnabled" class="password-strength">
+                  <div class="strength-bar">
+                    <div class="strength-fill" :class="passwordValidation?.strength" :style="{ width: passwordValidation?.percentage + '%' }"></div>
+                  </div>
+                  <p class="strength-text" :class="passwordValidation?.strength">
+                    {{ passwordValidation?.strength === 'weak' ? 'Password debole' : 
+                       passwordValidation?.strength === 'medium' ? 'Password media' : 
+                       passwordValidation?.strength === 'good' ? 'Password buona' : 'Password sicura' }}
+                  </p>
+                </div>
+                
+                <!-- Requisiti password (solo se controlli abilitati) -->
+                <div v-if="(credentialsForm.newPassword || passwordValidation?.errors.length) && securityControlsEnabled" class="password-requirements">
+                  <p class="requirements-title">Requisiti password:</p>
+                  <ul class="requirements-list">
+                    <li :class="{ 'valid': passwordChecks?.length }">
+                      <span class="icon">{{ passwordChecks?.length ? '✅' : '❌' }}</span>
+                      Almeno 8 caratteri
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.lowercase }">
+                      <span class="icon">{{ passwordChecks?.lowercase ? '✅' : '❌' }}</span>
+                      Una lettera minuscola
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.uppercase }">
+                      <span class="icon">{{ passwordChecks?.uppercase ? '✅' : '❌' }}</span>
+                      Una lettera maiuscola
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.number }">
+                      <span class="icon">{{ passwordChecks?.number ? '✅' : '❌' }}</span>
+                      Un numero
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.special }">
+                      <span class="icon">{{ passwordChecks?.special ? '✅' : '❌' }}</span>
+                      Un carattere speciale (!@#$%^&*)
+                    </li>
+                  </ul>
+                </div>
               </div>
 
               <div class="form-group">
@@ -894,22 +1048,142 @@ const loadUserData = async () => {
             </form>
           </div>
 
-          <!-- Opzione per collegare Google (per utenti con password) -->
+          <!-- Collega Google -->
           <div v-if="hasLocalAuth && !hasGoogleAuth" class="credentials-form">
-            <h4>Collega account Google</h4>
-            <p>Collega il tuo account Google per un accesso più rapido</p>
+            <div class="form-header">
+              <h4>🔗 Collega Google</h4>
+              <p>Accedi più velocemente con il tuo account Google</p>
+            </div>
 
-            <div id="google-signin-settings" class="google-signin-container">
-              <!-- Il pulsante Google verrà renderizzato qui automaticamente -->
+            <div class="google-connect-container">
+              <div id="google-signin-settings"></div>
             </div>
           </div>
 
-          <!-- Entrambe le opzioni attive -->
-          <div v-if="hasLocalAuth && hasGoogleAuth" class="credentials-complete">
-            <div class="success-message">
-              🎉 Perfetto! Hai configurato entrambe le modalità di accesso
+          <!-- Configurazione iniziale -->
+          <div v-if="!hasLocalAuth && !hasGoogleAuth" class="credentials-setup">
+            <div class="setup-header">
+              <h4>⚙️ Configura il tuo accesso</h4>
+              <p>Scegli come vuoi accedere al tuo account</p>
             </div>
-            <p>Puoi accedere sia con email e password che con Google</p>
+            
+            <div class="setup-options">
+              <div class="setup-option">
+                <button 
+                  type="button" 
+                  class="setup-btn password-setup"
+                  @click="activeSection = 'setup-password'"
+                >
+                  <span class="setup-icon">🔑</span>
+                  <span class="setup-text">Crea una password</span>
+                </button>
+              </div>
+              
+              <div class="setup-divider">
+                <span>oppure</span>
+              </div>
+              
+              <div class="setup-option">
+                <div class="google-option">
+                  <div class="google-text">
+                    <span class="setup-icon">🔗</span>
+                    <span class="setup-text">Usa Google</span>
+                  </div>
+                  <div id="google-signin-settings-initial"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sezione setup password iniziale -->
+        <div v-if="activeSection === 'setup-password'" class="section">
+          <div class="credentials-form priority">
+            <h4>🔑 Crea la tua password</h4>
+            <p>Imposta una password per il tuo account</p>
+
+            <form @submit.prevent="setPassword">
+              <div class="form-group">
+                <label for="newPasswordSetup" class="form-label">Nuova password *</label>
+                <input
+                  id="newPasswordSetup"
+                  v-model="credentialsForm.newPassword"
+                  type="password"
+                  class="form-input"
+                  :placeholder="securityControlsEnabled ? 'Minimo 8 caratteri con maiuscole, minuscole, numeri e simboli' : 'Minimo 6 caratteri'"
+                  required
+                />
+                
+                <!-- Indicatori sicurezza password (solo se controlli abilitati) -->
+                <div v-if="credentialsForm.newPassword && securityControlsEnabled" class="password-strength">
+                  <div class="strength-bar">
+                    <div class="strength-fill" :class="passwordValidation?.strength" :style="{ width: passwordValidation?.percentage + '%' }"></div>
+                  </div>
+                  <p class="strength-text" :class="passwordValidation?.strength">
+                    {{ passwordValidation?.strength === 'weak' ? 'Password debole' : 
+                       passwordValidation?.strength === 'medium' ? 'Password media' : 
+                       passwordValidation?.strength === 'good' ? 'Password buona' : 'Password sicura' }}
+                  </p>
+                </div>
+                
+                <!-- Requisiti password (solo se controlli abilitati) -->
+                <div v-if="(credentialsForm.newPassword || passwordValidation?.errors.length) && securityControlsEnabled" class="password-requirements">
+                  <p class="requirements-title">Requisiti password:</p>
+                  <ul class="requirements-list">
+                    <li :class="{ 'valid': passwordChecks?.length }">
+                      <span class="icon">{{ passwordChecks?.length ? '✅' : '❌' }}</span>
+                      Almeno 8 caratteri
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.lowercase }">
+                      <span class="icon">{{ passwordChecks?.lowercase ? '✅' : '❌' }}</span>
+                      Una lettera minuscola
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.uppercase }">
+                      <span class="icon">{{ passwordChecks?.uppercase ? '✅' : '❌' }}</span>
+                      Una lettera maiuscola
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.number }">
+                      <span class="icon">{{ passwordChecks?.number ? '✅' : '❌' }}</span>
+                      Un numero
+                    </li>
+                    <li :class="{ 'valid': passwordChecks?.special }">
+                      <span class="icon">{{ passwordChecks?.special ? '✅' : '❌' }}</span>
+                      Un carattere speciale (!@#$%^&*)
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="confirmPasswordSetup" class="form-label">Conferma password *</label>
+                <input
+                  id="confirmPasswordSetup"
+                  v-model="credentialsForm.confirmPassword"
+                  type="password"
+                  class="form-input"
+                  placeholder="Ripeti la password"
+                  required
+                />
+              </div>
+
+              <div class="form-actions">
+                <button
+                  type="button"
+                  @click="setActiveSection('credenziali')"
+                  class="cancel-button"
+                >
+                  ← Indietro
+                </button>
+                <button
+                  type="submit"
+                  :disabled="saving"
+                  class="save-button"
+                >
+                  <span v-if="saving">🔄 Creando...</span>
+                  <span v-else">🔑 Crea password</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -1440,8 +1714,8 @@ const loadUserData = async () => {
   background: #fff;
   border-radius: 1.2rem;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-  max-width: 700px;
-  width: 90%;
+  max-width: 900px;  /* Aumentato da 700px */
+  width: 95%;
   max-height: 90vh;
   overflow: hidden;
   animation: slideUp 0.3s ease;
@@ -1638,6 +1912,105 @@ const loadUserData = async () => {
   margin-top: 0.25rem;
 }
 
+/* Password validation styles */
+.password-strength {
+  margin-top: 0.5rem;
+}
+
+.strength-bar {
+  width: 100%;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 2px;
+}
+
+.strength-fill.weak {
+  background: #ef4444;
+}
+
+.strength-fill.medium {
+  background: #f59e0b;
+}
+
+.strength-fill.good {
+  background: #3b82f6;
+}
+
+.strength-fill.strong {
+  background: #10b981;
+}
+
+.strength-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.strength-text.weak {
+  color: #ef4444;
+}
+
+.strength-text.medium {
+  color: #f59e0b;
+}
+
+.strength-text.good {
+  color: #3b82f6;
+}
+
+.strength-text.strong {
+  color: #10b981;
+}
+
+.password-requirements {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.requirements-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.5rem 0;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.requirements-list li {
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+  transition: color 0.2s ease;
+}
+
+.requirements-list li.valid {
+  color: #10b981;
+}
+
+.requirements-list li .icon {
+  margin-right: 0.5rem;
+  font-size: 0.75rem;
+}
+
 /* Photo group styles */
 .photo-group {
   align-items: flex-start;
@@ -1725,6 +2098,11 @@ const loadUserData = async () => {
   font-size: 0.9rem;
 }
 
+.missing-auth {
+  color: #dc3545 !important;
+  font-weight: 500;
+}
+
 .status-active {
   color: #28a745;
   font-weight: 600;
@@ -1737,7 +2115,279 @@ const loadUserData = async () => {
   font-size: 0.9rem;
 }
 
+/* Auth suggestion styles */
+.auth-suggestion {
+  border-radius: 1rem;
+  margin-bottom: 2rem;
+  border: 2px solid;
+  overflow: hidden;
+}
+
+.suggestion-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.auth-suggestion.danger {
+  background: linear-gradient(135deg, #fee, #fdd);
+  border-color: #dc3545;
+}
+
+.auth-suggestion.info {
+  background: linear-gradient(135deg, #e7f3ff, #d1ecf1);
+  border-color: #0066cc;
+}
+
+.auth-suggestion.success {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border-color: #28a745;
+}
+
+.suggestion-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.suggestion-text h4 {
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #404149;
+}
+
+.suggestion-text p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #666;
+}
+
+/* Auth status styles */
+.auth-method {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1rem;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.auth-method:hover {
+  border-color: #d0d0d0;
+  background: #f5f5f5;
+}
+
+.auth-info h4 {
+  margin: 0 0 0.3rem 0;
+  color: #404149;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.auth-info p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.auth-active {
+  color: #28a745 !important;
+  font-weight: 500;
+}
+
+.auth-missing {
+  color: #dc3545 !important;
+  font-weight: 500;
+}
+
+.status-active, .status-inactive {
+  font-size: 1.2rem;
+}
+
 /* Credentials form styles */
+.credentials-form {
+  background: #f8f7f3;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 2px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+}
+
+.form-header {
+  margin-bottom: 1.5rem;
+}
+
+.form-header h4 {
+  margin: 0 0 0.5rem 0;
+  color: #404149;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.form-header p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.google-connect-container {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+/* Credentials complete styles */
+.credentials-complete {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border: 2px solid #28a745;
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.complete-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.complete-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.complete-text h4 {
+  margin: 0 0 0.5rem 0;
+  color: #155724;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.complete-text p {
+  margin: 0;
+  color: #155724;
+  font-size: 0.9rem;
+}
+
+/* Setup styles */
+.credentials-setup {
+  background: #fff5f5;
+  border: 2px solid #fe4654;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.setup-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.setup-header h4 {
+  margin: 0 0 0.5rem 0;
+  color: #404149;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.setup-header p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.setup-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.setup-option {
+  width: 100%;
+  max-width: 300px;
+}
+
+.setup-btn {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #fe4654;
+  border-radius: 1rem;
+  background: white;
+  color: #fe4654;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.setup-btn:hover {
+  background: #fe4654;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.3);
+}
+
+.setup-icon {
+  font-size: 1.2rem;
+}
+
+.setup-divider {
+  text-align: center;
+  color: #666;
+  font-weight: 500;
+  margin: 0.5rem 0;
+  position: relative;
+}
+
+.setup-divider::before,
+.setup-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 1px;
+  background: #ddd;
+}
+
+.setup-divider::before {
+  left: -50px;
+}
+
+.setup-divider::after {
+  right: -50px;
+}
+
+.google-option {
+  width: 100%;
+  text-align: center;
+}
+
+.google-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: #666;
+  font-weight: 500;
+}
+
+#google-signin-settings,
+#google-signin-settings-initial {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+}
 .credentials-form {
   background: #f8f7f3;
   padding: 1.5rem;
@@ -1802,6 +2452,36 @@ const loadUserData = async () => {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+.cancel-button {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 1rem;
+  background: white;
+  color: #666;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-button:hover {
+  border-color: #ccc;
+  color: #404149;
+  transform: translateY(-1px);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+.form-actions .save-button {
+  flex: 1;
+  margin-top: 0;
 }
 
 /* Animations */

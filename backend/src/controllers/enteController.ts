@@ -3,6 +3,7 @@ import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists } from "../utils/emailHelper";
+import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 
 export const getAllEnti = async (req: Request, res: Response) => {
   try {
@@ -28,17 +29,62 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
   try {
     const { nome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
 
-    if (!isValidCodiceFiscale(codiceFiscale)) {
-      res.status(400).json({ message: "Codice fiscale non valido" });
+    // Validazioni input obbligatori
+    if (!nome || !nome.trim()) {
+      res.status(400).json({ message: "Il nome dell'ente è obbligatorio" });
       return;
     }
 
-    if (await emailExists(email)) {
+    if (!codiceFiscale || !codiceFiscale.trim()) {
+      res.status(400).json({ message: "Il codice fiscale è obbligatorio" });
+      return;
+    }
+
+    if (!email || !email.trim()) {
+      res.status(400).json({ message: "L'email è obbligatoria" });
+      return;
+    }
+
+    // Sanitizza gli input
+    const sanitizedNome = sanitizeInput(nome);
+    const sanitizedBiografia = biografia ? sanitizeInput(biografia) : "";
+    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedCodiceFiscale = codiceFiscale.trim().toUpperCase();
+
+    // Controlli di sicurezza solo se abilitati
+    const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
+    
+    if (securityEnabled) {
+      // Validazioni specifiche
+      if (!validateEmail(sanitizedEmail)) {
+        res.status(400).json({ message: "Formato email non valido" });
+        return;
+      }
+    }
+
+    // Per gli enti non validiamo il formato del codice fiscale (può essere P.IVA)
+
+    if (await emailExists(sanitizedEmail)) {
       res.status(409).json({ message: "Email già registrata" });
       return;
     }
 
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+    // Validazione password (solo se fornita e non OAuth)
+    let hashedPassword: string | undefined = undefined;
+    
+    if (password && !oauthCode) {
+      if (securityEnabled) {
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+          res.status(400).json({ 
+            message: "Password non valida", 
+            errors: passwordValidation.errors 
+          });
+          return;
+        }
+      }
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
 
     // Gestione foto profilo
     let fotoProfilo: { data?: string | Buffer, contentType?: string } | undefined = undefined;
@@ -63,11 +109,11 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     }
 
     const enteData: any = {
-      nome,
-      codiceFiscale,
-      biografia: biografia && biografia.trim() ? biografia.trim() : "Nessuna biografia fornita",
+      nome: sanitizedNome,
+      codiceFiscale: sanitizedCodiceFiscale,
+      biografia: sanitizedBiografia,
       credenziali: {
-        email,
+        email: sanitizedEmail,
         ...(hashedPassword && { password: hashedPassword }),
         ...(oauthCode && { oauthCode }),
       },

@@ -3,10 +3,22 @@ import User from "../models/User";
 import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists } from "../utils/emailHelper";
+import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
 }
+
+// Helper function per creare un oggetto utente sicuro con hasPassword
+const createSafeUser = (user: any) => {
+  const safeUser = user.toObject();
+  if (safeUser.credenziali) {
+    const hasPassword = !!safeUser.credenziali.password;
+    delete safeUser.credenziali.password;
+    (safeUser.credenziali as any).hasPassword = hasPassword;
+  }
+  return safeUser;
+};
 
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
@@ -23,18 +35,72 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   try {
     const { nome, cognome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
 
-    if (!isValidCodiceFiscale(codiceFiscale)) {
-      res.status(400).json({ message: "Codice fiscale non valido" });
+    // Validazioni input obbligatori
+    if (!nome || !nome.trim()) {
+      res.status(400).json({ message: "Il nome è obbligatorio" });
       return;
     }
 
-    if (await emailExists(email)) {
+    if (!cognome || !cognome.trim()) {
+      res.status(400).json({ message: "Il cognome è obbligatorio" });
+      return;
+    }
+
+    if (!codiceFiscale || !codiceFiscale.trim()) {
+      res.status(400).json({ message: "Il codice fiscale è obbligatorio" });
+      return;
+    }
+
+    if (!email || !email.trim()) {
+      res.status(400).json({ message: "L'email è obbligatoria" });
+      return;
+    }
+
+    // Sanitizza gli input
+    const sanitizedNome = sanitizeInput(nome);
+    const sanitizedCognome = sanitizeInput(cognome);
+    const sanitizedBiografia = biografia ? sanitizeInput(biografia) : "";
+    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedCodiceFiscale = codiceFiscale.trim().toUpperCase();
+
+    // Controlli di sicurezza solo se abilitati
+    const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
+    
+    if (securityEnabled) {
+      // Validazioni specifiche
+      if (!validateEmail(sanitizedEmail)) {
+        res.status(400).json({ message: "Formato email non valido" });
+        return;
+      }
+
+      if (!isValidCodiceFiscale(sanitizedCodiceFiscale)) {
+        res.status(400).json({ message: "Codice fiscale non valido" });
+        return;
+      }
+    }
+
+    if (await emailExists(sanitizedEmail)) {
       res.status(409).json({ message: "Email già registrata" });
       return;
     }
 
-    // Hash della password se fornita
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+    // Validazione password (solo se fornita e non OAuth)
+    let hashedPassword: string | undefined = undefined;
+    if (password && !oauthCode) {
+      const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
+      
+      if (securityEnabled) {
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+          res.status(400).json({ 
+            message: "Password non valida", 
+            errors: passwordValidation.errors 
+          });
+          return;
+        }
+      }
+      hashedPassword = await bcrypt.hash(password, 10); // Torniamo a 10 rounds
+    }
 
     // Gestione foto profilo
     let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
@@ -60,13 +126,13 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     // Crea un nuovo utente
     const newUser = new User({
-      nome,
-      cognome,
-      codiceFiscale,
-      biografia: biografia && biografia.trim() ? biografia.trim() : "Nessuna biografia fornita",
+      nome: sanitizedNome,
+      cognome: sanitizedCognome,
+      codiceFiscale: sanitizedCodiceFiscale,
+      biografia: sanitizedBiografia,
       ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
       credenziali: {
-        email,
+        email: sanitizedEmail,
         ...(hashedPassword && { password: hashedPassword }),
         ...(oauthCode && { oauthCode }),
       },
@@ -114,13 +180,7 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
     }
 
     // Crea una versione sicura dell'utente senza la password ma con un flag che indica se esiste
-    const safeUser = user.toObject();
-    if (safeUser.credenziali) {
-      const hasPassword = !!safeUser.credenziali.password;
-      delete safeUser.credenziali.password;
-      // Aggiungiamo un campo hasPassword invece di sovrascrivere password
-      (safeUser.credenziali as any).hasPassword = hasPassword;
-    }
+    const safeUser = createSafeUser(user);
 
     res.json(safeUser);
   } catch (error) {
@@ -173,12 +233,13 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
 
     await user.save();
 
-    // Rimuovi la password dalla risposta
-    const updatedUser = await User.findById(userId).select("-credenziali.password");
+    // Restituisce i dati aggiornati dell'utente con hasPassword
+    const updatedUser = await User.findById(userId);
+    const safeUser = createSafeUser(updatedUser!);
     
     res.json({
       message: "Profilo aggiornato con successo",
-      user: updatedUser
+      user: safeUser
     });
   } catch (error) {
     console.error("Errore nell'aggiornamento del profilo:", error);
@@ -196,13 +257,21 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
 
     const { newPassword } = req.body;
 
-    // Validazioni
+    // Validazioni con i nuovi standard
     if (!newPassword) {
       return res.status(400).json({ message: "La nuova password è obbligatoria" });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "La password deve contenere almeno 6 caratteri" });
+    const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
+    
+    if (securityEnabled) {
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({ 
+          message: "Password non valida", 
+          errors: passwordValidation.errors 
+        });
+      }
     }
 
     // Trova l'utente
@@ -211,7 +280,7 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
       return res.status(404).json({ message: "Utente non trovato" });
     }
 
-    // Cripta la nuova password
+    // Cripta la nuova password con 10 rounds
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Aggiorna la password
@@ -223,7 +292,14 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
 
     await user.save();
 
-    res.json({ message: "Password aggiornata con successo" });
+    // Restituisce i dati aggiornati dell'utente con hasPassword
+    const updatedUser = await User.findById(userId);
+    const safeUser = createSafeUser(updatedUser!);
+
+    res.json({ 
+      message: "Password aggiornata con successo",
+      user: safeUser
+    });
   } catch (error) {
     console.error("Errore nell'aggiornamento della password:", error);
     res.status(500).json({ message: "Errore interno del server" });
