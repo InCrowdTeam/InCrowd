@@ -71,6 +71,7 @@
                 <label for="nome" class="form-label">
                   <span class="label-icon">{{ type === 'ente' ? '🏢' : '👤' }}</span>
                   {{ type === 'ente' ? 'Nome dell\'Ente' : 'Nome' }}
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
@@ -89,6 +90,7 @@
                 <label for="cognome" class="form-label">
                   <span class="label-icon">👤</span>
                   Cognome
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
@@ -107,6 +109,7 @@
                 <label for="codiceFiscale" class="form-label">
                   <span class="label-icon">📄</span>
                   Codice Fiscale
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
@@ -122,15 +125,14 @@
             <div class="form-column">
               <div class="form-group">
                 <label for="biografia" class="form-label">
-                  <span class="label-icon">�</span>
-                  Biografia
+                  <span class="label-icon">📝</span>
+                  Biografia (facoltativa)
                 </label>
                 <textarea 
                   id="biografia" 
                   v-model="form.biografia" 
                   class="form-textarea"
                   :placeholder="type === 'ente' ? 'Descrivi la tua organizzazione...' : 'Raccontaci qualcosa di te...'"
-                  required
                 ></textarea>
               </div>
               
@@ -252,7 +254,7 @@ const form = ref({
 const showCognome = computed(() => type.value === 'user');
 
 const canProceed = computed(() => {
-  const baseFields = form.value.nome && form.value.codiceFiscale && form.value.biografia;
+  const baseFields = form.value.nome && form.value.codiceFiscale;
   
   if (type.value === 'user') {
     return baseFields && form.value.cognome;
@@ -583,6 +585,12 @@ async function handleSignUp() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.required-asterisk {
+  color: #fe4654;
+  margin-left: 0.25rem;
+  font-weight: 700;
 }
 
 .label-icon {
