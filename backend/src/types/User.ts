@@ -5,7 +5,7 @@ export interface IUser {
   nome: string;
   cognome: string;
   codiceFiscale: string;
-  biografia: string;
+  biografia?: string;
   fotoProfilo: IAllegato;
   credenziali: ICredenziali;
   createdAt: Date;

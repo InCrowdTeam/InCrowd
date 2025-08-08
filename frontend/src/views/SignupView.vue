@@ -27,6 +27,13 @@
       </div>
     </div>
 
+    <!-- Messages Area (fuori dalla card) -->
+    <div v-if="registrationMessage" class="message-container">
+      <div :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error-message' : 'success-message'">
+        {{ registrationMessage }}
+      </div>
+    </div>
+
     <!-- Form Container -->
     <div class="form-container">
       <form @submit.prevent="handleSignUp" enctype="multipart/form-data">
@@ -103,10 +110,6 @@
               </button>
             </div>
           </div>
-
-          <p v-if="registrationMessage" :class="registrationMessage && registrationMessage.startsWith('Errore') ? 'error' : 'info'">
-            {{ registrationMessage }}
-          </p>
         </div>
 
         <!-- Step 3: Dettagli Account (layout orizzontale) -->
@@ -121,75 +124,147 @@
                 <label for="nome" class="form-label">
                   <span class="label-icon">{{ type === 'ente' ? '🏢' : '👤' }}</span>
                   {{ type === 'ente' ? 'Nome dell\'Ente' : 'Nome' }}
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
                   id="nome" 
                   v-model="form.nome" 
                   class="form-input"
+                  :class="{ 'error': showErrors && !form.nome.trim() }"
                   :placeholder="type === 'ente' ? 'Es: Comune di Milano' : 'Es: Mario'"
                   required 
                 />
+                <div v-if="showErrors && !form.nome.trim()" class="field-error">
+                  Il nome è obbligatorio
+                </div>
               </div>
               
               <div v-if="type === 'user'" class="form-group">
                 <label for="cognome" class="form-label">
                   <span class="label-icon">👤</span>
                   Cognome
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
                   id="cognome" 
                   v-model="form.cognome" 
                   class="form-input"
+                  :class="{ 'error': showErrors && type === 'user' && !form.cognome.trim() }"
                   placeholder="Es: Rossi"
                   required 
                 />
+                <div v-if="showErrors && type === 'user' && !form.cognome.trim()" class="field-error">
+                  Il cognome è obbligatorio
+                </div>
               </div>
               
               <div class="form-group">
                 <label for="codiceFiscale" class="form-label">
                   <span class="label-icon">📄</span>
                   Codice Fiscale
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
                   id="codiceFiscale" 
                   v-model="form.codiceFiscale" 
                   class="form-input"
-                  placeholder="Es: RSSMRA80A01H501Z"
+                  :class="{ 'error': showErrors && (!form.codiceFiscale.trim() || (type === 'user' && !isValidCodiceFiscale)) }"
+                  :placeholder="type === 'ente' ? 'Es: 12345678901 (P.IVA/CF)' : 'Es: RSSMRA80A01H501Z'"
                   required 
+                  @blur="validateCodiceFiscale"
                 />
+                <div v-if="showErrors && !form.codiceFiscale.trim()" class="field-error">
+                  Il codice fiscale è obbligatorio
+                </div>
+                <div v-else-if="showErrors && form.codiceFiscale.trim() && type === 'user' && !isValidCodiceFiscale" class="field-error">
+                  Codice fiscale non valido
+                </div>
               </div>
               
               <div class="form-group">
                 <label for="email" class="form-label">
-                  <span class="label-icon">�</span>
+                  <span class="label-icon">✉️</span>
                   Email
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="email" 
                   id="email" 
                   v-model="form.credenziali.email" 
                   class="form-input"
+                  :class="{ 'error': showErrors && (!form.credenziali.email.trim() || !isValidEmail) }"
                   placeholder="mario.rossi@example.com"
                   required 
+                  @blur="validateEmail"
                 />
+                <div v-if="showErrors && !form.credenziali.email.trim()" class="field-error">
+                  L'email è obbligatoria
+                </div>
+                <div v-else-if="showErrors && form.credenziali.email.trim() && !isValidEmail" class="field-error">
+                  Formato email non valido
+                </div>
               </div>
               
               <div class="form-group">
                 <label for="password" class="form-label">
-                  <span class="label-icon">�</span>
+                  <span class="label-icon">🔒</span>
                   Password
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="password" 
                   id="password" 
                   v-model="form.credenziali.password" 
                   class="form-input"
+                  :class="{ 'error': showErrors && (!form.credenziali.password || !isValidPassword) }"
                   placeholder="Scegli una password sicura"
                   required 
+                  @input="validatePassword"
                 />
+                
+                <!-- Indicatori sicurezza password -->
+                <div v-if="form.credenziali.password && securityControlsEnabled" class="password-strength">
+                  <div class="strength-bar">
+                    <div class="strength-fill" :class="passwordStrengthClass" :style="{ width: passwordStrengthPercentage + '%' }"></div>
+                  </div>
+                  <p class="strength-text" :class="passwordStrengthClass">
+                    {{ passwordStrengthText }}
+                  </p>
+                </div>
+                
+                <!-- Requisiti password -->
+                <div v-if="(form.credenziali.password || showErrors) && securityControlsEnabled" class="password-requirements">
+                  <div class="requirement" :class="{ 'met': passwordChecks.length }">
+                    <span class="check-icon">{{ passwordChecks.length ? '✓' : '✗' }}</span>
+                    Almeno 8 caratteri
+                  </div>
+                  <div class="requirement" :class="{ 'met': passwordChecks.lowercase }">
+                    <span class="check-icon">{{ passwordChecks.lowercase ? '✓' : '✗' }}</span>
+                    Una lettera minuscola
+                  </div>
+                  <div class="requirement" :class="{ 'met': passwordChecks.uppercase }">
+                    <span class="check-icon">{{ passwordChecks.uppercase ? '✓' : '✗' }}</span>
+                    Una lettera maiuscola
+                  </div>
+                  <div class="requirement" :class="{ 'met': passwordChecks.number }">
+                    <span class="check-icon">{{ passwordChecks.number ? '✓' : '✗' }}</span>
+                    Un numero
+                  </div>
+                  <div class="requirement" :class="{ 'met': passwordChecks.special }">
+                    <span class="check-icon">{{ passwordChecks.special ? '✓' : '✗' }}</span>
+                    Un carattere speciale (!@#$%^&*)
+                  </div>
+                </div>
+                
+                <div v-if="showErrors && !form.credenziali.password" class="field-error">
+                  La password è obbligatoria
+                </div>
+                <div v-else-if="showErrors && form.credenziali.password && !isValidPassword" class="field-error">
+                  La password non soddisfa i requisiti di sicurezza
+                </div>
               </div>
             </div>
             
@@ -197,20 +272,19 @@
               <div class="form-group">
                 <label for="biografia" class="form-label">
                   <span class="label-icon">📋</span>
-                  Biografia
+                  Biografia (opzionale)
                 </label>
                 <textarea 
                   id="biografia" 
                   v-model="form.biografia" 
                   class="form-textarea"
                   :placeholder="type === 'ente' ? 'Descrivi la tua organizzazione...' : 'Raccontaci qualcosa di te...'"
-                  required
                 ></textarea>
               </div>
               
               <div class="form-group">
                 <label for="fotoProfilo" class="form-label">
-                  <span class="label-icon">�</span>
+                  <span class="label-icon">📸</span>
                   Foto Profilo (opzionale)
                 </label>
                 <div class="upload-area" @click="triggerFileInput">
@@ -307,6 +381,7 @@ export default {
       registrationMessage: '',
       isEmailSignup: false,
       googleSignInCompleted: false,
+      showErrors: false,
       steps: [
         { label: 'Tipo Account' },
         { label: 'Metodo' },
@@ -333,6 +408,11 @@ export default {
     progressPercentage() {
       return (this.currentStep / this.steps.length) * 100;
     },
+    
+    securityControlsEnabled() {
+      return import.meta.env.VITE_ENABLE_SECURITY_CONTROLS === 'true';
+    },
+    
     authMethodChosen() {
       // L'utente ha scelto un metodo di autenticazione se ha fatto il login con Google 
       // o se ha scelto di procedere con email (isEmailSignup = true)
@@ -340,13 +420,85 @@ export default {
     },
     canProceedStep3() {
       const baseFields = this.form.nome && this.form.codiceFiscale && 
-                        this.form.biografia && this.form.credenziali.email && 
-                        this.form.credenziali.password;
+                        this.form.credenziali.email && 
+                        this.form.credenziali.password && 
+                        this.isValidEmail && this.isValidPassword;
       
+      // Per gli utenti, controlla anche il codice fiscale e cognome
       if (this.type === 'user') {
-        return baseFields && this.form.cognome;
+        return baseFields && this.form.cognome && this.isValidCodiceFiscale;
       }
+      
+      // Per gli enti, non controlliamo il formato del codice fiscale
       return baseFields;
+    },
+    
+    // Validazioni
+    isValidEmail() {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(this.form.credenziali.email);
+    },
+    
+    isValidCodiceFiscale() {
+      // Regex per codice fiscale italiano
+      const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/;
+      return cfRegex.test(this.form.codiceFiscale.toUpperCase());
+    },
+    
+    // Controlli password
+    passwordChecks() {
+      const password = this.form.credenziali.password || '';
+      return {
+        length: password.length >= 8,
+        lowercase: /[a-z]/.test(password),
+        uppercase: /[A-Z]/.test(password),
+        number: /\d/.test(password),
+        special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+      };
+    },
+    
+    isValidPassword() {
+      const securityEnabled = import.meta.env.VITE_ENABLE_SECURITY_CONTROLS === 'true';
+      
+      if (!securityEnabled) {
+        // Controllo semplice per sviluppo
+        return this.form.credenziali.password && this.form.credenziali.password.length >= 6;
+      }
+      
+      // Controlli completi per produzione
+      const checks = this.passwordChecks;
+      return checks.length && checks.lowercase && checks.uppercase && checks.number && checks.special;
+    },
+    
+    passwordStrengthScore() {
+      const checks = this.passwordChecks;
+      let score = 0;
+      if (checks.length) score++;
+      if (checks.lowercase) score++;
+      if (checks.uppercase) score++;
+      if (checks.number) score++;
+      if (checks.special) score++;
+      return score;
+    },
+    
+    passwordStrengthPercentage() {
+      return (this.passwordStrengthScore / 5) * 100;
+    },
+    
+    passwordStrengthClass() {
+      const score = this.passwordStrengthScore;
+      if (score <= 2) return 'weak';
+      if (score <= 3) return 'medium';
+      if (score <= 4) return 'good';
+      return 'strong';
+    },
+    
+    passwordStrengthText() {
+      const score = this.passwordStrengthScore;
+      if (score <= 2) return 'Password debole';
+      if (score <= 3) return 'Password media';
+      if (score <= 4) return 'Password buona';
+      return 'Password sicura';
     }
   },
   methods: {
@@ -370,6 +522,29 @@ export default {
     chooseEmailSignup() {
       this.isEmailSignup = true;
       this.currentStep = 3;
+    },
+    
+    // Metodi di validazione
+    validateEmail() {
+      // Attiva la visualizzazione errori quando l'utente esce dal campo
+      if (!this.showErrors && this.form.credenziali.email) {
+        this.showErrors = true;
+      }
+    },
+    
+    validatePassword() {
+      // Attiva la visualizzazione errori quando l'utente inizia a scrivere
+      if (!this.showErrors && this.form.credenziali.password) {
+        this.showErrors = true;
+      }
+    },
+    
+    validateCodiceFiscale() {
+      // Normalizza e valida il codice fiscale
+      this.form.codiceFiscale = this.form.codiceFiscale.toUpperCase();
+      if (!this.showErrors && this.form.codiceFiscale) {
+        this.showErrors = true;
+      }
     },
     
     triggerFileInput() {
@@ -409,6 +584,13 @@ export default {
       try {
         this.isSubmitting = true;
         this.registrationMessage = '';
+        this.showErrors = true; // Attiva visualizzazione errori
+        
+        // Verifica che tutti i campi obbligatori siano validi
+        if (!this.canProceedStep3) {
+          this.registrationMessage = 'Compila correttamente tutti i campi obbligatori';
+          return;
+        }
         
         const formData = new FormData();
         formData.append("nome", this.form.nome);
@@ -429,8 +611,8 @@ export default {
         }
 
         const url = this.type === 'ente'
-          ? `${import.meta.env.VITE_BACKEND_URL}/api/enti`
-          : `${import.meta.env.VITE_BACKEND_URL}/api/users`;
+          ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'}/api/enti`
+          : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'}/api/users`;
 
         const response = await fetch(url, {
           method: "POST",
@@ -871,6 +1053,12 @@ export default {
   font-size: 0.95rem;
 }
 
+.required-asterisk {
+  color: #fe4654;
+  margin-left: 0.25rem;
+  font-weight: 700;
+}
+
 .label-icon {
   margin-right: 0.5rem;
   font-size: 1rem;
@@ -892,6 +1080,109 @@ export default {
 .form-textarea:focus {
   border-color: #fe4654;
   box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.form-input.error,
+.form-textarea.error {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+  font-weight: 500;
+}
+
+/* Password Strength */
+.password-strength {
+  margin-top: 0.5rem;
+}
+
+.strength-bar {
+  width: 100%;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.strength-fill.weak {
+  background: #dc2626;
+}
+
+.strength-fill.medium {
+  background: #f59e0b;
+}
+
+.strength-fill.good {
+  background: #3b82f6;
+}
+
+.strength-fill.strong {
+  background: #10b981;
+}
+
+.strength-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.strength-text.weak {
+  color: #dc2626;
+}
+
+.strength-text.medium {
+  color: #f59e0b;
+}
+
+.strength-text.good {
+  color: #3b82f6;
+}
+
+.strength-text.strong {
+  color: #10b981;
+}
+
+/* Password Requirements */
+.password-requirements {
+  margin-top: 0.5rem;
+  padding: 0.8rem;
+  background: #f8fafc;
+  border-radius: 0.8rem;
+  border: 1px solid #e2e8f0;
+}
+
+.requirement {
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.requirement:last-child {
+  margin-bottom: 0;
+}
+
+.requirement.met {
+  color: #10b981;
+}
+
+.check-icon {
+  margin-right: 0.5rem;
+  font-weight: 600;
+  font-size: 0.75rem;
 }
 
 .form-textarea {
@@ -1206,9 +1497,31 @@ export default {
     text-align: center;
     gap: 0.5rem;
   }
-  
-  .card-icon {
-    font-size: 1.5rem;
-  }
+}
+
+/* Message Container fuori dalla card */
+.message-container {
+  margin: 1rem 1.5rem;
+  z-index: 10;
+}
+
+.error-message {
+  background: #fff2f2;
+  color: #e74c3c;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #e74c3c;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(231, 76, 60, 0.1);
+}
+
+.success-message {
+  background: #f0fff4;
+  color: #27ae60;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #27ae60;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(39, 174, 96, 0.1);
 }
 </style>

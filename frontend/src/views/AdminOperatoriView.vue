@@ -28,46 +28,105 @@
         <form @submit.prevent="create" class="operator-form">
           <div class="form-row">
             <div class="form-group">
-              <label for="nome">Nome</label>
+              <label for="nome">Nome <span class="required-asterisk">*</span></label>
               <input 
                 id="nome"
                 v-model="form.nome" 
                 type="text"
                 placeholder="Nome operatore" 
+                :class="{ 'error': showErrors && !form.nome.trim() }"
                 required 
               />
+              <div v-if="showErrors && !form.nome.trim()" class="field-error">
+                Il nome è obbligatorio
+              </div>
             </div>
             <div class="form-group">
-              <label for="cognome">Cognome</label>
+              <label for="cognome">Cognome <span class="required-asterisk">*</span></label>
               <input 
                 id="cognome"
                 v-model="form.cognome" 
                 type="text"
                 placeholder="Cognome operatore" 
+                :class="{ 'error': showErrors && !form.cognome.trim() }"
                 required 
               />
+              <div v-if="showErrors && !form.cognome.trim()" class="field-error">
+                Il cognome è obbligatorio
+              </div>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="email">Email</label>
+              <label for="email">Email <span class="required-asterisk">*</span></label>
               <input 
                 id="email"
                 v-model="form.email" 
                 type="email"
                 placeholder="email@esempio.com" 
+                :class="{ 'error': showErrors && (!form.email.trim() || !isValidEmail) }"
                 required 
+                @blur="validateEmail"
               />
+              <div v-if="showErrors && !form.email.trim()" class="field-error">
+                L'email è obbligatoria
+              </div>
+              <div v-else-if="showErrors && form.email.trim() && !isValidEmail" class="field-error">
+                Formato email non valido
+              </div>
             </div>
             <div class="form-group">
-              <label for="password">Password</label>
+              <label for="password">Password <span class="required-asterisk">*</span></label>
               <input 
                 id="password"
                 v-model="form.password" 
                 type="password"
                 placeholder="Password sicura" 
+                :class="{ 'error': showErrors && (!form.password || !isValidPassword) }"
                 required 
+                @input="validatePassword"
               />
+              
+              <!-- Indicatori sicurezza password -->
+              <div v-if="form.password && securityControlsEnabled" class="password-strength">
+                <div class="strength-bar">
+                  <div class="strength-fill" :class="passwordStrengthClass" :style="{ width: passwordStrengthPercentage + '%' }"></div>
+                </div>
+                <p class="strength-text" :class="passwordStrengthClass">
+                  {{ passwordStrengthText }}
+                </p>
+              </div>
+              
+              <!-- Requisiti password -->
+              <div v-if="(form.password || showErrors) && securityControlsEnabled" class="password-requirements">
+                <div class="requirement" :class="{ 'met': passwordChecks.length }">
+                  <span class="check-icon">{{ passwordChecks.length ? '✓' : '✗' }}</span>
+                  Almeno 8 caratteri
+                </div>
+                <div class="requirement" :class="{ 'met': passwordChecks.lowercase }">
+                  <span class="check-icon">{{ passwordChecks.lowercase ? '✓' : '✗' }}</span>
+                  Una lettera minuscola
+                </div>
+                <div class="requirement" :class="{ 'met': passwordChecks.uppercase }">
+                  <span class="check-icon">{{ passwordChecks.uppercase ? '✓' : '✗' }}</span>
+                  Una lettera maiuscola
+                </div>
+                <div class="requirement" :class="{ 'met': passwordChecks.number }">
+                  <span class="check-icon">{{ passwordChecks.number ? '✓' : '✗' }}</span>
+                  Un numero
+                </div>
+                <div class="requirement" :class="{ 'met': passwordChecks.special }">
+                  <span class="check-icon">{{ passwordChecks.special ? '✓' : '✗' }}</span>
+                  Un carattere speciale (!@#$%^&*)
+                </div>
+              </div>
+              
+              <div v-if="showErrors && !form.password" class="field-error">
+                La password è obbligatoria
+              </div>
+              <div v-else-if="showErrors && form.password && !isValidPassword" class="field-error">
+                La password non soddisfa i requisiti di sicurezza
+              </div>
             </div>
           </div>
           <button type="submit" class="add-button" :disabled="submitting">
@@ -113,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { getAllOperatori, createOperatoreAdmin, deleteOperatore } from '@/api/operatoreApi'
 
@@ -124,8 +183,83 @@ const store = useUserStore()
 // Stati UI
 const loading = ref(true)
 const submitting = ref(false)
+const showErrors = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+
+// Computed
+const securityControlsEnabled = computed(() => {
+  return import.meta.env.VITE_ENABLE_SECURITY_CONTROLS === 'true'
+})
+
+const isValidEmail = computed(() => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(form.value.email)
+})
+
+const passwordChecks = computed(() => {
+  const password = form.value.password || ''
+  return {
+    length: password.length >= 8,
+    lowercase: /[a-z]/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    number: /\d/.test(password),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  }
+})
+
+const isValidPassword = computed(() => {
+  if (!securityControlsEnabled.value) {
+    return form.value.password && form.value.password.length >= 6
+  }
+  
+  const checks = passwordChecks.value
+  return checks.length && checks.lowercase && checks.uppercase && checks.number && checks.special
+})
+
+const passwordStrengthScore = computed(() => {
+  const checks = passwordChecks.value
+  let score = 0
+  if (checks.length) score++
+  if (checks.lowercase) score++
+  if (checks.uppercase) score++
+  if (checks.number) score++
+  if (checks.special) score++
+  return score
+})
+
+const passwordStrengthPercentage = computed(() => {
+  return (passwordStrengthScore.value / 5) * 100
+})
+
+const passwordStrengthClass = computed(() => {
+  const score = passwordStrengthScore.value
+  if (score <= 2) return 'weak'
+  if (score <= 3) return 'medium'
+  if (score <= 4) return 'good'
+  return 'strong'
+})
+
+const passwordStrengthText = computed(() => {
+  const score = passwordStrengthScore.value
+  if (score <= 2) return 'Password debole'
+  if (score <= 3) return 'Password media'
+  if (score <= 4) return 'Password buona'
+  return 'Password sicura'
+})
+
+// Metodi di validazione
+const validateEmail = () => {
+  if (!showErrors.value && form.value.email) {
+    showErrors.value = true
+  }
+}
+
+const validatePassword = () => {
+  if (!showErrors.value && form.value.password) {
+    showErrors.value = true
+  }
+}
 
 const fetchOperatori = async () => {
   try {
@@ -145,11 +279,37 @@ const create = async () => {
     submitting.value = true
     errorMessage.value = ''
     successMessage.value = ''
+    showErrors.value = true
+    
+    // Validazione dei campi obbligatori
+    if (!form.value.nome || !form.value.cognome || !form.value.email || !form.value.password) {
+      errorMessage.value = 'Tutti i campi sono obbligatori'
+      return
+    }
+    
+    // Validazione email
+    if (!isValidEmail.value) {
+      errorMessage.value = 'Inserisci un indirizzo email valido'
+      return
+    }
+    
+    // Validazione password se i controlli di sicurezza sono abilitati
+    if (securityControlsEnabled.value && !isValidPassword.value) {
+      errorMessage.value = 'La password non soddisfa i requisiti di sicurezza'
+      return
+    }
+    
+    // Se i controlli di sicurezza sono disabilitati, controllo minimo di 6 caratteri
+    if (!securityControlsEnabled.value && form.value.password.length < 6) {
+      errorMessage.value = 'La password deve essere di almeno 6 caratteri'
+      return
+    }
     
     await createOperatoreAdmin(form.value, store.token)
     
     successMessage.value = `Operatore ${form.value.nome} ${form.value.cognome} creato con successo!`
     form.value = { nome: '', cognome: '', email: '', password: '' }
+    showErrors.value = false
     
     // Nascondi messaggio di successo dopo 3 secondi
     setTimeout(() => {
@@ -327,6 +487,124 @@ onMounted(fetchOperatori)
 
 .form-group input:focus {
   border-color: #404149;
+}
+
+.form-group input.error {
+  border-color: #e74c3c;
+  box-shadow: 0 0 5px rgba(231, 76, 60, 0.3);
+}
+
+.required-asterisk {
+  color: #e74c3c;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+.field-error {
+  color: #e74c3c;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  display: block;
+}
+
+.password-strength {
+  margin-top: 10px;
+}
+
+.password-strength-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.password-strength-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.password-strength-fill.weak {
+  background-color: #e74c3c;
+}
+
+.password-strength-fill.medium {
+  background-color: #f39c12;
+}
+
+.password-strength-fill.good {
+  background-color: #3498db;
+}
+
+.password-strength-fill.strong {
+  background-color: #27ae60;
+}
+
+.password-strength-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.password-strength-text.weak {
+  color: #e74c3c;
+}
+
+.password-strength-text.medium {
+  color: #f39c12;
+}
+
+.password-strength-text.good {
+  color: #3498db;
+}
+
+.password-strength-text.strong {
+  color: #27ae60;
+}
+
+.password-requirements {
+  margin-top: 10px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.password-requirements h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #495057;
+}
+
+.requirement-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.requirement-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.requirement-item.valid {
+  color: #28a745;
+}
+
+.requirement-item.invalid {
+  color: #dc3545;
+}
+
+.requirement-item::before {
+  content: '✓';
+  margin-right: 8px;
+  font-weight: bold;
+}
+
+.requirement-item.invalid::before {
+  content: '✗';
 }
 
 .add-button {
