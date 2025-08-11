@@ -45,6 +45,7 @@
                 :src="proponenteAvatar"
                 alt="Avatar del proponente" 
                 class="avatar-image"
+                @error="onProponenteAvatarError"
               />
               <div v-else class="avatar-placeholder">
                 {{ getInitials(proponente?.nome, proponente?.cognome) }}
@@ -125,6 +126,7 @@
                 :src="getUserAvatar(userStore.user)"
                 alt="Foto profilo" 
                 class="avatar-image"
+                @error="onUserAvatarError"
               />
               <div v-else class="avatar-placeholder">
                 {{ getInitials(userStore.user.nome, userStore.user.cognome) }}
@@ -183,6 +185,7 @@
                   :src="getCommentUserAvatar(commento.utente?._id)"
                   alt="Avatar del commentatore" 
                   class="avatar-image"
+                  @error="onAvatarError($event, commento.utente?._id)"
                 />
                 <div v-else class="avatar-placeholder">
                   {{ getInitials(commento.utente?.nome, commento.utente?.cognome) }}
@@ -191,7 +194,7 @@
               <div class="comment-content">
                 <div class="comment-header">
                   <span class="comment-author">{{ getUserName(commento) }}</span>
-                  <span class="comment-date" :title="formatDateTime(commento.createdAt)">{{ formatDate(commento.createdAt) }}</span>
+                  <span class="comment-date" :title="formatDateTime(commento.createdAt?.toString() || '')">{{ formatDate(commento.createdAt?.toString() || '') }}</span>
                 </div>
                 <div class="comment-text">{{ commento.contenuto }}</div>
               </div>
@@ -270,6 +273,34 @@ function getCommentUserAvatar(userId?: string): string {
   // Restituiamo stringa vuota se non c'è avatar o se è stringa vuota
   // Questo farà funzionare correttamente il v-if nel template
   return avatar || '';
+}
+
+// Funzione per gestire errori di caricamento avatar
+function onAvatarError(event: Event, userId?: string) {
+  if (userId) {
+    // Rimuovi l'avatar dalla cache così il placeholder verrà mostrato
+    commentUserAvatars.value.set(userId, '');
+    // Nascondi l'elemento img che ha dato errore
+    const img = event.target as HTMLImageElement;
+    img.style.display = 'none';
+  }
+}
+
+// Funzione per gestire errori di caricamento avatar del proponente
+function onProponenteAvatarError(event: Event) {
+  // Reset dell'avatar del proponente così il placeholder verrà mostrato
+  proponenteAvatar.value = null;
+  // Nascondi l'elemento img che ha dato errore
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+}
+
+// Funzione per gestire errori di caricamento avatar dell'utente nel form
+function onUserAvatarError(event: Event) {
+  // Nascondi l'elemento img che ha dato errore
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  // Il getUserAvatar fallirà al prossimo render e mostrerà il placeholder
 }
 
 // Funzione per processare le immagini (spostata dal service)

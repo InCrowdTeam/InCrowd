@@ -70,10 +70,12 @@ onMounted(async () => {
     console.log("🔍 Debug - Token presente:", !!userStore.token);
     console.log("🔍 Debug - User presente:", !!userStore.user);
     console.log("🔍 Debug - User ID:", userStore.user?._id);
+    console.log("🔍 Debug - Backend URL:", import.meta.env.VITE_BACKEND_URL);
     
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
       console.error("❌ Utente non autenticato");
+      loading.value = false;
       return;
     }
     
@@ -96,7 +98,8 @@ onMounted(async () => {
         }
       });
       console.log("✅ Proposte ricevute:", mieProposteRes.data);
-      mieProposte.value = mieProposteRes.data;
+      // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
+      mieProposte.value = mieProposteRes.data.data || mieProposteRes.data;
     } catch (err) {
       console.error("❌ Errore nel caricamento delle mie proposte:", err);
     }
@@ -104,7 +107,8 @@ onMounted(async () => {
     // Carica tutte le proposte approvate per i filtri degli hyped
     try {
       const proposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`);
-      const allProposte = proposteRes.data;
+      // L'API delle proposte usa successResponse che wrappa i dati
+      const allProposte = proposteRes.data.data || proposteRes.data;
       
       hypedProposte.value = allProposte.filter(
         (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
@@ -136,7 +140,7 @@ const rimuoviProposta = async (proposta: IProposta) => {
   
   try {
     const response = await axios.delete(
-      `${import.meta.env.VITE_BACKEND_URL}/api/proposte/${encodeURIComponent(proposta.titolo)}`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/proposte/${proposta._id}`,
       {
         headers: {
           'Authorization': `Bearer ${userStore.token}`
@@ -146,7 +150,7 @@ const rimuoviProposta = async (proposta: IProposta) => {
     
     if (response.status === 200) {
       // Rimuovi la proposta dalla lista locale
-      mieProposte.value = mieProposte.value.filter(p => p.titolo !== proposta.titolo);
+      mieProposte.value = mieProposte.value.filter(p => p._id !== proposta._id);
       alert("Proposta eliminata con successo!");
     }
   } catch (err: any) {
@@ -160,7 +164,7 @@ const unhypeProposta = async (proposta: IProposta) => {
   try {
     // Usa l'endpoint hyper che fa il toggle - se già hypata, la rimuove
     const response = await axios.patch(
-      `${import.meta.env.VITE_BACKEND_URL}/api/proposte/${encodeURIComponent(proposta.titolo)}/hyper`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/proposte/${proposta._id}/hyper`,
       {},
       {
         headers: {
@@ -171,7 +175,7 @@ const unhypeProposta = async (proposta: IProposta) => {
     
     if (response.status === 200) {
       // Rimuovi la proposta dalla lista locale
-      hypedProposte.value = hypedProposte.value.filter(p => p.titolo !== proposta.titolo);
+      hypedProposte.value = hypedProposte.value.filter(p => p._id !== proposta._id);
     }
   } catch (err: any) {
     console.error("Errore nell'unhype:", err);
@@ -659,7 +663,7 @@ const loadUserData = async () => {
             <p>Le tue proposte appariranno qui una volta pubblicate</p>
           </div>
           <div v-else class="proposals-grid">
-            <div v-for="proposta in mieProposte" :key="proposta.titolo" class="proposal-card">
+            <div v-for="proposta in mieProposte" :key="proposta._id" class="proposal-card">
               <div class="proposal-image-container">
                 <img 
                   v-if="proposta.foto?.data"
@@ -702,7 +706,7 @@ const loadUserData = async () => {
             <p>Le proposte che hai hypato appariranno qui</p>
           </div>
           <div v-else class="proposals-grid">
-            <div v-for="proposta in hypedProposte" :key="proposta.titolo" class="proposal-card">
+            <div v-for="proposta in hypedProposte" :key="proposta._id" class="proposal-card">
               <div class="proposal-image-container">
                 <img 
                   v-if="proposta.foto?.data"
