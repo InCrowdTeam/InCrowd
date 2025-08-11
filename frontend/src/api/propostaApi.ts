@@ -39,10 +39,11 @@ export async function searchProposte(filters: SearchFilters = {}) {
   
   if (!res.ok) {
     const error = await res.json();
-    throw new Error(error.message || 'Errore nella ricerca proposte');
+    throw new Error(error.error || error.message || 'Errore nella ricerca proposte');
   }
 
-  return res.json();
+  const response = await res.json();
+  return response.success ? response.data : response;
 }
 
 export async function getAllProposte() {
@@ -50,10 +51,11 @@ export async function getAllProposte() {
   
   if (!res.ok) {
     const error = await res.json();
-    throw new Error(error.message || 'Errore nel recupero proposte');
+    throw new Error(error.error || error.message || 'Errore nel recupero proposte');
   }
 
-  return res.json();
+  const response = await res.json();
+  return response.success ? response.data : response;
 }
 
 // Proposte in attesa di moderazione
@@ -75,7 +77,7 @@ export async function getPendingProposte(token: string) {
 
 // Aggiungi/rimuovi da hyper lista
 export async function toggleHyperProposta(propostaId: string, token: string) {
-  const res = await fetch(`${BASE_URL}/${encodeURIComponent(propostaId)}/hyper`, {
+  const res = await fetch(`${BASE_URL}/${propostaId}/hyper`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -92,8 +94,8 @@ export async function toggleHyperProposta(propostaId: string, token: string) {
 }
 
 // Cambia stato proposta (moderazione)
-export async function changePropostaState(titolo: string, stato: string, token: string, commento?: string) {
-  const res = await fetch(`${BASE_URL}/${encodeURIComponent(titolo)}/stato`, {
+export async function changePropostaState(propostaId: string, stato: string, token: string, commento?: string) {
+  const res = await fetch(`${BASE_URL}/${propostaId}/stato`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -112,7 +114,7 @@ export async function changePropostaState(titolo: string, stato: string, token: 
 
 // Gestione commenti
 export async function getCommenti(propostaId: string) {
-  const res = await fetch(`${BASE_URL}/${encodeURIComponent(propostaId)}/commenti`);
+  const res = await fetch(`${BASE_URL}/${propostaId}/commenti`);
   
   if (!res.ok) {
     const error = await res.json();
@@ -123,7 +125,7 @@ export async function getCommenti(propostaId: string) {
 }
 
 export async function addCommento(propostaId: string, testoCommento: string, token: string) {
-  const res = await fetch(`${BASE_URL}/${encodeURIComponent(propostaId)}/commenti`, {
+  const res = await fetch(`${BASE_URL}/${propostaId}/commenti`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -135,6 +137,17 @@ export async function addCommento(propostaId: string, testoCommento: string, tok
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.message || 'Errore nell\'aggiunta commento');
+  }
+
+  return res.json();
+}
+
+export async function getPropostaById(id: string) {
+  const res = await fetch(`${BASE_URL}/${id}`);
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nel recupero della proposta');
   }
 
   return res.json();

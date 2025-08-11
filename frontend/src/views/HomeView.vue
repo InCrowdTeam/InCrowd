@@ -130,7 +130,7 @@ async function caricaCommenti() {
   
   isCommentsLoading.value = true
   try {
-    const data = await getCommenti(propostaSelezionata.value.titolo);
+    const data = await getCommenti(propostaSelezionata.value._id);
     commentiProposta.value = data.commenti || [];
   } catch (err: any) {
     console.error("Errore nel caricamento commenti:", err);
@@ -149,7 +149,7 @@ async function inviaCommento() {
   
   try {
     await addCommento(
-      propostaSelezionata.value.titolo,
+      propostaSelezionata.value._id,
       commentoTemp,
       userStore.token
     );
@@ -199,7 +199,7 @@ async function handleHyper() {
   
   try {
     const updatedProposta = await toggleHyperProposta(
-      propostaSelezionata.value.titolo,
+      propostaSelezionata.value._id,
       userStore.token
     );
     
@@ -207,14 +207,14 @@ async function handleHyper() {
     propostaSelezionata.value = updatedProposta;
     
     // Aggiorna anche la proposta nella lista principale
-    const index = proposte.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
+    const index = proposte.value.findIndex(p => p._id === propostaSelezionata.value!._id);
     if (index !== -1) {
       proposte.value[index] = updatedProposta;
     }
     
     // Aggiorna anche la proposta nei risultati di ricerca se presenti
     if (searchExecuted.value && searchResults.value.length > 0) {
-      const searchIndex = searchResults.value.findIndex(p => p.titolo === propostaSelezionata.value!.titolo);
+      const searchIndex = searchResults.value.findIndex(p => p._id === propostaSelezionata.value!._id);
       if (searchIndex !== -1) {
         searchResults.value[searchIndex] = updatedProposta;
       }
@@ -635,6 +635,10 @@ watch(propostaSelezionata, (newProposta) => {
                     </div>
                   </div>
                 </div>
+
+                <button @click.stop="$router.push(`/proposte/${proposta._id}`)" class="open-in-new-page-btn">
+                  Apri in nuova pagina
+                </button>
               </div>
             </div>
           </div>
@@ -1388,6 +1392,24 @@ ul {
 
 .proposta-card:hover .proposta-img {
   transform: scale(1.05);
+}
+
+.open-in-new-page-btn {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.proposta-card:hover .open-in-new-page-btn {
+  opacity: 1;
 }
 
 .proposta-img-placeholder {
