@@ -72,8 +72,10 @@ onMounted(async () => {
   try {
     loading.value = true;
     
+    
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
+      console.error("❌ Utente non autenticato");
       loading.value = false;
       return;
     }
@@ -155,6 +157,7 @@ const rimuoviProposta = async (proposta: IProposta) => {
     if (response.status === 200) {
       // Rimuovi la proposta dalla lista locale
       mieProposte.value = mieProposte.value.filter(p => p._id !== proposta._id);
+      
       await showSuccess("Proposta eliminata con successo!");
     }
   } catch (err: any) {

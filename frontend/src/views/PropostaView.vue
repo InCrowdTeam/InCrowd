@@ -257,6 +257,7 @@ async function loadCommentAvatars() {
         // Questo eviterà richieste ripetute e il v-if funzionerà correttamente
         commentUserAvatars.value.set(commento.utente._id, avatarUrl || '');
       } catch (error) {
+        console.error('❌ Errore nel caricamento avatar per', commento.utente._id, ':', error);
         // Salviamo stringa vuota in caso di errore
         commentUserAvatars.value.set(commento.utente._id, '');
       }
@@ -272,6 +273,7 @@ async function loadProponenteAvatar() {
       // Impostiamo sempre il valore - se vuoto, il v-if mostrerà il placeholder
       proponenteAvatar.value = avatarUrl || null;
     } catch (error) {
+      console.error('❌ Errore nel caricamento avatar proponente:', error);
       proponenteAvatar.value = null;
     }
   }
@@ -361,6 +363,7 @@ function canDeleteComment(commento: any): boolean {
   
   return false;
 }
+
 // Computed per hyper
 const isHyperUser = computed(() => {
   const listaHyper = proposta.value?.listaHyper;
@@ -1188,6 +1191,12 @@ watch(proposta, (newProposta) => {
   font-weight: 700;
   color: var(--color-heading);
   font-size: 1rem;
+}
+
+.comment-date {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .delete-comment-btn {
