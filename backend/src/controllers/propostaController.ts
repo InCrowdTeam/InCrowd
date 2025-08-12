@@ -18,7 +18,8 @@ const errorResponse = (message: string, error?: any) => ({
 
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
-    const proposte = await Proposta.find({"stato.stato": "approvata"});
+    const proposte = await Proposta.find({"stato.stato": "approvata"})
+      .sort({ createdAt: -1 }); // Ordina per data di creazione decrescente (più recenti prima)
     const proposteProcessate = proposte.map(p => {
       const obj = p.toObject();
       // se è ancora Buffer lo converto, altrimenti lascio la stringa

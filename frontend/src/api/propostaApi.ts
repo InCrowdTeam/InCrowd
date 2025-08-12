@@ -47,15 +47,27 @@ export async function searchProposte(filters: SearchFilters = {}) {
 }
 
 export async function getAllProposte() {
-  const res = await fetch(BASE_URL);
+  console.log('🌐 Chiamata fetch a:', BASE_URL)
   
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || error.message || 'Errore nel recupero proposte');
-  }
+  try {
+    const res = await fetch(BASE_URL);
+    console.log('📡 Risposta fetch status:', res.status, res.statusText)
+    
+    if (!res.ok) {
+      const error = await res.json();
+      console.error('❌ Errore risposta:', error)
+      throw new Error(error.error || error.message || 'Errore nel recupero proposte');
+    }
 
-  const response = await res.json();
-  return response.success ? response.data : response;
+    const response = await res.json();
+    console.log('📦 Risposta JSON:', response)
+    const result = response.success ? response.data : response;
+    console.log('✅ Risultato finale:', result)
+    return result;
+  } catch (fetchError) {
+    console.error('🚨 Errore nella fetch:', fetchError)
+    throw fetchError;
+  }
 }
 
 // Proposte in attesa di moderazione

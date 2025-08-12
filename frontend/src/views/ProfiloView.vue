@@ -122,7 +122,7 @@ onMounted(async () => {
     if (userId && !userStore.user?.biografia) {
       try {
         const userRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`);
-        userStore.user = { ...userStore.user, ...userRes.data };
+        userStore.setUser({ ...userStore.user, ...userRes.data.data });
       } catch (err) {
         console.error("Errore nel caricamento dati utente:", err);
       }
@@ -375,10 +375,16 @@ const saveProfileChanges = async () => {
       }
     );
     
-    if (response.data.user) {
-      userStore.setUser(response.data.user);
+    if (response.data.data) {
+      userStore.setUser(response.data.data);
       showMessage('Profilo aggiornato con successo!');
       profileForm.value.fotoProfilo = null;
+      
+      // Aggiorna il form con i nuovi dati per sincronizzarlo con lo store
+      profileForm.value.nome = response.data.data.nome || '';
+      profileForm.value.cognome = response.data.data.cognome || '';
+      profileForm.value.email = response.data.data.credenziali?.email || '';
+      profileForm.value.biografia = response.data.data.biografia || '';
     }
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || 'Errore durante l\'aggiornamento del profilo';
@@ -443,8 +449,8 @@ const setPassword = async () => {
     credentialsForm.value.confirmPassword = '';
     
     // Aggiorna l'utente con i dati ricevuti dal server
-    if (response.data.user) {
-      userStore.setUser(response.data.user);
+    if (response.data.data) {
+      userStore.setUser(response.data.data);
     } else {
       // Fallback: ricarica i dati utente
       await loadUserData();
@@ -564,8 +570,8 @@ const loadUserData = async () => {
       }
     );
     
-    if (response.data) {
-      userStore.setUser(response.data);
+    if (response.data.data) {
+      userStore.setUser(response.data.data);
     }
   } catch (error) {
     console.error('Errore nel caricamento dati utente:', error);

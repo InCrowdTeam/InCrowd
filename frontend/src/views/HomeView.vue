@@ -5,16 +5,11 @@ import { useUserStore } from '@/stores/userStore'
 import { 
   searchProposte, 
   type SearchFilters, 
-  getAllProposte, 
-  getCommenti, 
-  addCommento, 
-  toggleHyperProposta 
+  getAllProposte
 } from '@/api/propostaApi'
 
 // Stato di caricamento
 const isLoading = ref(false)
-const isCommentsLoading = ref(false)
-const isHyperLoading = ref(false)
 
 // Funzione locale per gestire la visualizzazione delle immagini
 function processImageUrl(foto: any): string {
@@ -105,8 +100,7 @@ const proposteVisualizzate = computed(() => {
 const hasActiveFilters = computed(() => {
   return searchQuery.value || 
          searchFilters.value.categoria || 
-         searchFilters.value.citta || 
-         searchFilters.value.stato
+         searchFilters.value.citta
 })
 
 // CLASSIFICA - proposte ordinate per numero di hyper
@@ -121,117 +115,11 @@ const isOperatore = computed(() => userStore.isOperatore)
 const isAmministratore = computed(() => userStore.isAdmin)
 const canHype = computed(() => userStore.canHype)
 
-// LOGICA PER I COMMENTI
-const commentiProposta = ref<any[]>([])
-const nuovoCommento = ref("")
+// LOGICA PER I COMMENTI - RIMOSSA
 
-async function caricaCommenti() {
-  if (!propostaSelezionata.value || isCommentsLoading.value) return;
-  
-  isCommentsLoading.value = true
-  try {
-    const data = await getCommenti(propostaSelezionata.value._id);
-    commentiProposta.value = data.commenti || [];
-  } catch (err: any) {
-    console.error("Errore nel caricamento commenti:", err);
-    commentiProposta.value = [];
-  } finally {
-    isCommentsLoading.value = false
-  }
-}
+// PROPOSTA DA APRIRE SULLA DESTRA - RIMOSSA
 
-async function inviaCommento() {
-  if (!nuovoCommento.value.trim() || !propostaSelezionata.value || !userStore.user?._id || isLoading.value) return;
-  
-  const commentoTemp = nuovoCommento.value.trim()
-  nuovoCommento.value = ""
-  isLoading.value = true
-  
-  try {
-    await addCommento(
-      propostaSelezionata.value._id,
-      commentoTemp,
-      userStore.token
-    );
-    
-    await caricaCommenti();
-  } catch (err: any) {
-    console.error("Errore commento:", err);
-    nuovoCommento.value = commentoTemp // Ripristina il commento in caso di errore
-    if (err.response?.status === 401) {
-      alert("Sessione scaduta. Effettua nuovamente il login.");
-    } else {
-      alert("Errore nell'invio del commento");
-    }
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// PROPOSTA DA APRIRE SULLA DESTRA
-const propostaSelezionata = ref<IProposta | null>(null);
-
-async function apriDettaglio(proposta: IProposta) {
-  propostaSelezionata.value = proposta;
-  commentiProposta.value = []; // Reset commenti
-  await caricaCommenti();
-}
-
-function chiudiDettaglio() {
-  propostaSelezionata.value = null;
-  commentiProposta.value = [];
-}
-
-// LOGICA PER IL BOTTONE HYPE
-const isHyperUser = computed(() => {
-  const listaHyper = propostaSelezionata.value?.listaHyper;
-  return Array.isArray(listaHyper) && listaHyper.includes(userStore.user?._id);
-})
-
-const hyperCount = computed(() => {
-  return propostaSelezionata.value?.listaHyper?.length || 0;
-})
-
-async function handleHyper() {
-  if (!canHype.value || !propostaSelezionata.value || !userStore.user?._id || isHyperLoading.value) return;
-  
-  isHyperLoading.value = true
-  
-  try {
-    const updatedProposta = await toggleHyperProposta(
-      propostaSelezionata.value._id,
-      userStore.token
-    );
-    
-    // Aggiorna la proposta selezionata
-    propostaSelezionata.value = updatedProposta;
-    
-    // Aggiorna anche la proposta nella lista principale
-    const index = proposte.value.findIndex(p => p._id === propostaSelezionata.value!._id);
-    if (index !== -1) {
-      proposte.value[index] = updatedProposta;
-    }
-    
-    // Aggiorna anche la proposta nei risultati di ricerca se presenti
-    if (searchExecuted.value && searchResults.value.length > 0) {
-      const searchIndex = searchResults.value.findIndex(p => p._id === propostaSelezionata.value!._id);
-      if (searchIndex !== -1) {
-        searchResults.value[searchIndex] = updatedProposta;
-      }
-    }
-  } catch (err: any) {
-    console.error("Errore hyper:", err);
-    if (err.response?.status === 401) {
-      alert("Sessione scaduta. Effettua nuovamente il login.");
-    } else if (err.response?.status === 403) {
-      alert("Non hai il permesso di mettere hyper.");
-    } else {
-      alert("Errore nell'aggiunta dell'hyper");
-    }
-  } finally {
-    isHyperLoading.value = false
-  }
-}
+// LOGICA PER IL BOTTONE HYPE - RIMOSSA
 
 // Funzione per ottenere il badge dell'utente (disabilitata)
 function getUserBadge(commento: any) {
@@ -312,13 +200,6 @@ onMounted(async () => {
     console.error('Errore nel recupero proposte:', error)
   } finally {
     isLoading.value = false
-  }
-})
-
-// Watch per ricaricare i commenti quando cambia la proposta selezionata
-watch(propostaSelezionata, (newProposta) => {
-  if (newProposta) {
-    caricaCommenti()
   }
 })
 </script>
@@ -403,28 +284,7 @@ watch(propostaSelezionata, (newProposta) => {
               />
             </div>
 
-            <!-- Filtro stato -->
-            <div class="filter-group">
-              <label class="filter-label">Stato</label>
-              <select v-model="searchFilters.stato" @change="onSearch" class="filter-select">
-                <option value="">Tutti gli stati</option>
-                <option value="proposta">📝 Proposta</option>
-                <option value="approvata">✅ Approvata</option>
-                <option value="respinta">❌ Respinta</option>
-                <option value="in_corso">🔄 In corso</option>
-                <option value="completata">✅ Completata</option>
-              </select>
-            </div>
 
-            <!-- Ordinamento -->
-            <div class="filter-group">
-              <label class="filter-label">Ordina per</label>
-              <select v-model="searchFilters.sortBy" @change="onSearch" class="filter-select">
-                <option value="createdAt">Data creazione</option>
-                <option value="hyperCount">Numero di hyper</option>
-                <option value="titolo">Titolo</option>
-              </select>
-            </div>
           </div>
 
           <div class="filters-actions">
@@ -450,10 +310,6 @@ watch(propostaSelezionata, (newProposta) => {
           <span v-if="searchFilters.citta" class="filter-tag">
             Città: {{ searchFilters.citta }}
             <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
-          </span>
-          <span v-if="searchFilters.stato" class="filter-tag">
-            Stato: {{ searchFilters.stato }}
-            <button @click="searchFilters.stato = ''; onSearch()" class="tag-remove">✕</button>
           </span>
         </div>
       </div>
@@ -504,7 +360,7 @@ watch(propostaSelezionata, (newProposta) => {
                 'second-place': index === 1,
                 'third-place': index === 2
               }"
-              @click="apriDettaglio(proposta)"
+              @click="$router.push(`/proposte/${proposta._id}`)"
             >
               <div class="classifica-position">
                 <span class="position-number" :class="{ 
@@ -586,12 +442,12 @@ watch(propostaSelezionata, (newProposta) => {
           </div>
           
           <div v-else>
-            <div class="proposte-grid" :class="{ 'with-panel': propostaSelezionata }">
+            <div class="proposte-grid">
               <div
                 v-for="proposta in proposteVisualizzate"
                 :key="proposta.titolo"
                 class="proposta-card"
-                @click="apriDettaglio(proposta)"
+                @click="$router.push(`/proposte/${proposta._id}`)"
               >
                 <div class="proposta-image-container">
                   <img
@@ -628,134 +484,15 @@ watch(propostaSelezionata, (newProposta) => {
                         <span class="meta-icon">📍</span>
                         {{ proposta.luogo.citta }}
                       </span>
-                      <span class="meta-item">
-                        <span class="meta-icon">📅</span>
-                        {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
-                      </span>
                     </div>
                   </div>
                 </div>
-
-                <button @click.stop="$router.push(`/proposte/${proposta._id}`)" class="open-in-new-page-btn">
-                  Apri in nuova pagina
-                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Side panel per il dettaglio proposta -->
-    <Transition name="slide-panel">
-      <div
-        v-if="propostaSelezionata"
-        class="side-panel"
-        :class="{ 'side-panel--open': propostaSelezionata }"
-      >
-        <button class="close-btn" @click="chiudiDettaglio">×</button>
-        
-        <!-- Header della proposta -->
-        <div class="proposal-header-card">
-          <img
-            v-if="propostaSelezionata.foto"
-            :src="processImageUrl(propostaSelezionata.foto)"
-            alt="Immagine proposta"
-            class="proposal-image"
-          />
-          <div v-else class="proposal-image-placeholder">
-            <span>📸</span>
-          </div>
-          
-          <div class="proposal-info">
-            <h2 class="proposal-title">{{ propostaSelezionata.titolo }}</h2>
-            <span class="proposal-category-badge">{{ propostaSelezionata.categoria }}</span>
-            <p class="proposal-description">{{ propostaSelezionata.descrizione }}</p>
-          </div>
-        </div>
-
-        <!-- Sezione Hyper -->
-        <div class="hyper-card">
-          <div class="hyper-row">
-            <div class="hyper-button-container">
-              <button
-                v-if="canHype"
-                class="hyper-btn"
-                :class="{ active: isHyperUser }"
-                :disabled="isHyperLoading"
-                @click="handleHyper"
-                title="Metti un hyper!"
-              >
-                <span v-if="!isHyperLoading" class="hyper-icon">⚡</span>
-                <span v-else class="loading-hourglass">⏳</span>
-              </button>
-              <div v-else class="hyper-disabled-container">
-                <span class="hyper-icon-disabled">⚡</span>
-              </div>
-            </div>
-            <div class="hyper-info">
-              <span class="hyper-count">{{ hyperCount }}</span>
-              <small v-if="!canHype && isOperatore" class="hyper-disabled-text">
-                Gli operatori non possono mettere hyper
-              </small>
-              <small v-else-if="!canHype" class="hyper-disabled-text">
-                Effettua il login per mettere hyper
-              </small>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sezione Commenti -->
-        <div class="comments-card">
-          <h3 class="comments-title">💬 Commenti</h3>
-          
-          <div v-if="!userStore.user" class="login-reminder">
-            <small>Loggati per aggiungere commenti</small>
-          </div>
-          
-          <div v-else class="comment-form">
-            <div class="comment-input-container">
-              <input
-                v-model="nuovoCommento"
-                @keyup.enter="inviaCommento"
-                :disabled="isLoading"
-                placeholder="Scrivi un commento..."
-                class="comment-input"
-                type="text"
-              />
-              <button 
-                @click="inviaCommento" 
-                :disabled="isLoading || !nuovoCommento.trim()"
-                class="comment-send-btn"
-                title="Invia commento"
-              >
-                <span v-if="!isLoading" class="send-icon">▶</span>
-                <span v-else class="loading-dots">●●●</span>
-              </button>
-            </div>
-          </div>
-          
-          <div class="comments-list" :class="{ 'with-login-reminder': !userStore.user }">
-            <div v-if="isCommentsLoading" class="loading-comments">
-              <div class="loading-spinner small"></div>
-              <small>Caricamento commenti...</small>
-            </div>
-            <div v-else-if="commentiProposta.length === 0" class="no-comments">
-              <div class="empty-icon">💭</div>
-              <small>Nessun commento ancora. Sii il primo a commentare!</small>
-            </div>
-            <div v-else class="comments-scroll">
-              <div v-for="commento in commentiProposta" :key="commento._id" class="comment-item">
-                <div class="comment-header">
-                  <span class="comment-author">{{ getUserName(commento) }}</span>
-                </div>
-                <div class="comment-content">{{ commento.contenuto }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -954,8 +691,8 @@ ul {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #f0f0f0;
-  border-top: 3px solid #fe4654;
+  border: 3px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -983,10 +720,10 @@ ul {
 .toggle-switch {
   position: relative;
   display: flex;
-  background: #e6e6e6;
+  background: var(--color-background-mute);
   border-radius: 2rem;
   padding: 0.25rem;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 2px 4px var(--color-shadow);
 }
 
 .toggle-slider {
@@ -995,10 +732,10 @@ ul {
   left: 0.25rem;
   width: calc(50% - 0.25rem);
   height: calc(100% - 0.5rem);
-  background: #fe4654;
+  background: var(--color-primary);
   border-radius: 1.75rem;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 2px 8px var(--color-primary-light);
 }
 
 .toggle-slider.slide-right {
@@ -1011,7 +748,7 @@ ul {
   padding: 0.5rem 2rem;
   border: none;
   background: transparent;
-  color: #404149;
+  color: var(--color-text);
   font-size: 1.1rem;
   border-radius: 1.75rem;
   cursor: pointer;
@@ -1052,10 +789,10 @@ ul {
 .empty-state {
   text-align: center;
   padding: 3rem 1.5rem;
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.2rem;
   margin: 1.5rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
 }
 
 .empty-icon {
@@ -1065,12 +802,12 @@ ul {
 }
 
 .empty-state h3 {
-  color: #404149;
+  color: var(--color-heading);
   margin-bottom: 0.5rem;
 }
 
 .empty-state p {
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -1082,10 +819,10 @@ ul {
 }
 
 .classifica-item {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.2rem;
   padding: 1.5rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   display: flex;
   align-items: center;
   gap: 1.5rem;
@@ -1141,8 +878,8 @@ ul {
 .position-number {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #404149;
-  background: #f0f0f0;
+  color: var(--color-text);
+  background: var(--color-background-mute);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -1185,13 +922,13 @@ ul {
 .classifica-img-placeholder {
   width: 80px;
   height: 80px;
-  background: #f0f0f0;
+  background: var(--color-background-mute);
   border-radius: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .classifica-info {
@@ -1201,19 +938,19 @@ ul {
 .classifica-title {
   font-size: 1.2rem;
   font-weight: bold;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.3rem 0;
 }
 
 .classifica-categoria {
-  color: #fe4654;
+  color: var(--color-primary);
   font-size: 0.9rem;
   font-weight: 500;
   margin: 0 0 0.5rem 0;
 }
 
 .classifica-description {
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.4;
 }
@@ -1224,7 +961,7 @@ ul {
   align-items: center;
   gap: 0.3rem;
   padding: 0.8rem;
-  background: #fe4654;
+  background: var(--color-primary);
   border-radius: 1rem;
   color: #fff;
 }
@@ -1308,10 +1045,10 @@ ul {
 .empty-proposte {
   text-align: center;
   padding: 4rem 2rem;
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.5rem;
   margin: 0 1.5rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px var(--color-shadow);
 }
 
 .empty-proposte .empty-icon {
@@ -1321,14 +1058,14 @@ ul {
 }
 
 .empty-proposte h3 {
-  color: #404149;
+  color: var(--color-heading);
   font-size: 1.5rem;
   margin: 0 0 0.5rem 0;
   font-weight: 600;
 }
 
 .empty-proposte p {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 1rem;
   margin: 0 0 2rem 0;
   line-height: 1.5;
@@ -1336,7 +1073,7 @@ ul {
 
 .cta-button {
   display: inline-block;
-  background: linear-gradient(135deg, #fe4654, #e63946);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   color: #fff;
   text-decoration: none;
   padding: 1rem 2rem;
@@ -1344,13 +1081,15 @@ ul {
   font-weight: 600;
   font-size: 1rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 4px 15px var(--color-primary-light);
+  border: none;
+  cursor: pointer;
 }
 
 .cta-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
-  background: linear-gradient(135deg, #e63946, #dc3545);
+  box-shadow: 0 6px 25px var(--color-primary-light);
+  background: linear-gradient(135deg, var(--color-primary-hover), var(--color-primary));
 }
 
 .proposte-grid {
@@ -1362,19 +1101,19 @@ ul {
 }
 
 .proposta-card {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px var(--color-shadow);
   overflow: hidden;
   transition: all 0.3s ease;
   cursor: pointer;
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid var(--color-border);
 }
 
 .proposta-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 35px rgba(0,0,0,0.15);
-  border-color: rgba(254, 70, 84, 0.2);
+  box-shadow: 0 8px 35px var(--color-shadow);
+  border-color: var(--color-primary-light);
 }
 
 .proposta-image-container {
@@ -1394,28 +1133,10 @@ ul {
   transform: scale(1.05);
 }
 
-.open-in-new-page-btn {
-  position: absolute;
-  bottom: 1rem;
-  right: 1rem;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.proposta-card:hover .open-in-new-page-btn {
-  opacity: 1;
-}
-
 .proposta-img-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  background: linear-gradient(135deg, var(--color-background-soft), var(--color-background-mute));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1424,7 +1145,7 @@ ul {
 
 .placeholder-icon {
   font-size: 3rem;
-  color: #adb5bd;
+  color: var(--color-text-secondary);
   opacity: 0.7;
 }
 
@@ -1433,21 +1154,21 @@ ul {
   top: 1rem;
   left: 1rem;
   background: rgba(255, 255, 255, 0.95);
-  color: #404149;
+  color: var(--color-text);
   padding: 0.4rem 0.8rem;
   border-radius: 1rem;
   font-size: 0.8rem;
   font-weight: 600;
   backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px var(--color-shadow);
 }
 
 .hyper-badge {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: rgba(254, 70, 84, 0.95);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-primary);
   padding: 0.4rem 0.8rem;
   border-radius: 1rem;
   font-size: 0.8rem;
@@ -1456,7 +1177,7 @@ ul {
   align-items: center;
   gap: 0.3rem;
   backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 2px 10px var(--color-shadow);
 }
 
 .hyper-badge .hyper-icon {
@@ -1470,7 +1191,7 @@ ul {
 .proposta-title {
   font-size: 1.2rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.8rem 0;
   line-height: 1.3;
   display: -webkit-box;
@@ -1481,7 +1202,7 @@ ul {
 }
 
 .proposta-description {
-  color: #6c757d;
+  color: var(--color-text-secondary);
   font-size: 0.95rem;
   line-height: 1.5;
   margin: 0 0 1rem 0;
@@ -1493,7 +1214,7 @@ ul {
 }
 
 .proposta-footer {
-  border-top: 1px solid #f1f3f4;
+  border-top: 1px solid var(--color-border);
   padding-top: 1rem;
 }
 
@@ -1509,7 +1230,7 @@ ul {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  color: #6c757d;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -1518,448 +1239,14 @@ ul {
   font-size: 0.9rem;
 }
 
-.proposte-grid.with-panel {
-  margin-right: 400px;
-  transition: margin-right 0.3s;
-}
-
-/* Side Panel Styles */
-.side-panel {
-  position: fixed;
-  top: 6rem;
-  right: 1rem;
-  width: 380px;
-  height: 80vh;
-  background: #f8f7f3;
-  box-shadow: -2px 0 16px rgba(0,0,0,0.12);
-  z-index: 200;
-  padding: 1.5rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  color: #404149;
-  transform: translateX(100%);
-  opacity: 0;
-  transition: transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.25s;
-  border-radius: 1rem;
-}
-
-.side-panel--open {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.close-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  font-size: 2rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  z-index: 10;
-}
-
-/* Proposal Header Card */
-.proposal-header-card {
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
-}
-
-.proposal-image {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  border-radius: 1rem;
-  margin-bottom: 1rem;
-}
-
-.proposal-image-placeholder {
-  width: 100%;
-  height: 200px;
-  background: #f0f0f0;
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 3rem;
-  color: #666;
-  margin-bottom: 1rem;
-}
-
-.proposal-title {
-  font-size: 1.3rem;
-  font-weight: bold;
-  color: #404149;
-  margin: 0 0 0.8rem 0;
-  line-height: 1.3;
-}
-
-.proposal-category-badge {
-  background: #fe4654;
-  color: #fff;
-  padding: 0.3rem 0.8rem;
-  border-radius: 1rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  display: inline-block;
-  margin-bottom: 1rem;
-}
-
-.proposal-description {
-  color: #666;
-  line-height: 1.5;
-  margin: 0;
-}
-
-/* Hyper Card */
-.hyper-card {
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
-}
-
-.hyper-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.hyper-button-container {
-  flex-shrink: 0;
-}
-
-.hyper-btn {
-  font-size: 1.7rem;
-  background: #fff;
-  border: 2px solid #fe4654;
-  color: #fe4654;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.hyper-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(254, 70, 84, 0.4);
-}
-
-.hyper-btn.active {
-  background: #fe4654;
-  color: #fff;
-  border-color: #fe4654;
-  box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
-  animation: hyperPulse 2s infinite;
-}
-
-.hyper-btn:disabled {
-  background: #fe4654;
-  color: #fff;
-  border-color: #fe4654;
-  cursor: not-allowed;
-  opacity: 0.8;
-}
-
-.hyper-icon {
-  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.8));
-  transition: filter 0.3s ease;
-}
-
-.hyper-btn.active .hyper-icon {
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1));
-}
-
-.loading-hourglass {
-  animation: rotate 1.5s linear infinite;
-  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
-}
-
-@keyframes hyperPulse {
-  0%, 100% {
-    box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(254, 70, 84, 0.9);
-  }
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.hyper-disabled-container {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: #f5f5f5;
-  border: 2px solid #ccc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hyper-icon-disabled {
-  font-size: 1.7rem;
-  color: #ccc;
-}
-
-.hyper-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.hyper-count {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #2B2C34;
-}
-
-.hyper-disabled-text {
-  color: #999;
-  font-size: 0.85rem;
-  line-height: 1.2;
-}
-
-/* Comments Card */
-.comments-card {
-  background: #fff;
-  border-radius: 1.2rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.comments-title {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #404149;
-  margin: 0 0 1rem 0;
-}
-
-.login-reminder {
-  text-align: center;
-  padding: 1rem;
-  background: #f8f7f3;
-  border-radius: 1rem;
-  color: #666;
-  font-style: italic;
-}
-
-.comment-form {
-  margin-bottom: 1rem;
-}
-
-.comment-input-container {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  position: relative;
-}
-
-.comment-input {
-  flex: 1;
-  padding: 0.8rem 1rem;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 1.5rem;
-  font-size: 1rem;
-  outline: none;
-  transition: border 0.2s;
-  box-sizing: border-box;
-}
-
-.comment-input:focus {
-  border-color: #fe4654;
-}
-
-.comment-send-btn {
-  background: #fe4654;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
-}
-
-.comment-send-btn:hover:not(:disabled) {
-  background: #404149;
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(64, 65, 73, 0.4);
-}
-
-.comment-send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.send-icon {
-  margin-left: 2px; /* Piccolo offset per centrare visivamente la freccia */
-}
-
-.loading-dots {
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.comment-btn {
-  align-self: flex-end;
-  background: #fe4654;
-  color: #fff;
-  border: none;
-  border-radius: 1rem;
-  padding: 0.6rem 1.5rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.comment-btn:hover:not(:disabled) {
-  background: #404149;
-}
-
-.comment-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.comments-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.comments-list.with-login-reminder {
-  margin-top: 1rem;
-}
-
-.loading-comments {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem;
-  color: #666;
-}
-
-.no-comments {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-  font-style: italic;
-}
-
-.comments-scroll {
-  max-height: 300px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding-right: 0.5rem;
-}
-
-.comment-item {
-  background: #f8f7f3;
-  border-radius: 1rem;
-  padding: 1rem;
-  transition: background 0.2s;
-}
-
-.comment-item:hover {
-  background: #f0f0f0;
-}
-
-.comment-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.comment-author {
-  font-weight: bold;
-  color: #fe4654;
-  font-size: 0.9rem;
-}
-
-.comment-content {
-  color: #404149;
-  line-height: 1.4;
-  font-size: 0.95rem;
-}
-
-/* Transitions */
-.slide-panel-enter-from,
-.slide-panel-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-.slide-panel-enter-to,
-.slide-panel-leave-from {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.slide-panel-enter-active,
-.slide-panel-leave-active {
-  transition: transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.25s;
-}
-
-/* Scrollbar styling */
-.comments-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.comments-scroll::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.comments-scroll::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 3px;
-}
-
-.comments-scroll::-webkit-scrollbar-thumb:hover {
-  background: #999;
-}
-
 /* Search styles */
 .search-container {
   margin-bottom: 2rem;
-  background: #2B2C34;
+  background: var(--color-card-background);
   border-radius: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px var(--color-shadow);
   padding: 1.5rem;
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid var(--color-border);
 }
 
 .search-bar {
@@ -1978,22 +1265,22 @@ ul {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid #e6e6e6;
+  border: 2px solid var(--color-input-border);
   border-radius: 2rem;
   font-size: 1rem;
-  background: #404149;
+  background: var(--color-input-background);
   transition: all 0.3s ease;
-  color: #404149;
+  color: var(--color-text);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #fe4654;
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .search-input::placeholder {
-  color: #999;
+  color: var(--color-text-secondary);
 }
 
 .clear-btn {
@@ -2001,7 +1288,7 @@ ul {
   right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  background: #404149;
+  background: var(--color-secondary);
   color: white;
   border: none;
   border-radius: 50%;
@@ -2016,7 +1303,7 @@ ul {
 }
 
 .clear-btn:hover {
-  background: #fe4654;
+  background: var(--color-primary);
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -2025,27 +1312,27 @@ ul {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  background: #e6e6e6;
+  background: var(--color-background-mute);
   border: none;
   border-radius: 2rem;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  color: #404149;
+  color: var(--color-text);
   transition: all 0.3s ease;
   white-space: nowrap;
 }
 
 .filters-btn:hover {
-  background: #d6d6d6;
+  background: var(--color-border-hover);
   transform: translateY(-2px);
 }
 
 .filters-btn.active {
-  background: #fe4654;
+  background: var(--color-primary);
   color: white;
   font-weight: bold;
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 4px 15px var(--color-primary-light);
 }
 
 .filter-icon {
@@ -2055,9 +1342,9 @@ ul {
 .filters-panel {
   margin-top: 1.5rem;
   padding: 1.5rem;
-  background: #f8f9fa;
+  background: var(--color-background-soft);
   border-radius: 1rem;
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid var(--color-border);
 }
 
 .filters-grid {
@@ -2075,26 +1362,26 @@ ul {
 
 .filter-label {
   font-weight: 600;
-  color: #404149;
+  color: var(--color-heading);
   font-size: 0.9rem;
 }
 
 .filter-select,
 .filter-input {
   padding: 0.6rem 1rem;
-  border: 2px solid #e6e6e6;
+  border: 2px solid var(--color-input-border);
   border-radius: 0.8rem;
-  background: white;
+  background: var(--color-input-background);
   font-size: 0.9rem;
-  color: #404149;
+  color: var(--color-text);
   transition: all 0.3s ease;
 }
 
 .filter-select:focus,
 .filter-input:focus {
   outline: none;
-  border-color: #fe4654;
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .filters-actions {
@@ -2102,12 +1389,12 @@ ul {
   justify-content: flex-end;
   gap: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #e6e6e6;
+  border-top: 1px solid var(--color-border);
 }
 
 .close-filters-btn {
   padding: 0.6rem 1.5rem;
-  background: #404149;
+  background: var(--color-secondary);
   color: white;
   border: none;
   border-radius: 2rem;
@@ -2118,20 +1405,20 @@ ul {
 }
 
 .close-filters-btn:hover {
-  background: #fe4654;
+  background: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 4px 15px var(--color-primary-light);
 }
 
 .active-filters {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #e6e6e6;
+  border-top: 1px solid var(--color-border);
 }
 
 .active-filters-label {
   font-weight: 600;
-  color: #404149;
+  color: var(--color-heading);
   margin-right: 0.5rem;
   font-size: 0.9rem;
 }
@@ -2147,13 +1434,13 @@ ul {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, #fe4654, #e63946);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   color: white;
   padding: 0.4rem 0.8rem;
   border-radius: 1rem;
   font-size: 0.8rem;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 2px 8px var(--color-primary-light);
 }
 
 .tag-remove {

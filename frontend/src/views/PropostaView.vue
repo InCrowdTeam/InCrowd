@@ -37,23 +37,52 @@
         <div class="hero-content">
           <h1 class="proposal-title">{{ proposta.titolo }}</h1>
           
-          <!-- Creator Badge -->
-          <div class="creator-badge">
-            <div class="creator-avatar">
-              <img 
-                v-if="proponenteAvatar"
-                :src="proponenteAvatar"
-                alt="Avatar del proponente" 
-                class="avatar-image"
-                @error="onProponenteAvatarError"
-              />
-              <div v-else class="avatar-placeholder">
-                {{ getInitials(proponente?.nome, proponente?.cognome) }}
+          <!-- Creator Badge and Hyper Counter Row -->
+          <div class="creator-hyper-row">
+            <div class="creator-badge">
+              <div class="creator-avatar">
+                <img 
+                  v-if="proponenteAvatar"
+                  :src="proponenteAvatar"
+                  alt="Avatar del proponente" 
+                  class="avatar-image"
+                  @error="onProponenteAvatarError"
+                />
+                <div v-else class="avatar-placeholder">
+                  {{ getInitials(proponente?.nome, proponente?.cognome) }}
+                </div>
+              </div>
+              <div class="creator-info">
+                <span class="creator-label">Proposto da</span>
+                <span class="creator-name">{{ getFullName(proponente) }}</span>
               </div>
             </div>
-            <div class="creator-info">
-              <span class="creator-label">Proposto da</span>
-              <span class="creator-name">{{ getFullName(proponente) }}</span>
+            
+            <!-- Hyper Counter Badge -->
+            <div class="hyper-counter-badge">
+              <div class="hyper-button-container">
+                <button
+                  v-if="canHype"
+                  class="hyper-btn"
+                  :class="{ active: isHyperUser }"
+                  :disabled="isHyperLoading"
+                  @click="handleHyper"
+                  title="Metti un hyper!"
+                >
+                  <span v-if="!isHyperLoading" class="hyper-icon">⚡</span>
+                  <span v-else class="loading-hourglass">⏳</span>
+                </button>
+                <div v-else class="hyper-disabled-container">
+                  <span class="hyper-icon-disabled">⚡</span>
+                </div>
+              </div>
+              <div class="hyper-info">
+                <span class="hyper-count">{{ hyperCount }}</span>
+                <div v-if="!canHype" class="hyper-disabled-text-compact">
+                  <small v-if="isOperatore">Gli operatori non possono mettere hyper</small>
+                  <small v-else>Effettua il login per mettere hyper</small>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -77,35 +106,6 @@
               <span class="meta-icon">🗓️</span>
               <span class="meta-text">Creata {{ formatDate(proposta.createdAt.toString()) }}</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Hyper Section - YouTube Style -->
-      <div class="hyper-section-youtube">
-        <div class="hyper-container">
-          <div class="hyper-button-area">
-            <button
-              v-if="canHype"
-              class="hyper-btn-youtube"
-              :class="{ active: isHyperUser }"
-              :disabled="isHyperLoading"
-              @click="handleHyper"
-              title="Metti un hyper!"
-            >
-              <span v-if="!isHyperLoading" class="hyper-icon">⚡</span>
-              <span v-else class="loading-hourglass">⏳</span>
-              <span class="hyper-count-inline">{{ hyperCount }}</span>
-            </button>
-            <div v-else class="hyper-btn-disabled">
-              <span class="hyper-icon-disabled">⚡</span>
-              <span class="hyper-count-inline">{{ hyperCount }}</span>
-            </div>
-          </div>
-          
-          <div v-if="!canHype" class="hyper-disabled-text-small">
-            <small v-if="isOperatore">Gli operatori non possono mettere hyper</small>
-            <small v-else>Effettua il login per mettere hyper</small>
           </div>
         </div>
       </div>
@@ -620,6 +620,16 @@ watch(proposta, (newProposta) => {
   background-clip: text;
 }
 
+/* Creator and Hyper Row */
+.creator-hyper-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
 /* Creator Badge */
 .creator-badge {
   display: inline-flex;
@@ -687,6 +697,122 @@ watch(proposta, (newProposta) => {
   color: #fe4654;
 }
 
+/* Hyper Counter Badge */
+.hyper-counter-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hyper-button-container {
+  flex-shrink: 0;
+}
+
+.hyper-btn {
+  font-size: 1.7rem;
+  background: #fff;
+  border: 2px solid #fe4654;
+  color: #fe4654;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.hyper-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(254, 70, 84, 0.4);
+}
+
+.hyper-btn.active {
+  background: #fe4654;
+  color: #fff;
+  border-color: #fe4654;
+  box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
+  animation: hyperPulse 2s infinite;
+}
+
+.hyper-btn:disabled {
+  background: #fe4654;
+  color: #fff;
+  border-color: #fe4654;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.hyper-icon {
+  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.8));
+  transition: filter 0.3s ease;
+}
+
+.hyper-btn.active .hyper-icon {
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1));
+}
+
+.loading-hourglass {
+  animation: rotate 1.5s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
+}
+
+@keyframes hyperPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(254, 70, 84, 0.9);
+  }
+}
+
+.hyper-disabled-container {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hyper-icon-disabled {
+  font-size: 1.7rem;
+  color: #ccc;
+}
+
+.hyper-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.hyper-count {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #2B2C34;
+}
+
+.hyper-disabled-text-compact {
+  text-align: center;
+}
+
+.hyper-disabled-text-compact small {
+  color: #999;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .proposal-description {
   font-size: 1.3rem;
   line-height: 1.8;
@@ -730,133 +856,6 @@ watch(proposta, (newProposta) => {
   font-weight: 500;
   color: #2c3e50;
   white-space: nowrap;
-}
-
-/* YouTube Style Hyper Section */
-.hyper-section-youtube {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 3rem;
-  margin: -1rem 0 2rem 0;
-  animation: fadeInUp 0.6s ease-out 0.4s both;
-}
-
-.hyper-container {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.5rem;
-}
-
-.hyper-button-area {
-  display: flex;
-  align-items: center;
-}
-
-.hyper-btn-youtube {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #fff;
-  border: 2px solid #e0e0e0;
-  border-radius: 2rem;
-  padding: 0.6rem 1.2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #404149;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.hyper-btn-youtube:hover {
-  border-color: #fe4654;
-  background: #fef7f7;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.2);
-}
-
-.hyper-btn-youtube.active {
-  background: #fe4654;
-  border-color: #fe4654;
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.4);
-}
-
-.hyper-btn-youtube.active:hover {
-  background: #e63946;
-  border-color: #e63946;
-}
-
-.hyper-btn-youtube:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.hyper-btn-disabled {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #f5f5f5;
-  border: 2px solid #e0e0e0;
-  border-radius: 2rem;
-  padding: 0.6rem 1.2rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #999;
-}
-
-.hyper-icon {
-  font-size: 1.1rem;
-  filter: drop-shadow(0 0 5px rgba(254, 70, 84, 0.6));
-}
-
-.hyper-btn-youtube.active .hyper-icon {
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
-}
-
-.hyper-icon-disabled {
-  font-size: 1.1rem;
-  color: #ccc;
-}
-
-.hyper-count-inline {
-  font-size: 0.9rem;
-  font-weight: 600;
-  min-width: 20px;
-  text-align: center;
-}
-
-.hyper-disabled-text-small {
-  text-align: right;
-}
-
-.hyper-disabled-text-small small {
-  color: #999;
-  font-size: 0.75rem;
-  font-style: italic;
-}
-
-@keyframes fadeInUp {
-  0% {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.loading-hourglass {
-  animation: rotate 1.5s linear infinite;
-  filter: drop-shadow(0 0 5px rgba(254, 70, 84, 0.6));
 }
 
 /* Comments Section */
@@ -1184,6 +1183,16 @@ watch(proposta, (newProposta) => {
     font-size: 1.1rem;
   }
   
+  .creator-hyper-row {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  
+  .hyper-counter-badge {
+    align-items: flex-start;
+  }
+  
   .creator-badge {
     padding: 0.6rem 1rem;
     gap: 0.6rem;
@@ -1208,17 +1217,6 @@ watch(proposta, (newProposta) => {
   }
   
   .meta-text {
-    font-size: 0.8rem;
-  }
-  
-  .hyper-section-youtube {
-    padding: 0 2rem;
-    justify-content: center;
-  }
-  
-  .hyper-btn-youtube,
-  .hyper-btn-disabled {
-    padding: 0.5rem 1rem;
     font-size: 0.8rem;
   }
   
