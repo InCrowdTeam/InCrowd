@@ -137,14 +137,12 @@ const initializeGoogleSignIn = async () => {
 const handleGoogleResponse = async (response: any) => {
   try {
     errorMessage.value = ''; // Clear previous errors
-    console.log('🚀 Processando login Google...');
     
     const res = await googleLoginApi({
       idToken: response.credential,
     });
 
     if (res.needsRegistration) {
-      console.log('📝 Registrazione necessaria, reindirizzamento...');
       // Determina tipo: se c'è cognome, è user, altrimenti ente
       let nome = res.data.nome || '';
       let cognome = res.data.cognome || '';
@@ -175,7 +173,6 @@ const handleGoogleResponse = async (response: any) => {
       return;
     }
 
-    console.log('✅ Login Google riuscito, impostazione store e redirect...');
     // Login riuscito - imposta i dati nello store
     userStore.setUser(res.user);
     userStore.setToken(res.token);
@@ -203,7 +200,7 @@ onMounted(() => {
 <style scoped>
 .login-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8f7f3 0%, #fff 50%, #f8f7f3 100%);
+  background: linear-gradient(135deg, var(--color-background-soft) 0%, var(--color-background) 50%, var(--color-background-soft) 100%);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -211,9 +208,9 @@ onMounted(() => {
 }
 
 .login-card {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 32px var(--color-shadow);
   padding: 2rem 3rem;
   width: 100%;
   max-width: 600px;
@@ -222,7 +219,7 @@ onMounted(() => {
 .login-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   text-align: center;
   margin: 0 0 1.5rem 0;
 }
@@ -242,24 +239,25 @@ onMounted(() => {
 .form-group label {
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #404149;
+  color: var(--color-text);
   font-size: 0.95rem;
 }
 
 .form-input {
   padding: 0.8rem 1.2rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--color-input-border);
   border-radius: 1.2rem;
   font-size: 1rem;
   outline: none;
   transition: all 0.3s ease;
-  background: #fafafa;
+  background: var(--color-input-background);
+  color: var(--color-text);
 }
 
 .form-input:focus {
-  border-color: #fe4654;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  border-color: var(--color-primary);
+  background: var(--color-card-background);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .login-btn {
@@ -293,14 +291,14 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 1px;
-  background: #e0e0e0;
+  background: var(--color-border);
   z-index: 1;
 }
 
 .divider span {
-  background: #fff;
+  background: var(--color-card-background);
   padding: 0 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   position: relative;
   z-index: 2;

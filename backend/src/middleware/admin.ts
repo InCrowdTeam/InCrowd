@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { authMiddleware, requireRole, AuthenticatedRequest } from './authMiddleware'
+import { apiResponse } from '../utils/responseFormatter'
 
 export function adminMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   authMiddleware(req, res, (err?: any) => {
@@ -7,7 +8,7 @@ export function adminMiddleware(req: AuthenticatedRequest, res: Response, next: 
     if (req.user && req.user.userType === 'admin') {
       return next()
     }
-    return res.status(403).json({ message: 'Forbidden' })
+    return res.status(403).json(apiResponse({ message: 'Accesso negato' }))
   })
 }
 

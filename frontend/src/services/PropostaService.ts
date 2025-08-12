@@ -5,7 +5,7 @@
  * Separazione della logica di business dalle view per migliorare la manutenibilità.
  */
 
-import { getPropostaById, getCommenti, addCommento, toggleHyperProposta } from '@/api/propostaApi';
+import { getPropostaById, getCommenti, addCommento, deleteCommento, toggleHyperProposta } from '@/api/propostaApi';
 import type { IProposta } from '@/types/Proposta';
 
 export class PropostaService {
@@ -61,6 +61,31 @@ export class PropostaService {
         throw new Error('Non hai il permesso di commentare.');
       } else {
         throw new Error('Errore nell\'invio del commento');
+      }
+    }
+  }
+
+  /**
+   * Elimina un commento (solo il creatore o operatori)
+   * @param propostaId - ID della proposta
+   * @param commentoId - ID del commento da eliminare
+   * @param token - Token di autenticazione
+   * @returns Promise<void>
+   */
+  static async eliminaCommento(propostaId: string, commentoId: string, token: string): Promise<void> {
+    try {
+      await deleteCommento(propostaId, commentoId, token);
+    } catch (error: any) {
+      console.error('Errore nell\'eliminazione del commento:', error);
+      
+      if (error.response?.status === 401) {
+        throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+      } else if (error.response?.status === 403) {
+        throw new Error('Non hai il permesso di eliminare questo commento.');
+      } else if (error.response?.status === 404) {
+        throw new Error('Commento non trovato.');
+      } else {
+        throw new Error('Errore nell\'eliminazione del commento');
       }
     }
   }

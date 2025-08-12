@@ -43,7 +43,6 @@
           <option value="all">Tutti gli utenti ed enti</option>
           <option value="user">Solo utenti normali</option>
           <option value="ente">Solo enti</option>
-          <option value="operatore">Solo operatori</option>
         </select>
         
         <select v-model="sortBy" class="filter-select">
@@ -264,6 +263,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { getAllEnti } from '@/api/enteApi'
+import { useModal } from '@/composables/useModal'
 import axios from 'axios'
 
 // Tipi
@@ -292,6 +292,7 @@ interface User {
 }
 
 const store = useUserStore()
+const { showError } = useModal()
 
 // Stato reattivo
 const users = ref<User[]>([])
@@ -409,7 +410,7 @@ const loadUsers = async () => {
     
     // Processa utenti
     if (usersResponse.status === 'fulfilled') {
-      const userData = usersResponse.value.data || []
+      const userData = usersResponse.value.data?.data || usersResponse.value.data || []
       allUsers = allUsers.concat(userData.map((user: any) => ({
         ...user,
         userType: 'user'
@@ -420,7 +421,7 @@ const loadUsers = async () => {
     
     // Processa enti
     if (entiResponse.status === 'fulfilled') {
-      const entiData = entiResponse.value || []
+      const entiData = entiResponse.value?.data || entiResponse.value || []
       allUsers = allUsers.concat(entiData.map((ente: any) => ({
         ...ente,
         userType: 'ente',
@@ -438,19 +439,22 @@ const loadUsers = async () => {
     // Gestisci l'errore più elegantemente
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
-        alert('Timeout nel caricamento degli utenti. Il server potrebbe essere lento. Riprova.')
+        showError('Timeout nel caricamento degli utenti', 'Il server potrebbe essere lento. Riprova.');
       } else if (error.response?.status === 401) {
-        alert('Sessione scaduta. Effettua nuovamente il login.')
+        showError('Sessione scaduta', 'Effettua nuovamente il login.');
         // Eventualmente reindirizza al login
       } else if (error.response?.status === 403) {
-        alert('Non hai i permessi per visualizzare gli utenti.')
+        showError('Permessi insufficienti', 'Non hai i permessi per visualizzare gli utenti.');
       } else if (error.response?.status === 500) {
-        alert('Errore del server. Riprova più tardi.')
+        showError('Errore del server', 'Riprova più tardi.');
       } else {
-        alert(`Errore nel caricamento degli utenti: ${error.message}`)
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData?.error || error.message || 'Errore sconosciuto';
+        showError('Errore nel caricamento degli utenti', errorMessage);
       }
     } else {
-      alert('Errore di rete. Controlla la tua connessione.')
+      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+      showError('Errore nel caricamento degli utenti', errorMessage);
     }
     
     users.value = []

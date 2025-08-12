@@ -255,34 +255,35 @@
             {{ isSubmitting ? 'Creazione in corso...' : 'Crea Proposta' }}
           </button>
         </div>
+        
+        <!-- Errore inline -->
+        <div v-if="isVisible && errorMessage" class="inline-error">
+          <span class="error-icon">⚠️</span>
+          <span class="error-text">{{ errorMessage }}</span>
+          <button @click="clearError" class="error-dismiss">×</button>
+        </div>
       </form>
     </div>
 
-    <!-- Success Modal -->
-    <div v-if="showSuccessModal" class="modal-overlay" @click="closeSuccessModal">
-      <div class="success-modal" @click.stop>
-        <div class="success-icon">🎉</div>
-        <h3>Proposta creata con successo!</h3>
-        <p>La tua proposta è stata inviata e sarà presto esaminata dal nostro team.</p>
-        <button @click="closeSuccessModal" class="btn btn-primary">Perfetto!</button>
-      </div>
-    </div>
   </div>
 </template>
 
 <script>
 import { useUserStore } from '@/stores/userStore'
+import { useInlineError } from '@/composables/useInlineError'
+import { useModal } from '@/composables/useModal'
 
 export default {
   setup() {
     const userStore = useUserStore();
-    return { userStore };
+    const { errorMessage, isVisible, showError, clearError } = useInlineError();
+    const { showSuccess } = useModal();
+    return { userStore, errorMessage, isVisible, showError, clearError, showSuccess };
   },
   data() {
     return {
       currentStep: 1,
       isSubmitting: false,
-      showSuccessModal: false,
       previewUrl: null,
       steps: [
         { label: 'Info Base' },
@@ -404,8 +405,7 @@ export default {
         day: 'numeric'
       });
     },
-    closeSuccessModal() {
-      this.showSuccessModal = false;
+    resetForm() {
       // Reset form
       this.currentStep = 1;
       this.form = {
@@ -426,6 +426,7 @@ export default {
         proponenteID: this.userStore.user?._id || "",
       };
       this.previewUrl = null;
+      this.clearError();
       
       // Redirect alla home
       this.$router.push('/');
@@ -434,7 +435,7 @@ export default {
       try {
         // Verifica che l'utente sia autenticato
         if (!this.userStore.token) {
-          alert("Devi essere loggato per creare una proposta!");
+          this.showError("Devi essere loggato per creare una proposta!");
           return;
         }
 
@@ -475,13 +476,21 @@ export default {
         });
         
         const data = await response.json().catch(() => ({}));
-        console.log("Status:", response.status, "Body:", data);
         if (!response.ok) throw new Error("Failed to create proposta");
         
-        this.showSuccessModal = true;
+        await this.showSuccess(
+          "🎉", 
+          "Proposta creata con successo!", 
+          "La tua proposta è stata inviata e sarà presto esaminata dal nostro team."
+        );
+        this.resetForm();
       } catch (error) {
         console.error("Error creating proposta:", error);
-        alert("Errore nella creazione della proposta.");
+        await this.showError(
+          "Errore nella creazione della proposta",
+          error.message || "Errore generico",
+          "Creazione proposta fallita"
+        );
       } finally {
         this.isSubmitting = false;
       }
@@ -497,7 +506,7 @@ export default {
 
 .add-proposta-container {
   min-height: 100vh;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   padding: 2rem 1rem;
   margin: -2rem -1rem;
   position: relative;
@@ -514,13 +523,13 @@ export default {
 .main-title {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0 0 1.5rem 0;
   font-weight: 400;
 }
@@ -547,16 +556,16 @@ export default {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: var(--color-background-mute);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .step-indicator.active .step-circle {
@@ -574,13 +583,13 @@ export default {
 
 .step-label {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-secondary);
   text-align: center;
   font-weight: 500;
 }
 
 .step-indicator.active .step-label {
-  color: #fe4654;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -588,9 +597,9 @@ export default {
 .form-container {
   max-width: 900px;
   margin: 0 auto;
-  background: white;
+  background: var(--color-card-background);
   border-radius: 1rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   overflow: hidden;
 }
 
@@ -605,7 +614,7 @@ export default {
 
 .step-header h2 {
   font-size: 1.25rem;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0;
   font-weight: 600;
 }
@@ -633,7 +642,7 @@ export default {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #404149;
+  color: var(--color-text);
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
 }
@@ -648,20 +657,21 @@ export default {
 .form-select {
   width: 100%;
   padding: 0.8rem 1.2rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--color-input-border);
   border-radius: 1.2rem;
   font-size: 1rem;
   transition: all 0.3s ease;
-  background: #fafafa;
+  background: var(--color-input-background);
+  color: var(--color-text);
   outline: none;
 }
 
 .form-input:focus,
 .form-textarea:focus,
 .form-select:focus {
-  border-color: #fe4654;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  border-color: var(--color-primary);
+  background: var(--color-card-background);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .form-textarea {
@@ -721,7 +731,7 @@ export default {
 
 .upload-subtext {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -768,16 +778,16 @@ export default {
 
 /* Summary Card */
 .summary-card {
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   border-radius: 12px;
   padding: 1.5rem;
   margin-top: 1rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 }
 
 .summary-card h3 {
   margin: 0 0 1rem 0;
-  color: #404149;
+  color: var(--color-heading);
   font-size: 1rem;
   font-weight: 600;
 }
@@ -805,7 +815,7 @@ export default {
   display: flex;
   justify-content: space-between;
   padding: 1.5rem 3rem 2rem;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   gap: 1rem;
 }
 
@@ -901,35 +911,6 @@ export default {
   z-index: 1000;
 }
 
-.success-modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 400px;
-  margin: 1rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.success-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.success-modal h3 {
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.success-modal p {
-  color: #64748b;
-  margin: 0 0 1.5rem 0;
-  line-height: 1.5;
-  font-size: 0.875rem;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
   .form-container {
@@ -990,5 +971,49 @@ export default {
   .upload-icon {
     font-size: 2rem;
   }
+}
+
+/* Errore inline */
+.inline-error {
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 0.8rem;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.error-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.error-text {
+  flex: 1;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  color: #dc3545;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.error-dismiss:hover {
+  background: rgba(220, 53, 69, 0.1);
 }
 </style>

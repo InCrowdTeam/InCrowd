@@ -9,6 +9,8 @@ import enteRoutes from "./routes/enteRoutes";
 import operatoreRoutes from "./routes/operatoreRoutes";
 import adminOperatoreRoutes from "./routes/adminOperatoreRoutes";
 import authRoutes from "./routes/authRoutes";
+import { notFoundMiddleware } from "./middleware/notFoundMiddleware";
+import { errorMiddleware } from "./middleware/errorMiddleware";
 
 dotenv.config();
 
@@ -50,6 +52,12 @@ app.use("/api/auth", authRoutes);
 app.get("/", (req, res) => {
   res.send("Welcome to InCrowd API!");
 });
+
+// 404 handler for unmatched routes
+app.use(notFoundMiddleware);
+
+// Global error handler
+app.use(errorMiddleware);
 
 async function start() {
   await prepareMongo();

@@ -22,11 +22,8 @@ export class UserService {
   static async loadUser(userId: string): Promise<IUser | null> {
     try {
       const userData = await getUserById(userId);
-      // Gestisce sia il nuovo formato {success: true, data: IUser} che il vecchio IUser
+      // Ora tutte le API restituiscono sempre data, ma manteniamo compatibilità
       if (userData && typeof userData === 'object') {
-        if ('success' in userData && userData.success) {
-          return (userData as any).data || null;
-        }
         return userData as IUser;
       }
       return null;

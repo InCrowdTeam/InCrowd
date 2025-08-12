@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte, getMyProposte, getPropostaById } from "../controllers/propostaController";
+import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte, getMyProposte, getPropostaById, deleteCommento } from "../controllers/propostaController";
 import multer from "multer";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
@@ -9,7 +9,20 @@ const router = express.Router();
 
 // Configura Multer per caricare i file in memoria (memoria temporanea)
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo di file non supportato. Sono permessi solo JPEG, PNG, GIF e WebP.'));
+    }
+  }
+});
 
 // Rotta per ottenere tutte le proposte approvate
 router.get("/", getAllProposte);
@@ -40,6 +53,9 @@ router.patch("/:id/stato", authMiddleware, requireRole("operatore"), updateStato
 
 // Rotta per ottenere i commenti di una proposta
 router.get("/:id/commenti", getCommentiProposta as any);
+
+// Rotta per eliminare un commento (solo il creatore o operatori/admin)
+router.delete("/:propostaId/commenti/:commentoId", authMiddleware, deleteCommento as any);
 
 // Rotta per eliminare una proposta
 router.delete("/:id", authMiddleware, requireRole("user", "ente", "operatore"), deleteProposta as any);

@@ -5,6 +5,8 @@ import type { IProposta } from "../types/Proposta";
 import { useUserStore } from "@/stores/userStore";
 import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
+import { useModal } from '@/composables/useModal';
+import { updateEnteProfile, updateEntePassword } from "@/api/enteApi";
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -16,9 +18,13 @@ declare global {
 
 const userStore = useUserStore();
 const router = useRouter();
+const { showConfirm, showSuccess, showError } = useModal();
 
-// Computed per verificare se è un operatore
+// Computed per verificare i tipi di utente
 const isOperatore = computed(() => userStore.isOperatore);
+const isUser = computed(() => userStore.isUser);
+const isEnte = computed(() => userStore.isEnte);
+const canModifyProfile = computed(() => isUser.value || isEnte.value);
 
 const tabs = computed(() => {
   if (isOperatore.value) {
@@ -40,7 +46,7 @@ const error = ref('');
 
 // Computed per mostrare nome completo
 const nomeCompleto = computed(() => {
-  if (userStore.user?.cognome) {
+  if (isUser.value && userStore.user?.cognome) {
     return `${userStore.user.nome} ${userStore.user.cognome}`;
   }
   return userStore.user?.nome || 'Nome utente';
@@ -66,15 +72,8 @@ onMounted(async () => {
   try {
     loading.value = true;
     
-    // Debug: verifica autenticazione
-    console.log("🔍 Debug - Token presente:", !!userStore.token);
-    console.log("🔍 Debug - User presente:", !!userStore.user);
-    console.log("🔍 Debug - User ID:", userStore.user?._id);
-    console.log("🔍 Debug - Backend URL:", import.meta.env.VITE_BACKEND_URL);
-    
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
-      console.error("❌ Utente non autenticato");
       loading.value = false;
       return;
     }
@@ -82,22 +81,19 @@ onMounted(async () => {
     // Inizializza il form del profilo con i dati dell'utente
     profileForm.value = {
       nome: userStore.user.nome || '',
-      cognome: userStore.user.cognome || '',
+      cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
       email: userStore.user.credenziali?.email || '',
       biografia: userStore.user.biografia || '',
       fotoProfilo: null
     };
-    console.log("📝 ProfileForm inizializzato:", profileForm.value);
     
     // Carica le MIE proposte usando l'API dedicata
     try {
-      console.log("📡 Chiamando API /my con token...");
       const mieProposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
         headers: {
           Authorization: `Bearer ${userStore.token}`
         }
       });
-      console.log("✅ Proposte ricevute:", mieProposteRes.data);
       // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
       mieProposte.value = mieProposteRes.data.data || mieProposteRes.data;
     } catch (err) {
@@ -122,7 +118,8 @@ onMounted(async () => {
     if (userId && !userStore.user?.biografia) {
       try {
         const userRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`);
-        userStore.setUser({ ...userStore.user, ...userRes.data.data });
+        const userData = userRes.data?.data || userRes.data;
+        userStore.setUser({ ...userStore.user, ...userData });
       } catch (err) {
         console.error("Errore nel caricamento dati utente:", err);
       }
@@ -136,7 +133,14 @@ onMounted(async () => {
 });
 
 const rimuoviProposta = async (proposta: IProposta) => {
-  if (!confirm(`Sei sicuro di voler rimuovere "${proposta.titolo}"?`)) return;
+  const result = await showConfirm(
+    `Sei sicuro di voler eliminare "${proposta.titolo}"?\n\nQuesta azione non può essere annullata.`,
+    'Conferma eliminazione',
+    '🗑️ Elimina definitivamente',
+    'Annulla'
+  );
+  
+  if (!result) return;
   
   try {
     const response = await axios.delete(
@@ -151,12 +155,17 @@ const rimuoviProposta = async (proposta: IProposta) => {
     if (response.status === 200) {
       // Rimuovi la proposta dalla lista locale
       mieProposte.value = mieProposte.value.filter(p => p._id !== proposta._id);
-      alert("Proposta eliminata con successo!");
+      await showSuccess("Proposta eliminata con successo!");
     }
   } catch (err: any) {
     console.error("Errore nella rimozione della proposta:", err);
     const errorMessage = err.response?.data?.message || "Errore nella rimozione della proposta";
-    alert(errorMessage);
+    
+    await showError(
+      "Non è stato possibile eliminare la proposta.",
+      `Dettagli tecnici: ${errorMessage}`,
+      "Errore eliminazione"
+    );
   }
 };
 
@@ -180,7 +189,7 @@ const unhypeProposta = async (proposta: IProposta) => {
   } catch (err: any) {
     console.error("Errore nell'unhype:", err);
     const errorMessage = err.response?.data?.message || "Errore nell'unhype della proposta";
-    alert(errorMessage);
+    showError("Errore nell'unhype della proposta", errorMessage);
   }
 };
 
@@ -248,7 +257,7 @@ const goToSettings = () => {
   if (userStore.user) {
     profileForm.value = {
       nome: userStore.user.nome || '',
-      cognome: userStore.user.cognome || '',
+      cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
       email: userStore.user.credenziali?.email || '',
       biografia: userStore.user.biografia || '',
       fotoProfilo: null
@@ -321,7 +330,7 @@ const loadProfileData = () => {
   if (userStore.user) {
     profileForm.value = {
       nome: userStore.user.nome || '',
-      cognome: userStore.user.cognome || '',
+      cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
       email: userStore.user.credenziali?.email || '',
       biografia: userStore.user.biografia || '',
       fotoProfilo: null
@@ -335,7 +344,8 @@ const validateProfileForm = () => {
     return false;
   }
   
-  if (!profileForm.value.cognome.trim()) {
+  // Il cognome è obbligatorio solo per gli utenti di tipo "user"
+  if (isUser.value && !profileForm.value.cognome.trim()) {
     showMessage('Il cognome è obbligatorio', 'error');
     return false;
   }
@@ -357,37 +367,54 @@ const saveProfileChanges = async () => {
     
     const formData = new FormData();
     formData.append('nome', profileForm.value.nome);
-    formData.append('cognome', profileForm.value.cognome);
+    
+    // Aggiungi cognome solo per User
+    if (isUser.value) {
+      formData.append('cognome', profileForm.value.cognome);
+    }
+    
     formData.append('biografia', profileForm.value.biografia);
     
     if (profileForm.value.fotoProfilo) {
       formData.append('fotoProfilo', profileForm.value.fotoProfilo);
     }
     
-    const response = await axios.patch(
-      `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`,
-      formData,
-      {
-        headers: {
-          'Authorization': `Bearer ${userStore.token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    );
+    let response;
     
-    if (response.data.data) {
-      userStore.setUser(response.data.data);
+    // Usa l'API corretta in base al tipo di utente
+    if (isUser.value) {
+      response = await axios.patch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${userStore.token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+    } else if (isEnte.value) {
+      const result = await updateEnteProfile(userStore.token, formData);
+      response = { data: result };
+    } else {
+      showMessage('Tipo utente non supportato per la modifica del profilo', 'error');
+      return;
+    }
+    
+    if (response.data.data || response.data) {
+      const userData = response.data.data || response.data;
+      userStore.setUser(userData);
       showMessage('Profilo aggiornato con successo!');
       profileForm.value.fotoProfilo = null;
       
       // Aggiorna il form con i nuovi dati per sincronizzarlo con lo store
-      profileForm.value.nome = response.data.data.nome || '';
-      profileForm.value.cognome = response.data.data.cognome || '';
-      profileForm.value.email = response.data.data.credenziali?.email || '';
-      profileForm.value.biografia = response.data.data.biografia || '';
+      profileForm.value.nome = userData.nome || '';
+      profileForm.value.cognome = isUser.value ? (userData.cognome || '') : '';
+      profileForm.value.email = userData.credenziali?.email || '';
+      profileForm.value.biografia = userData.biografia || '';
     }
   } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Errore durante l\'aggiornamento del profilo';
+    const errorMessage = error.response?.data?.message || error.message || 'Errore durante l\'aggiornamento del profilo';
     showMessage(errorMessage, 'error');
   } finally {
     saving.value = false;
@@ -432,25 +459,37 @@ const setPassword = async () => {
     saving.value = true;
     clearMessage();
     
-    const response = await axios.patch(
-      `${import.meta.env.VITE_BACKEND_URL}/api/users/password`,
-      {
-        newPassword: credentialsForm.value.newPassword
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${userStore.token}`
+    let response;
+    
+    // Usa l'API corretta in base al tipo di utente
+    if (isUser.value) {
+      response = await axios.patch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/password`,
+        {
+          newPassword: credentialsForm.value.newPassword
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${userStore.token}`
+          }
         }
-      }
-    );
+      );
+    } else if (isEnte.value) {
+      const result = await updateEntePassword(userStore.token, credentialsForm.value.newPassword);
+      response = { data: result };
+    } else {
+      showMessage('Tipo utente non supportato per la modifica della password', 'error');
+      return;
+    }
     
     showMessage('Password impostata con successo!');
     credentialsForm.value.newPassword = '';
     credentialsForm.value.confirmPassword = '';
     
     // Aggiorna l'utente con i dati ricevuti dal server
-    if (response.data.data) {
-      userStore.setUser(response.data.data);
+    if (response.data.data || response.data) {
+      const userData = response.data.data || response.data;
+      userStore.setUser(userData);
     } else {
       // Fallback: ricarica i dati utente
       await loadUserData();
@@ -461,7 +500,7 @@ const setPassword = async () => {
       activeSection.value = 'credenziali';
     }
   } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Errore durante l\'impostazione della password';
+    const errorMessage = error.response?.data?.message || error.message || 'Errore durante l\'impostazione della password';
     showMessage(errorMessage, 'error');
   } finally {
     saving.value = false;
@@ -515,7 +554,6 @@ const initializeGoogleSignIn = async (): Promise<void> => {
         logo_alignment: 'left',
         width: '100%'
       });
-      console.log('✅ Pulsante Google settings renderizzato');
     }
     
     if (initialContainer) {
@@ -528,7 +566,6 @@ const initializeGoogleSignIn = async (): Promise<void> => {
         text: 'signin_with',
         width: '100%'
       });
-      console.log('✅ Pulsante Google initial renderizzato');
     }
     
     googleInitialized = true;
@@ -557,6 +594,19 @@ const handleGoogleConnectResponse = async (response: any) => {
   } finally {
     saving.value = false;
   }
+};
+
+// Funzione per ottenere il label della categoria
+const getCategoryLabel = (categoria: string): string => {
+  const categories: Record<string, string> = {
+    cultura: '🎭 Cultura',
+    concerti: '🎵 Concerti',
+    mostreInstallazioni: '🖼️ Mostre e installazioni',
+    sport: '⚽ Sport',
+    workshopCorsi: '📚 Workshop e corsi',
+    conferenze: '🎤 Conferenze'
+  };
+  return categories[categoria] || categoria;
 };
 
 const loadUserData = async () => {
@@ -610,7 +660,12 @@ const loadUserData = async () => {
         <div class="profile-info">
           <div class="profile-header-top">
             <h1 class="profile-name">{{ nomeCompleto }}</h1>
-            <button class="settings-button" @click="goToSettings" title="Impostazioni">
+            <button 
+              v-if="canModifyProfile" 
+              class="settings-button" 
+              @click="goToSettings" 
+              title="Impostazioni"
+            >
               <span class="settings-emoji">⚙️</span>
               <span class="settings-text">Impostazioni</span>
             </button>
@@ -669,7 +724,7 @@ const loadUserData = async () => {
             <p>Le tue proposte appariranno qui una volta pubblicate</p>
           </div>
           <div v-else class="proposals-grid">
-            <div v-for="proposta in mieProposte" :key="proposta._id" class="proposal-card">
+            <div v-for="proposta in mieProposte" :key="proposta._id" class="proposal-card" @click="$router.push(`/proposte/${proposta._id}`)" style="cursor: pointer;">
               <div class="proposal-image-container">
                 <img 
                   v-if="proposta.foto?.data"
@@ -687,7 +742,7 @@ const loadUserData = async () => {
                     <span class="hype-icon">⚡</span>
                     {{ proposta.listaHyper.length }}
                   </span>
-                  <span class="proposal-category">{{ proposta.categoria || 'Generale' }}</span>
+                  <span class="proposal-category">{{ getCategoryLabel(proposta.categoria || '') || 'Generale' }}</span>
                 </div>
                 <h3 class="proposal-title">{{ proposta.titolo }}</h3>
                 <p class="proposal-description">{{ proposta.descrizione }}</p>
@@ -695,7 +750,7 @@ const loadUserData = async () => {
                   <span class="proposal-date">
                     {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
                   </span>
-                  <button class="action-button delete-button" @click="rimuoviProposta(proposta)">
+                  <button class="action-button delete-button" @click.stop="rimuoviProposta(proposta)">
                     🗑️ Rimuovi
                   </button>
                 </div>
@@ -712,7 +767,7 @@ const loadUserData = async () => {
             <p>Le proposte che hai hypato appariranno qui</p>
           </div>
           <div v-else class="proposals-grid">
-            <div v-for="proposta in hypedProposte" :key="proposta._id" class="proposal-card">
+            <div v-for="proposta in hypedProposte" :key="proposta._id" class="proposal-card" @click="$router.push(`/proposte/${proposta._id}`)" style="cursor: pointer;">
               <div class="proposal-image-container">
                 <img 
                   v-if="proposta.foto?.data"
@@ -730,13 +785,15 @@ const loadUserData = async () => {
                     <span class="hype-icon">⚡</span>
                     {{ proposta.listaHyper.length }}
                   </span>
-                  <span class="proposal-category">{{ proposta.categoria || 'Generale' }}</span>
+                  <span class="proposal-category">{{ getCategoryLabel(proposta.categoria || '') || 'Generale' }}</span>
                 </div>
                 <h3 class="proposal-title">{{ proposta.titolo }}</h3>
                 <p class="proposal-description">{{ proposta.descrizione }}</p>
                 <div class="proposal-footer">
-                  <span class="proposal-author">Proposta da altro utente</span>
-                  <button class="action-button unhype-button" @click="unhypeProposta(proposta)">
+                  <span class="proposal-date">
+                    {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                  </span>
+                  <button class="action-button unhype-button" @click.stop="unhypeProposta(proposta)">
                     ⚡ Unhype
                   </button>
                 </div>
@@ -837,8 +894,8 @@ const loadUserData = async () => {
               />
             </div>
 
-            <!-- Cognome -->
-            <div class="form-group">
+            <!-- Cognome (solo per User) -->
+            <div v-if="isUser" class="form-group">
               <label for="cognome" class="form-label">Cognome *</label>
               <input
                 id="cognome"
@@ -867,7 +924,9 @@ const loadUserData = async () => {
 
             <!-- Codice Fiscale (read-only) -->
             <div class="form-group">
-              <label for="codiceFiscale" class="form-label">Codice Fiscale</label>
+              <label for="codiceFiscale" class="form-label">
+                {{ isEnte ? 'Codice Fiscale / P.IVA' : 'Codice Fiscale' }}
+              </label>
               <div class="readonly-field-container">
                 <input
                   id="codiceFiscale"
@@ -875,7 +934,7 @@ const loadUserData = async () => {
                   type="text"
                   class="form-input readonly-input"
                   readonly
-                  title="Il codice fiscale non può essere modificato"
+                  :title="isEnte ? 'Il codice fiscale/P.IVA non può essere modificato' : 'Il codice fiscale non può essere modificato'"
                 />
                 <span class="readonly-icon">🔒</span>
               </div>
@@ -1053,7 +1112,7 @@ const loadUserData = async () => {
                 class="save-button"
               >
                 <span v-if="saving">🔄 Impostando...</span>
-                <span v-else">🔑 Imposta password</span>
+                <span v-else>🔑 Imposta password</span>
               </button>
             </form>
           </div>
@@ -1190,7 +1249,7 @@ const loadUserData = async () => {
                   class="save-button"
                 >
                   <span v-if="saving">🔄 Creando...</span>
-                  <span v-else">🔑 Crea password</span>
+                  <span v-else>🔑 Crea password</span>
                 </button>
               </div>
             </form>
@@ -1204,7 +1263,7 @@ const loadUserData = async () => {
 <style scoped>
 .profile-container {
   min-height: 100vh;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   padding-bottom: 80px;
 }
 
@@ -1218,11 +1277,16 @@ const loadUserData = async () => {
   text-align: center;
 }
 
+.loading-container p, .error-container p {
+  color: var(--color-text);
+  margin: 0;
+}
+
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #f0f0f0;
-  border-top: 3px solid #fe4654;
+  border: 3px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -1240,11 +1304,11 @@ const loadUserData = async () => {
 
 /* Header del profilo */
 .profile-header {
-  background: #fff;
+  background: var(--color-card-background);
   margin: 1rem 1.5rem 0.8rem 1.5rem;
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   display: flex;
   gap: 1.2rem;
   align-items: flex-start;
@@ -1287,9 +1351,9 @@ const loadUserData = async () => {
 }
 
 .settings-button {
-  background: #fff;
-  color: #404149;
-  border: 2px solid #e0e0e0;
+  background: var(--color-card-background);
+  color: var(--color-text);
+  border: 2px solid var(--color-border);
   border-radius: 1.5rem;
   padding: 0.85rem 1.5rem;
   cursor: pointer;
@@ -1304,11 +1368,11 @@ const loadUserData = async () => {
 }
 
 .settings-button:hover {
-  background: #fe4654;
+  background: var(--color-primary);
   color: #fff;
-  border-color: #fe4654;
+  border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(254, 70, 84, 0.3);
+  box-shadow: 0 6px 20px var(--color-primary-light);
 }
 
 .settings-button:active {
@@ -1326,12 +1390,12 @@ const loadUserData = async () => {
 .profile-name {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.5rem 0;
 }
 
 .profile-bio {
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0 0 1rem 0;
   line-height: 1.4;
 }
@@ -1355,25 +1419,25 @@ const loadUserData = async () => {
 
 .stat-label {
   font-size: 0.875rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-top: 0.2rem;
 }
 
 /* Tabs */
 .profile-tabs {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1rem;
   margin: 0 1.5rem 1rem 1.5rem;
   padding: 0.4rem;
   display: flex;
   gap: 0.4rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
 }
 
 .tab-button {
   flex: 1;
   background: none;
-  color: #666;
+  color: var(--color-text-secondary);
   border: none;
   border-radius: 1rem;
   padding: 0.75rem 1rem;
@@ -1384,11 +1448,11 @@ const loadUserData = async () => {
 }
 
 .tab-button:hover {
-  color: #404149;
+  color: var(--color-text);
 }
 
 .tab-button.active {
-  background: #fe4654;
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -1411,9 +1475,9 @@ const loadUserData = async () => {
 .empty-state {
   text-align: center;
   padding: 3rem 1.5rem;
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.2rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
 }
 
 .empty-icon {
@@ -1428,16 +1492,16 @@ const loadUserData = async () => {
 }
 
 .empty-state p {
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 /* Card proposte */
 .proposal-card {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 1.2rem;
   overflow: hidden;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
@@ -1445,7 +1509,7 @@ const loadUserData = async () => {
 
 .proposal-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 20px var(--color-shadow);
 }
 
 .proposal-image-container {
@@ -1465,7 +1529,7 @@ const loadUserData = async () => {
 }
 
 .proposal-image-placeholder {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 2rem;
 }
 
@@ -1487,12 +1551,13 @@ const loadUserData = async () => {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  background: #fee;
-  color: #fe4654;
+  background: var(--color-card-background);
+  color: var(--color-primary);
   padding: 0.3rem 0.8rem;
   border-radius: 1rem;
   font-weight: 600;
   font-size: 0.875rem;
+  border: 1px solid var(--color-primary-light);
 }
 
 .hype-icon {
@@ -1500,8 +1565,8 @@ const loadUserData = async () => {
 }
 
 .proposal-category {
-  background: #f8f7f3;
-  color: #666;
+  background: var(--color-background-mute);
+  color: var(--color-text);
   padding: 0.3rem 0.8rem;
   border-radius: 1rem;
   font-size: 0.875rem;
@@ -1511,13 +1576,13 @@ const loadUserData = async () => {
 .proposal-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.75rem 0;
   line-height: 1.3;
 }
 
 .proposal-description {
-  color: #666;
+  color: var(--color-text);
   margin: 0 0 1rem 0;
   line-height: 1.4;
   display: -webkit-box;
@@ -1533,7 +1598,7 @@ const loadUserData = async () => {
   justify-content: space-between;
   align-items: center;
   font-size: 0.875rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-top: auto;
 }
 
@@ -1633,7 +1698,7 @@ const loadUserData = async () => {
 }
 
 .operator-welcome p {
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -1891,8 +1956,8 @@ const loadUserData = async () => {
 }
 
 .readonly-input {
-  background: #f8f7f3 !important;
-  color: #666 !important;
+  background: var(--color-background-mute) !important;
+  color: var(--color-text-secondary) !important;
   cursor: not-allowed;
 }
 

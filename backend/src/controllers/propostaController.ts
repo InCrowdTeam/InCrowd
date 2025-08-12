@@ -1,7 +1,37 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
+import User from "../models/User";
+import Ente from "../models/Ente";
+import Operatore from "../models/Operatore";
 import Commento from "../models/Commento";
+import { apiResponse } from "../utils/responseFormatter";
+
+// Helper per recuperare dati utente da modelli diversi
+const getUserData = async (userId: string, userType?: string) => {
+  try {
+    let userData = null;
+    
+    // Se conosciamo il userType, andiamo direttamente al modello corretto
+    if (userType === 'user') {
+      userData = await User.findById(userId, 'nome cognome');
+    } else if (userType === 'ente') {
+      userData = await Ente.findById(userId, 'nome');
+    } else if (userType === 'operatore') {
+      userData = await Operatore.findById(userId, 'nome cognome');
+    } else {
+      // Se non conosciamo il tipo, proviamo tutti i modelli
+      userData = await User.findById(userId, 'nome cognome') ||
+                 await Ente.findById(userId, 'nome') ||
+                 await Operatore.findById(userId, 'nome cognome');
+    }
+    
+    return userData;
+  } catch (error) {
+    console.error('Errore nel recupero dati utente:', error);
+    return null;
+  }
+};
 
 // Formattazione response standardizzata per le proposte
 const successResponse = (data: any, message?: string) => ({
@@ -28,31 +58,24 @@ export const getAllProposte = async (req: Request, res: Response) => {
       }
       return obj;
     });
-    res.json(successResponse(proposteProcessate));
+    res.json(apiResponse({ data: proposteProcessate, message: "Lista proposte" }));
   } catch (error) {
     console.error("Errore nel recupero proposte:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
 
 export const getMyProposte = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    console.log("🔍 Debug getMyProposte - req.user:", req.user);
-    
+  try {    
     // Verifica che l'utente sia autenticato
     if (!req.user || !req.user.userId) {
-      console.log("❌ Utente non autenticato in getMyProposte");
-      return res.status(401).json(errorResponse("Utente non autenticato"));
+      return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
     }
-
-    console.log("🔍 Debug - User ID:", req.user.userId);
 
     // Recupera TUTTE le proposte dell'utente, indipendentemente dallo stato
     const proposte = await Proposta.find({ proponenteID: req.user.userId })
       .sort({ createdAt: -1 }); // Ordina per data di creazione (più recenti prima)
-    
-    console.log("🔍 Debug - Proposte trovate:", proposte.length);
-    
+        
     const proposteProcessate = proposte.map(p => {
       const obj = p.toObject();
       // se è ancora Buffer lo converto, altrimenti lascio la stringa
@@ -62,10 +85,8 @@ export const getMyProposte = async (req: AuthenticatedRequest, res: Response) =>
       return obj;
     });
     
-    console.log("✅ Inviando proposte:", proposteProcessate.length);
     res.json(successResponse(proposteProcessate));
   } catch (error) {
-    console.error("❌ Errore nel recupero proposte utente:", error);
     res.status(500).json(errorResponse("Errore interno nel recupero delle proposte"));
   }
 };
@@ -153,10 +174,16 @@ export const searchProposte = async (req: Request, res: Response) => {
             return p;
           });
 
-          return res.json({
-            proposte: proposteProcessate,
-            total: await Proposta.countDocuments(filter)
-          });
+          return res.json(
+            apiResponse({
+              data: {
+                proposte: proposteProcessate,
+                total: await Proposta.countDocuments(filter),
+                hasMore: false,
+              },
+              message: "Risultati ricerca",
+            })
+          );
         case 'titolo':
           sort.titolo = sortOrder === 'asc' ? 1 : -1;
           break;
@@ -189,20 +216,31 @@ export const searchProposte = async (req: Request, res: Response) => {
       return obj;
     });
 
-    res.json({
-      proposte: proposteProcessate,
-      total,
-      hasMore: (parseInt(skip as string || '0') + proposteProcessate.length) < total
-    });
+    res.json(
+      apiResponse({
+        data: {
+          proposte: proposteProcessate,
+          total,
+          hasMore: (parseInt((skip as string) || '0') + proposteProcessate.length) < total,
+        },
+        message: "Risultati ricerca",
+      })
+    );
 
   } catch (error) {
     console.error("Errore nella ricerca proposte:", error);
-    res.status(500).json({ message: "Errore nella ricerca" });
+    res.status(500).json(apiResponse({ message: "Errore nella ricerca", error }));
   }
 };
 
 export const addProposta = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Gestione errori multer per file troppo grandi o tipo non supportato
+    if (req.file && req.file.size > 2 * 1024 * 1024) {
+      res.status(400).json({ message: "Il file non può superare i 2MB" });
+      return;
+    }
+
     // Ricostruisci l'indirizzo dall'input flat
     const luogo = {
       citta: req.body.indirizzo_citta,
@@ -225,11 +263,25 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
       titolo: req.body.titolo,
       descrizione: req.body.descrizione,
       foto: req.file
-        ? {
-            // salvo direttamente la stringa base64
-            data: req.file.buffer.toString('base64'),
-            contentType: req.file.mimetype,
-          }
+        ? (() => {
+            // Validazione semplice dell'immagine
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!allowedTypes.includes(req.file.mimetype)) {
+              throw new Error('Tipo di file non supportato. Usa JPEG, PNG o GIF.');
+            }
+            
+            // Controllo dimensione massima 5MB
+            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+            if (req.file.size > maxSize) {
+              throw new Error('File troppo grande. Dimensione massima: 5MB');
+            }
+            
+            // Usa l'immagine originale senza compressione
+            return {
+              data: req.file.buffer.toString('base64'),
+              contentType: req.file.mimetype,
+            };
+          })()
         : undefined,
       categoria: req.body.categoria,
       luogo,
@@ -241,10 +293,10 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
     const propostaSalvata = await newProposta.save();
     const propostaObj = propostaSalvata.toObject();
     // non serve più convertire in base64 in risposta, è già stringa
-    res.status(201).json({ message: "Proposta created successfully", proposta: propostaObj });
+    res.status(201).json(apiResponse({ data: propostaObj, message: "Proposta creata con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione della proposta:", error);
-    res.status(500).json({ message: "Error creating proposta", error });
+    res.status(500).json(apiResponse({ message: "Errore creazione proposta", error }));
   }
 };
 
@@ -259,10 +311,10 @@ export const getPendingProposte = async (_req: Request, res: Response) => {
       }
       return obj;
     });
-    res.json(proposteProcessate);
+    res.json(apiResponse({ data: proposteProcessate, message: "Proposte in attesa" }));
   } catch (error) {
     console.error("Errore nel recupero proposte pending:", error);
-    res.status(500).json({ message: "Errore interno" });
+    res.status(500).json(apiResponse({ message: "Errore interno", error }));
   }
 };
 
@@ -271,7 +323,7 @@ export const updateStatoProposta = async (req: Request, res: Response) => {
   const { stato, commento } = req.body;
   try {
     const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+    if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
 
     proposta.stato = {
       stato,
@@ -283,10 +335,10 @@ export const updateStatoProposta = async (req: Request, res: Response) => {
     if (propostaObj.foto?.data && Buffer.isBuffer(propostaObj.foto.data)) {
       propostaObj.foto.data = propostaObj.foto.data.toString('base64');
     }
-    res.json(propostaObj);
+    res.json(apiResponse({ data: propostaObj, message: "Stato proposta aggiornato" }));
   } catch (error) {
     console.error("Errore aggiornamento stato proposta:", error);
-    res.status(500).json({ message: "Errore aggiornamento stato" });
+    res.status(500).json(apiResponse({ message: "Errore aggiornamento stato", error }));
   }
 };
 
@@ -295,7 +347,7 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
   const userId = req.user?.userId;
   try {
     const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+    if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     
     // Inizializza listaHyper se non esiste
     if (!proposta.listaHyper) {
@@ -305,7 +357,7 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
     }
 
     //controllo per permettere inserimento e rimozione hype
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!userId) return res.status(401).json(apiResponse({ message: 'Utente non autenticato' }));
 
     const index = proposta.listaHyper.map(id => id.toString()).indexOf(userId);
 
@@ -325,40 +377,51 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
 
     await proposta.save();
     
-    res.json(proposta);
+    res.json(apiResponse({ data: proposta, message: "Hyper aggiornato" }));
   } catch (err) {
     console.error("Errore PATCH hyper:", err);
-    res.status(500).json({ message: "Errore nell'aggiunta dell'hyper" });
+    res.status(500).json(apiResponse({ message: "Errore nell'aggiunta dell'hyper", error: err }));
   }
 };
 
 export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const { contenuto } = req.body;
-  const userId = req.user?.userId;
   try {
-    const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+    const { id: propostaId } = req.params;
+    const { contenuto } = req.body;
+    
+    // Impedisci agli operatori di commentare
+    if (req.user?.userType === 'operatore') {
+      return res.status(403).json(apiResponse({ message: "Gli operatori non possono aggiungere commenti" }));
+    }
+
+    if (!contenuto || contenuto.trim().length === 0) {
+      return res.status(400).json(apiResponse({ message: "Il contenuto del commento è obbligatorio" }));
+    }
+
+    if (contenuto.length > 500) {
+      return res.status(400).json(apiResponse({ message: "Il commento non può superare i 500 caratteri" }));
+    }
 
     // Crea il commento
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const proposta = await Proposta.findById(propostaId);
+    if (!proposta) {
+      return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
+    }
 
     const nuovoCommento = new Commento({
-      utente: userId,
-      proposta: proposta._id,
-      contenuto,
-      dataOra: new Date(),
-      isRisposta: false,
+      proposta: propostaId,
+      utente: req.user.userId,
+      contenuto: contenuto.trim()
     });
+
     await nuovoCommento.save();
 
     // Recupera tutti i commenti della proposta
     const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
-
-    res.json({ commenti });
-  } catch (err) {
+    res.json(apiResponse({ data: { commenti }, message: "Commento aggiunto" }));
+  } catch (err: any) {
     console.error("Errore aggiunta commento:", err);
-    res.status(500).json({ message: "Errore nell'aggiunta del commento" });
+    res.status(500).json(apiResponse({ message: "Errore nell'aggiunta del commento", error: err }));
   }
 };
 
@@ -366,13 +429,33 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+    if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
 
-    const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
-    res.json({ commenti });
+    // Recupera i commenti senza populate
+    const commenti = await Commento.find({ proposta: proposta._id }).sort({ dataOra: 1 });
+    
+    // Recupera manualmente i dati utente per ogni commento
+    const commentiConUtente = await Promise.all(
+      commenti.map(async (commento) => {
+        const userData = await getUserData(commento.utente.toString());
+        return {
+          ...commento.toObject(),
+          utente: userData ? {
+            _id: userData._id,
+            nome: userData.nome,
+            cognome: (userData as any).cognome || undefined // Solo per User e Operatore
+          } : {
+            _id: commento.utente,
+            nome: 'Utente non trovato'
+          }
+        };
+      })
+    );
+    
+    res.json(apiResponse({ data: { commenti: commentiConUtente }, message: "Commenti proposta" }));
   } catch (err) {
     console.error("Errore nel recupero commenti:", err);
-    res.status(500).json({ message: "Errore nel recupero dei commenti" });
+    res.status(500).json(apiResponse({ message: "Errore nel recupero dei commenti", error: err }));
   }
 };
 
@@ -380,17 +463,17 @@ export const getPropostaById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
+    if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
 
     const propostaObj = proposta.toObject();
     // se per qualche motivo fosse ancora Buffer lo converto
     if (propostaObj.foto?.data && Buffer.isBuffer(propostaObj.foto.data)) {
       propostaObj.foto.data = propostaObj.foto.data.toString('base64');
     }
-    res.json(propostaObj);
+    res.json(apiResponse({ data: propostaObj, message: "Proposta" }));
   } catch (error) {
     console.error("Errore nel recupero proposta:", error);
-    res.status(500).json({ message: "Errore nel recupero della proposta" });
+    res.status(500).json(apiResponse({ message: "Errore nel recupero della proposta", error }));
   }
 };
 
@@ -427,10 +510,10 @@ export const createProposta = async (req: Request, res: Response) => {
     
     const propostaSalvata = await nuovaProposta.save();
     const propostaObj = propostaSalvata.toObject();
-    res.status(201).json(propostaObj);
+    res.status(201).json(apiResponse({ data: propostaObj, message: "Proposta creata con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione della proposta:", error);
-    res.status(500).json({ message: "Error creating proposta", error });
+    res.status(500).json(apiResponse({ message: "Errore creazione proposta", error }));
   }
 };
 
@@ -441,7 +524,7 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
   try {
     const proposta = await Proposta.findById(id);
     if (!proposta) {
-      return res.status(404).json({ message: "Proposta non trovata" });
+      return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     }
     
     // Verifica che l'utente sia il proprietario della proposta o un operatore
@@ -454,10 +537,9 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
     console.log("Debug delete - proponenteID:", proponenteIdStr, "userId:", userIdStr, "userType:", userType);
     
     if (proponenteIdStr !== userIdStr && userType !== "operatore") {
-      return res.status(403).json({ 
-        message: "Non hai i permessi per eliminare questa proposta",
-        debug: { proponenteId: proponenteIdStr, userId: userIdStr, userType: userType }
-      });
+      return res.status(403).json(apiResponse({ 
+        message: "Non hai i permessi per eliminare questa proposta"
+      }));
     }
     
     // Elimina tutti i commenti associati alla proposta
@@ -466,9 +548,35 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
     // Elimina la proposta
     await Proposta.findByIdAndDelete(proposta._id);
     
-    res.json({ message: "Proposta eliminata con successo" });
+    res.json(apiResponse({ message: "Proposta eliminata con successo" }));
   } catch (error) {
     console.error("Errore nell'eliminazione della proposta:", error);
-    res.status(500).json({ message: "Errore interno del server" });
+    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
+  }
+};
+
+// Elimina un commento specifico
+export const deleteCommento = async (req: AuthenticatedRequest, res: Response) => {
+  const { commentoId } = req.params;
+  const userId = req.user?.userId;
+  const userType = req.user?.userType;
+
+  try {
+    const commento = await Commento.findById(commentoId).populate("utente", "_id");
+    if (!commento) {
+      return res.status(404).json(apiResponse({ message: "Commento non trovato" }));
+    }
+
+    // Controlla i permessi: solo l'autore del commento o gli operatori possono eliminarlo
+    const autorId = commento.utente?._id?.toString();
+    if (autorId !== userId && userType !== "operatore") {
+      return res.status(403).json(apiResponse({ message: "Non hai i permessi per eliminare questo commento" }));
+    }
+
+    await Commento.findByIdAndDelete(commentoId);
+    res.json(apiResponse({ message: "Commento eliminato con successo" }));
+  } catch (error) {
+    console.error("Errore nell'eliminazione del commento:", error);
+    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };

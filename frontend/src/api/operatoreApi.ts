@@ -29,7 +29,8 @@ export async function getOperatoreStats(token: string) {
     throw new Error(error.message || 'Errore nel recupero statistiche operatore');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 // API Admin per operatori
@@ -46,7 +47,8 @@ export async function getAllOperatori(token: string) {
     throw new Error(error.message || 'Errore nel recupero operatori');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 export async function createOperatoreAdmin(operatoreData: any, token: string) {
@@ -64,7 +66,8 @@ export async function createOperatoreAdmin(operatoreData: any, token: string) {
     throw new Error(error.message || 'Errore nella creazione operatore');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 export async function deleteOperatore(operatoreId: string, token: string) {
@@ -81,5 +84,6 @@ export async function deleteOperatore(operatoreId: string, token: string) {
     throw new Error(error.message || 'Errore nella rimozione operatore');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
