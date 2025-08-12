@@ -28,7 +28,9 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
     throw new Error(error.message || 'Errore nel login');
   }
 
-  return res.json();
+  const body = await res.json();
+  // Backend ora incapsula in { data }, ma mantiene anche proprietà top-level per compat
+  return body.data ?? body;
 }
 
 // Login con Google
@@ -54,7 +56,8 @@ export async function googleLogin(data: GoogleLoginData): Promise<GoogleLoginRes
     throw new Error(error.message || 'Errore nel login con Google');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 // Completamento registrazione Google
@@ -73,7 +76,8 @@ export async function completeGoogleSignup(formData: FormData, isEnte: boolean =
     throw new Error(error.message || 'Errore nella registrazione');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 // Collega account Google
@@ -92,5 +96,6 @@ export async function linkGoogleAccount(idToken: string, authToken: string): Pro
     throw new Error(error.message || 'Errore nel collegamento dell\'account Google');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }

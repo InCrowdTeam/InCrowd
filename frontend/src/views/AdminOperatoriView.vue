@@ -175,10 +175,12 @@
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { getAllOperatori, createOperatoreAdmin, deleteOperatore } from '@/api/operatoreApi'
+import { useModal } from '@/composables/useModal'
 
 const operatori = ref<any[]>([])
 const form = ref({ nome: '', cognome: '', email: '', password: '' })
 const store = useUserStore()
+const { showConfirm, showError } = useModal()
 
 // Stati UI
 const loading = ref(true)
@@ -267,8 +269,13 @@ const fetchOperatori = async () => {
     const data = await getAllOperatori(store.token)
     operatori.value = data
   } catch (err: any) {
-    console.error('Errore:', err)
-    errorMessage.value = err.message || 'Errore nel caricamento degli operatori'
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nel caricamento degli operatori';
+    errorMessage.value = errorMessage;
+    showError(
+      'Errore nel caricamento degli operatori',
+      errorMessage,
+      'Errore'
+    )
   } finally {
     loading.value = false
   }
@@ -318,15 +325,25 @@ const create = async () => {
     
     fetchOperatori()
   } catch (err: any) {
-    console.error('Errore:', err)
-    errorMessage.value = err.message || 'Errore nella creazione dell\'operatore'
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nella creazione dell\'operatore';
+    errorMessage.value = errorMessage;
+    showError(
+      'Errore nella creazione dell\'operatore',
+      errorMessage,
+      'Errore'
+    )
   } finally {
     submitting.value = false
   }
 }
 
 const confirmRemove = async (operator: any) => {
-  if (confirm(`Sei sicuro di voler rimuovere l'operatore ${operator.nome} ${operator.cognome}?`)) {
+  const result = await showConfirm(
+    "Rimuovi operatore",
+    `Sei sicuro di voler rimuovere l'operatore ${operator.nome} ${operator.cognome}?`
+  );
+  
+  if (result) {
     await remove(operator._id)
   }
 }
@@ -346,8 +363,13 @@ const remove = async (id: string) => {
     
     fetchOperatori()
   } catch (err: any) {
-    console.error('Errore:', err)
-    errorMessage.value = err.message || 'Errore nella rimozione dell\'operatore'
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nella rimozione dell\'operatore';
+    errorMessage.value = errorMessage;
+    showError(
+      'Errore nella rimozione dell\'operatore',
+      errorMessage,
+      'Errore'
+    )
   }
 }
 

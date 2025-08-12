@@ -688,6 +688,11 @@ ul {
   text-align: center;
 }
 
+.loading-container p {
+  color: var(--color-text);
+  margin: 0;
+}
+
 .loading-spinner {
   width: 40px;
   height: 40px;
@@ -1153,7 +1158,7 @@ ul {
   position: absolute;
   top: 1rem;
   left: 1rem;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-card-background);
   color: var(--color-text);
   padding: 0.4rem 0.8rem;
   border-radius: 1rem;
@@ -1161,23 +1166,25 @@ ul {
   font-weight: 600;
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 10px var(--color-shadow);
+  border: 1px solid var(--color-border);
 }
 
 .hyper-badge {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-card-background);
   color: var(--color-primary);
   padding: 0.4rem 0.8rem;
   border-radius: 1rem;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 800;
   display: flex;
   align-items: center;
   gap: 0.3rem;
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 10px var(--color-shadow);
+  border: 1px solid var(--color-border);
 }
 
 .hyper-badge .hyper-icon {

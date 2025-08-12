@@ -2,9 +2,12 @@
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { computed } from 'vue'
+import { useModal } from '@/composables/useModal'
+import GlobalModal from '@/components/GlobalModal.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
+const { showConfirm } = useModal()
 
 // Funzione per navigazione programmatica alla pagina di aggiunta proposte
 const goToAddProposta = () => router.push('/addproposta')
@@ -19,8 +22,13 @@ const handleLogout = () => {
 }
 
 // Funzione per gestire il click sul logo admin
-const handleAdminLogoClick = () => {
-  if (confirm('Per andare alla home verrà effettuata la disconnessione. Continuare?')) {
+const handleAdminLogoClick = async () => {
+  const result = await showConfirm(
+    "Logout",
+    "Per andare alla home verrà effettuata la disconnessione. Continuare?"
+  );
+  
+  if (result) {
     handleLogout()
   }
 }
@@ -96,12 +104,11 @@ function getUserRole(): string {
         
         <div class="admin-badge">
           <span class="admin-icon">👑</span>
-          <span class="admin-text">Admin Panel</span>
+          <span class="admin-text">Admin</span>
         </div>
         
         <nav class="nav-links">
           <RouterLink to="/admin/operatori">Gestione Operatori</RouterLink>
-          <RouterLink to="/users">Gestione Utenti</RouterLink>
         </nav>
       </div>
       
@@ -138,13 +145,12 @@ function getUserRole(): string {
         
         <div class="operator-badge">
           <span class="operator-icon">🔧</span>
-          <span class="operator-text">Operatore Panel</span>
+          <span class="operator-text">Operatore</span>
         </div>
         
         <nav class="nav-links">
           <RouterLink to="/">Home</RouterLink>
           <RouterLink to="/pannello-operatore">Pannello Operatore</RouterLink>
-          <RouterLink to="/profilo">Profilo</RouterLink>
         </nav>
       </div>
       
@@ -188,7 +194,7 @@ function getUserRole(): string {
         <nav v-if="userStore.token" class="nav-links">
           <RouterLink to="/">Home</RouterLink>
           <RouterLink to="/addProposta">Aggiungi proposta</RouterLink>
-          <RouterLink to="/profilo">Profilo</RouterLink>
+          <RouterLink v-if="!userStore.isOperatore" to="/profilo">Profilo</RouterLink>
         </nav>
       </div>
       
@@ -226,6 +232,9 @@ function getUserRole(): string {
     <main class="main-content">
       <RouterView />
     </main>
+    
+    <!-- Modal globale per messaggi e conferme -->
+    <GlobalModal />
   </div>
 </template>
 

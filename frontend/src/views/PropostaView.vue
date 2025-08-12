@@ -139,8 +139,10 @@
                 placeholder="Scrivi un commento..."
                 class="comment-textarea"
                 rows="3"
+                maxlength="500"
                 @keydown.ctrl.enter="inviaCommento"
               ></textarea>
+              <div class="char-count">{{ nuovoCommento.length }}/500</div>
               <button 
                 @click="inviaCommento" 
                 :disabled="isLoading || !nuovoCommento.trim()"
@@ -194,7 +196,16 @@
               <div class="comment-content">
                 <div class="comment-header">
                   <span class="comment-author">{{ getUserName(commento) }}</span>
-                  <span class="comment-date" :title="formatDateTime(commento.createdAt?.toString() || '')">{{ formatDate(commento.createdAt?.toString() || '') }}</span>
+                  <div class="comment-actions">
+                    <button 
+                      v-if="canDeleteComment(commento)"
+                      @click="eliminaCommento(commento._id)"
+                      class="delete-comment-btn"
+                      title="Elimina commento"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 <div class="comment-text">{{ commento.contenuto }}</div>
               </div>
@@ -213,11 +224,13 @@ import { useUserStore } from '@/stores/userStore';
 import { PropostaService } from '@/services/PropostaService';
 import { UserService } from '@/services/UserService';
 import { DateService } from '@/services/DateService';
+import { useModal } from '@/composables/useModal';
 import type { IProposta } from '@/types/Proposta';
 import type { IUser } from '@/types/User';
 
 const route = useRoute();
 const userStore = useUserStore();
+const { showError, showConfirm } = useModal();
 const proposta = ref<IProposta | null>(null);
 const proponente = ref<IUser | null>(null);
 
@@ -244,7 +257,6 @@ async function loadCommentAvatars() {
         // Questo eviterà richieste ripetute e il v-if funzionerà correttamente
         commentUserAvatars.value.set(commento.utente._id, avatarUrl || '');
       } catch (error) {
-        console.error('❌ Errore nel caricamento avatar per', commento.utente._id, ':', error);
         // Salviamo stringa vuota in caso di errore
         commentUserAvatars.value.set(commento.utente._id, '');
       }
@@ -260,7 +272,6 @@ async function loadProponenteAvatar() {
       // Impostiamo sempre il valore - se vuoto, il v-if mostrerà il placeholder
       proponenteAvatar.value = avatarUrl || null;
     } catch (error) {
-      console.error('❌ Errore nel caricamento avatar proponente:', error);
       proponenteAvatar.value = null;
     }
   }
@@ -338,6 +349,18 @@ function getUserAvatar(user: any): string {
 const canHype = computed(() => userStore.canHype);
 const isOperatore = computed(() => userStore.isOperatore);
 
+// Funzione per verificare se l'utente può cancellare un commento
+function canDeleteComment(commento: any): boolean {
+  if (!userStore.user) return false;
+  
+  // L'utente può cancellare il proprio commento
+  if (commento.utente?._id === userStore.user._id) return true;
+  
+  // Gli operatori e admin possono cancellare qualsiasi commento
+  if (userStore.isOperatore || userStore.isAdmin) return true;
+  
+  return false;
+}
 // Computed per hyper
 const isHyperUser = computed(() => {
   const listaHyper = proposta.value?.listaHyper;
@@ -376,7 +399,7 @@ async function caricaCommenti() {
     console.error("Errore nel caricamento commenti:", err);
     commentiProposta.value = [];
     // Mostra messaggio di errore user-friendly
-    alert(err.message || "Errore nel caricamento dei commenti");
+    showError("Errore nel caricamento dei commenti", err.message);
   } finally {
     isCommentsLoading.value = false;
   }
@@ -401,9 +424,35 @@ async function inviaCommento() {
   } catch (err: any) {
     console.error("Errore commento:", err);
     nuovoCommento.value = commentoTemp; // Ripristina il commento in caso di errore
-    alert(err.message || "Errore nell'invio del commento");
+    showError("Errore nell'invio del commento", err.message);
   } finally {
     isLoading.value = false;
+  }
+}
+
+// Funzione per eliminare un commento
+async function eliminaCommento(commentoId: string) {
+  if (!proposta.value || !userStore.token || !commentoId) return;
+  
+  const result = await showConfirm(
+    "Elimina commento",
+    "Sei sicuro di voler eliminare questo commento?"
+  );
+  
+  if (!result) return;
+  
+  try {
+    await PropostaService.eliminaCommento(
+      proposta.value._id,
+      commentoId,
+      userStore.token
+    );
+    
+    // Ricarica i commenti per aggiornare la lista
+    await caricaCommenti();
+  } catch (err: any) {
+    console.error("Errore eliminazione commento:", err);
+    showError("Errore nell'eliminazione del commento", err.message);
   }
 }
 
@@ -424,7 +473,7 @@ async function handleHyper() {
     
   } catch (err: any) {
     console.error("Errore hyper:", err);
-    alert(err.message || "Errore nell'aggiunta dell'hyper");
+    showError("Errore nell'aggiunta dell'hyper", err.message);
   } finally {
     isHyperLoading.value = false;
   }
@@ -440,9 +489,7 @@ onMounted(async () => {
       
       // Carica il proponente se presente
       if (proposta.value && proposta.value.proponenteID) {
-        console.log('🔍 Caricamento proponente per ID:', proposta.value.proponenteID);
         proponente.value = await UserService.loadUser(proposta.value.proponenteID);
-        console.log('📋 Proponente caricato:', proponente.value);
         // Carica l'avatar del proponente in modo asincrono
         await loadProponenteAvatar();
       }
@@ -451,7 +498,7 @@ onMounted(async () => {
       await caricaCommenti();
     } catch (error) {
       console.error("Errore nel caricamento della proposta:", error);
-      alert("Errore nel caricamento della proposta. Riprova più tardi.");
+      showError("Errore nel caricamento della proposta", "Riprova più tardi.");
     }
   }
 });
@@ -468,7 +515,7 @@ watch(proposta, (newProposta) => {
 /* Base styles */
 .proposta-view {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--color-background-soft) 0%, var(--color-background-mute) 100%);
   padding: 0;
 }
 
@@ -484,8 +531,8 @@ watch(proposta, (newProposta) => {
 .loading-spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid #f0f0f0;
-  border-top: 4px solid #fe4654;
+  border: 4px solid var(--color-border);
+  border-top: 4px solid var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -514,10 +561,10 @@ watch(proposta, (newProposta) => {
 
 /* Hero Section */
 .hero-section {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 2rem;
   overflow: hidden;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 40px var(--color-shadow);
   position: relative;
 }
 
@@ -541,12 +588,12 @@ watch(proposta, (newProposta) => {
 .hero-image-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  background: linear-gradient(135deg, var(--color-background-soft), var(--color-background-mute));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #6c757d;
+  color: var(--color-text-secondary);
 }
 
 .placeholder-icon {
@@ -611,13 +658,9 @@ watch(proposta, (newProposta) => {
 .proposal-title {
   font-size: 3rem;
   font-weight: 800;
-  color: #2c3e50;
+  color: var(--color-heading);
   margin: 0 0 1.5rem 0;
   line-height: 1.2;
-  background: linear-gradient(135deg, #2c3e50, #34495e);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* Creator and Hyper Row */
@@ -685,7 +728,7 @@ watch(proposta, (newProposta) => {
 
 .creator-label {
   font-size: 0.7rem;
-  color: #6c757d;
+  color: var(--color-text-secondary);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -694,7 +737,7 @@ watch(proposta, (newProposta) => {
 .creator-name {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #fe4654;
+  color: var(--color-primary);
 }
 
 /* Hyper Counter Badge */
@@ -711,9 +754,9 @@ watch(proposta, (newProposta) => {
 
 .hyper-btn {
   font-size: 1.7rem;
-  background: #fff;
-  border: 2px solid #fe4654;
-  color: #fe4654;
+  background: var(--color-card-background);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -731,17 +774,17 @@ watch(proposta, (newProposta) => {
 }
 
 .hyper-btn.active {
-  background: #fe4654;
+  background: var(--color-primary);
   color: #fff;
-  border-color: #fe4654;
-  box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 25px var(--color-primary-light);
   animation: hyperPulse 2s infinite;
 }
 
 .hyper-btn:disabled {
-  background: #fe4654;
+  background: var(--color-primary);
   color: #fff;
-  border-color: #fe4654;
+  border-color: var(--color-primary);
   cursor: not-allowed;
   opacity: 0.8;
 }
@@ -803,7 +846,7 @@ watch(proposta, (newProposta) => {
 }
 
 .hyper-disabled-text-compact small {
-  color: #999;
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-style: italic;
 }
@@ -816,7 +859,7 @@ watch(proposta, (newProposta) => {
 .proposal-description {
   font-size: 1.3rem;
   line-height: 1.8;
-  color: #5a6c7d;
+  color: var(--color-text);
   margin-bottom: 2rem;
   font-weight: 400;
 }
@@ -833,17 +876,17 @@ watch(proposta, (newProposta) => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--color-card-background);
   padding: 0.5rem 1rem;
   border-radius: 1.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-border);
   transition: all 0.3s ease;
 }
 
 .meta-item:hover {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--color-background-soft);
   transform: translateY(-1px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px var(--color-shadow);
 }
 
 .meta-icon {
@@ -854,16 +897,16 @@ watch(proposta, (newProposta) => {
 .meta-text {
   font-size: 0.9rem;
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--color-text);
   white-space: nowrap;
 }
 
 /* Comments Section */
 .comments-section {
-  background: #fff;
+  background: var(--color-card-background);
   border-radius: 2rem;
   padding: 3rem;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 40px var(--color-shadow);
   animation: fadeInUp 0.6s ease-out 0.5s both;
 }
 
@@ -873,13 +916,13 @@ watch(proposta, (newProposta) => {
   align-items: center;
   margin-bottom: 3rem;
   padding-bottom: 1.5rem;
-  border-bottom: 2px solid #f8f9fa;
+  border-bottom: 2px solid var(--color-background-soft);
 }
 
 .comments-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--color-heading);
   margin: 0;
 }
 
@@ -894,7 +937,7 @@ watch(proposta, (newProposta) => {
 
 /* Comment Form */
 .comment-form-section {
-  background: #f8f9fa;
+  background: var(--color-background-soft);
   border-radius: 1.5rem;
   padding: 2rem;
   margin-bottom: 3rem;
@@ -945,20 +988,28 @@ watch(proposta, (newProposta) => {
 .comment-textarea {
   width: 100%;
   padding: 1rem 1.5rem;
-  border: 2px solid #e6e6e6;
+  border: 2px solid var(--color-input-border);
   border-radius: 1.5rem;
   font-size: 1rem;
   font-family: inherit;
   resize: vertical;
   min-height: 100px;
   transition: all 0.3s ease;
-  background: #fff;
+  background: var(--color-input-background);
+  color: var(--color-text);
 }
 
 .comment-textarea:focus {
   outline: none;
-  border-color: #fe4654;
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.char-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
 }
 
 .comment-submit-btn {
@@ -1050,7 +1101,7 @@ watch(proposta, (newProposta) => {
 .no-comments {
   text-align: center;
   padding: 4rem;
-  color: #6c757d;
+  color: var(--color-text-secondary);
 }
 
 .no-comments .empty-icon {
@@ -1060,7 +1111,7 @@ watch(proposta, (newProposta) => {
 }
 
 .no-comments h3 {
-  color: #2c3e50;
+  color: var(--color-heading);
   margin-bottom: 0.5rem;
 }
 
@@ -1075,15 +1126,15 @@ watch(proposta, (newProposta) => {
   gap: 1.5rem;
   align-items: flex-start;
   padding: 1.5rem;
-  background: #f8f9fa;
+  background: var(--color-background-soft);
   border-radius: 1.5rem;
   transition: all 0.3s ease;
   border-left: 4px solid transparent;
 }
 
 .comment-item:hover {
-  background: #f1f3f4;
-  border-left-color: #fe4654;
+  background: var(--color-background-mute);
+  border-left-color: var(--color-primary);
   transform: translateX(5px);
 }
 
@@ -1127,20 +1178,42 @@ watch(proposta, (newProposta) => {
   margin-bottom: 0.8rem;
 }
 
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
 .comment-author {
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--color-heading);
   font-size: 1rem;
 }
 
-.comment-date {
-  color: #6c757d;
-  font-size: 0.85rem;
-  font-weight: 500;
+.delete-comment-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.delete-comment-btn:hover {
+  background: rgba(254, 70, 84, 0.1);
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .comment-text {
-  color: #495057;
+  color: var(--color-text);
   line-height: 1.6;
   font-size: 1rem;
 }
