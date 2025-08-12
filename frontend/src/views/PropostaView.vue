@@ -139,8 +139,10 @@
                 placeholder="Scrivi un commento..."
                 class="comment-textarea"
                 rows="3"
+                maxlength="500"
                 @keydown.ctrl.enter="inviaCommento"
               ></textarea>
+              <div class="char-count">{{ nuovoCommento.length }}/500</div>
               <button 
                 @click="inviaCommento" 
                 :disabled="isLoading || !nuovoCommento.trim()"
@@ -194,7 +196,17 @@
               <div class="comment-content">
                 <div class="comment-header">
                   <span class="comment-author">{{ getUserName(commento) }}</span>
-                  <span class="comment-date" :title="formatDateTime(commento.createdAt?.toString() || '')">{{ formatDate(commento.createdAt?.toString() || '') }}</span>
+                  <div class="comment-actions">
+                    <span class="comment-date" :title="formatDateTime(commento.createdAt?.toString() || '')">{{ formatDate(commento.createdAt?.toString() || '') }}</span>
+                    <button 
+                      v-if="canDeleteComment(commento)"
+                      @click="eliminaCommento(commento._id)"
+                      class="delete-comment-btn"
+                      title="Elimina commento"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
                 <div class="comment-text">{{ commento.contenuto }}</div>
               </div>
@@ -213,11 +225,13 @@ import { useUserStore } from '@/stores/userStore';
 import { PropostaService } from '@/services/PropostaService';
 import { UserService } from '@/services/UserService';
 import { DateService } from '@/services/DateService';
+import { useModal } from '@/composables/useModal';
 import type { IProposta } from '@/types/Proposta';
 import type { IUser } from '@/types/User';
 
 const route = useRoute();
 const userStore = useUserStore();
+const { showError, showConfirm } = useModal();
 const proposta = ref<IProposta | null>(null);
 const proponente = ref<IUser | null>(null);
 
@@ -338,6 +352,19 @@ function getUserAvatar(user: any): string {
 const canHype = computed(() => userStore.canHype);
 const isOperatore = computed(() => userStore.isOperatore);
 
+// Funzione per verificare se l'utente può cancellare un commento
+function canDeleteComment(commento: any): boolean {
+  if (!userStore.user) return false;
+  
+  // L'utente può cancellare il proprio commento
+  if (commento.utente?._id === userStore.user._id) return true;
+  
+  // Gli operatori e admin possono cancellare qualsiasi commento
+  if (userStore.isOperatore || userStore.isAdmin) return true;
+  
+  return false;
+}
+
 // Computed per hyper
 const isHyperUser = computed(() => {
   const listaHyper = proposta.value?.listaHyper;
@@ -376,7 +403,7 @@ async function caricaCommenti() {
     console.error("Errore nel caricamento commenti:", err);
     commentiProposta.value = [];
     // Mostra messaggio di errore user-friendly
-    alert(err.message || "Errore nel caricamento dei commenti");
+    showError("Errore nel caricamento dei commenti", err.message);
   } finally {
     isCommentsLoading.value = false;
   }
@@ -401,9 +428,35 @@ async function inviaCommento() {
   } catch (err: any) {
     console.error("Errore commento:", err);
     nuovoCommento.value = commentoTemp; // Ripristina il commento in caso di errore
-    alert(err.message || "Errore nell'invio del commento");
+    showError("Errore nell'invio del commento", err.message);
   } finally {
     isLoading.value = false;
+  }
+}
+
+// Funzione per eliminare un commento
+async function eliminaCommento(commentoId: string) {
+  if (!proposta.value || !userStore.token || !commentoId) return;
+  
+  const result = await showConfirm(
+    "Elimina commento",
+    "Sei sicuro di voler eliminare questo commento?"
+  );
+  
+  if (!result) return;
+  
+  try {
+    await PropostaService.eliminaCommento(
+      proposta.value._id,
+      commentoId,
+      userStore.token
+    );
+    
+    // Ricarica i commenti per aggiornare la lista
+    await caricaCommenti();
+  } catch (err: any) {
+    console.error("Errore eliminazione commento:", err);
+    showError("Errore nell'eliminazione del commento", err.message);
   }
 }
 
@@ -424,7 +477,7 @@ async function handleHyper() {
     
   } catch (err: any) {
     console.error("Errore hyper:", err);
-    alert(err.message || "Errore nell'aggiunta dell'hyper");
+    showError("Errore nell'aggiunta dell'hyper", err.message);
   } finally {
     isHyperLoading.value = false;
   }
@@ -440,9 +493,7 @@ onMounted(async () => {
       
       // Carica il proponente se presente
       if (proposta.value && proposta.value.proponenteID) {
-        console.log('🔍 Caricamento proponente per ID:', proposta.value.proponenteID);
         proponente.value = await UserService.loadUser(proposta.value.proponenteID);
-        console.log('📋 Proponente caricato:', proponente.value);
         // Carica l'avatar del proponente in modo asincrono
         await loadProponenteAvatar();
       }
@@ -451,7 +502,7 @@ onMounted(async () => {
       await caricaCommenti();
     } catch (error) {
       console.error("Errore nel caricamento della proposta:", error);
-      alert("Errore nel caricamento della proposta. Riprova più tardi.");
+      showError("Errore nel caricamento della proposta", "Riprova più tardi.");
     }
   }
 });
@@ -961,6 +1012,13 @@ watch(proposta, (newProposta) => {
   box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
 }
 
+.char-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
 .comment-submit-btn {
   align-self: flex-end;
   background: linear-gradient(135deg, #fe4654, #e63946);
@@ -1127,6 +1185,12 @@ watch(proposta, (newProposta) => {
   margin-bottom: 0.8rem;
 }
 
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
 .comment-author {
   font-weight: 700;
   color: #2c3e50;
@@ -1137,6 +1201,28 @@ watch(proposta, (newProposta) => {
   color: #6c757d;
   font-size: 0.85rem;
   font-weight: 500;
+}
+
+.delete-comment-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.delete-comment-btn:hover {
+  background: rgba(254, 70, 84, 0.1);
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .comment-text {

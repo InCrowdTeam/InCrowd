@@ -2,9 +2,12 @@
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { computed } from 'vue'
+import { useModal } from '@/composables/useModal'
+import GlobalModal from '@/components/GlobalModal.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
+const { showConfirm } = useModal()
 
 // Funzione per navigazione programmatica alla pagina di aggiunta proposte
 const goToAddProposta = () => router.push('/addproposta')
@@ -19,8 +22,13 @@ const handleLogout = () => {
 }
 
 // Funzione per gestire il click sul logo admin
-const handleAdminLogoClick = () => {
-  if (confirm('Per andare alla home verrà effettuata la disconnessione. Continuare?')) {
+const handleAdminLogoClick = async () => {
+  const result = await showConfirm(
+    "Logout",
+    "Per andare alla home verrà effettuata la disconnessione. Continuare?"
+  );
+  
+  if (result) {
     handleLogout()
   }
 }
@@ -101,7 +109,6 @@ function getUserRole(): string {
         
         <nav class="nav-links">
           <RouterLink to="/admin/operatori">Gestione Operatori</RouterLink>
-          <RouterLink to="/users">Gestione Utenti</RouterLink>
         </nav>
       </div>
       
@@ -226,6 +233,9 @@ function getUserRole(): string {
     <main class="main-content">
       <RouterView />
     </main>
+    
+    <!-- Modal globale per messaggi e conferme -->
+    <GlobalModal />
   </div>
 </template>
 

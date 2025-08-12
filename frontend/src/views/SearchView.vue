@@ -125,9 +125,11 @@ import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import SearchProposte from '@/components/SearchProposte.vue'
 import { toggleHyperProposta } from '@/api/propostaApi'
+import { useModal } from '@/composables/useModal'
 
 // Store
 const userStore = useUserStore()
+const { showError, showInfo } = useModal()
 
 // Stato reattivo
 const selectedProposta = ref<any>(null)
@@ -171,11 +173,11 @@ const handleHyper = async () => {
   } catch (error: any) {
     console.error('Errore hyper:', error)
     if (error.response?.status === 401) {
-      alert('Sessione scaduta. Effettua nuovamente il login.')
+      showError('Sessione scaduta', 'Effettua nuovamente il login.');
     } else if (error.response?.status === 403) {
-      alert('Non hai il permesso di mettere hyper.')
+      showError('Permessi insufficienti', 'Non hai il permesso di mettere hyper.');
     } else {
-      alert('Errore nell\'aggiunta dell\'hyper')
+      showError('Errore nell\'aggiunta dell\'hyper', error.message);
     }
   } finally {
     isHyperLoading.value = false
@@ -184,7 +186,7 @@ const handleHyper = async () => {
 
 const openComments = () => {
   // TODO: Implementare apertura pannello commenti
-  alert('Funzionalità commenti in arrivo!')
+  showInfo('Funzionalità in sviluppo', 'Funzionalità commenti in arrivo!')
 }
 
 const formatDate = (dateString: string) => {

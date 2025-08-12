@@ -47,27 +47,15 @@ export async function searchProposte(filters: SearchFilters = {}) {
 }
 
 export async function getAllProposte() {
-  console.log('🌐 Chiamata fetch a:', BASE_URL)
+  const res = await fetch(BASE_URL);
   
-  try {
-    const res = await fetch(BASE_URL);
-    console.log('📡 Risposta fetch status:', res.status, res.statusText)
-    
-    if (!res.ok) {
-      const error = await res.json();
-      console.error('❌ Errore risposta:', error)
-      throw new Error(error.error || error.message || 'Errore nel recupero proposte');
-    }
-
-    const response = await res.json();
-    console.log('📦 Risposta JSON:', response)
-    const result = response.success ? response.data : response;
-    console.log('✅ Risultato finale:', result)
-    return result;
-  } catch (fetchError) {
-    console.error('🚨 Errore nella fetch:', fetchError)
-    throw fetchError;
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || error.message || 'Errore nel recupero proposte');
   }
+
+  const response = await res.json();
+  return response.success ? response.data : response;
 }
 
 // Proposte in attesa di moderazione
@@ -149,6 +137,23 @@ export async function addCommento(propostaId: string, testoCommento: string, tok
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.message || 'Errore nell\'aggiunta commento');
+  }
+
+  return res.json();
+}
+
+export async function deleteCommento(propostaId: string, commentoId: string, token: string) {
+  const res = await fetch(`${BASE_URL}/${propostaId}/commenti/${commentoId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nell\'eliminazione commento');
   }
 
   return res.json();

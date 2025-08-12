@@ -137,14 +137,12 @@ const initializeGoogleSignIn = async () => {
 const handleGoogleResponse = async (response: any) => {
   try {
     errorMessage.value = ''; // Clear previous errors
-    console.log('🚀 Processando login Google...');
     
     const res = await googleLoginApi({
       idToken: response.credential,
     });
 
     if (res.needsRegistration) {
-      console.log('📝 Registrazione necessaria, reindirizzamento...');
       // Determina tipo: se c'è cognome, è user, altrimenti ente
       let nome = res.data.nome || '';
       let cognome = res.data.cognome || '';
@@ -175,7 +173,6 @@ const handleGoogleResponse = async (response: any) => {
       return;
     }
 
-    console.log('✅ Login Google riuscito, impostazione store e redirect...');
     // Login riuscito - imposta i dati nello store
     userStore.setUser(res.user);
     userStore.setToken(res.token);

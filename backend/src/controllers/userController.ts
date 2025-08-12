@@ -139,7 +139,21 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
     
     if (req.file) {
-      // Foto caricata dall'utente
+      // Validazione semplice foto profilo
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        res.status(400).json(errorResponse("Tipo di file non supportato. Usa JPEG, PNG o GIF."));
+        return;
+      }
+      
+      // Controllo dimensione massima 5MB
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (req.file.size > maxSize) {
+        res.status(400).json(errorResponse("File troppo grande. Dimensione massima: 5MB"));
+        return;
+      }
+      
+      // Usa l'immagine originale senza compressione
       fotoProfilo = {
         data: req.file.buffer.toString('base64'),
         contentType: req.file.mimetype,
@@ -325,6 +339,19 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
 
     // Gestione foto profilo
     if (req.file) {
+      // Validazione semplice foto profilo
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json(errorResponse("Tipo di file non supportato. Usa JPEG, PNG o GIF."));
+      }
+      
+      // Controllo dimensione massima 5MB
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (req.file.size > maxSize) {
+        return res.status(400).json(errorResponse("File troppo grande. Dimensione massima: 5MB"));
+      }
+      
+      // Usa l'immagine originale senza compressione
       user.fotoProfilo = {
         data: req.file.buffer.toString('base64'),
         contentType: req.file.mimetype,

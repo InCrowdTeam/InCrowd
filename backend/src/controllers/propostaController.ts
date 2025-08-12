@@ -203,6 +203,12 @@ export const searchProposte = async (req: Request, res: Response) => {
 
 export const addProposta = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Gestione errori multer per file troppo grandi o tipo non supportato
+    if (req.file && req.file.size > 2 * 1024 * 1024) {
+      res.status(400).json({ message: "Il file non può superare i 2MB" });
+      return;
+    }
+
     // Ricostruisci l'indirizzo dall'input flat
     const luogo = {
       citta: req.body.indirizzo_citta,
@@ -225,11 +231,25 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
       titolo: req.body.titolo,
       descrizione: req.body.descrizione,
       foto: req.file
-        ? {
-            // salvo direttamente la stringa base64
-            data: req.file.buffer.toString('base64'),
-            contentType: req.file.mimetype,
-          }
+        ? (() => {
+            // Validazione semplice dell'immagine
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!allowedTypes.includes(req.file.mimetype)) {
+              throw new Error('Tipo di file non supportato. Usa JPEG, PNG o GIF.');
+            }
+            
+            // Controllo dimensione massima 5MB
+            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+            if (req.file.size > maxSize) {
+              throw new Error('File troppo grande. Dimensione massima: 5MB');
+            }
+            
+            // Usa l'immagine originale senza compressione
+            return {
+              data: req.file.buffer.toString('base64'),
+              contentType: req.file.mimetype,
+            };
+          })()
         : undefined,
       categoria: req.body.categoria,
       luogo,
@@ -340,13 +360,22 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
     const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
+    // Validazione contenuto
+    if (!contenuto || !contenuto.trim()) {
+      return res.status(400).json({ message: "Il contenuto del commento è obbligatorio" });
+    }
+    
+    if (contenuto.trim().length > 500) {
+      return res.status(400).json({ message: "Il commento non può superare i 500 caratteri" });
+    }
+
     // Crea il commento
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const nuovoCommento = new Commento({
       utente: userId,
       proposta: proposta._id,
-      contenuto,
+      contenuto: contenuto.trim(),
       dataOra: new Date(),
       isRisposta: false,
     });
@@ -469,6 +498,34 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
     res.json({ message: "Proposta eliminata con successo" });
   } catch (error) {
     console.error("Errore nell'eliminazione della proposta:", error);
+    res.status(500).json({ message: "Errore interno del server" });
+  }
+};
+
+// Elimina un commento specifico
+export const deleteCommento = async (req: AuthenticatedRequest, res: Response) => {
+  const { commentoId } = req.params;
+  const userId = req.user?.userId;
+  const userType = req.user?.userType;
+
+  try {
+    const commento = await Commento.findById(commentoId).populate("utente", "_id");
+    if (!commento) {
+      return res.status(404).json({ message: "Commento non trovato" });
+    }
+
+    // Controlla i permessi: solo l'autore del commento o gli operatori possono eliminarlo
+    const autorId = commento.utente?._id?.toString();
+    if (autorId !== userId && userType !== "operatore") {
+      return res.status(403).json({ 
+        message: "Non hai i permessi per eliminare questo commento" 
+      });
+    }
+
+    await Commento.findByIdAndDelete(commentoId);
+    res.json({ message: "Commento eliminato con successo" });
+  } catch (error) {
+    console.error("Errore nell'eliminazione del commento:", error);
     res.status(500).json({ message: "Errore interno del server" });
   }
 };

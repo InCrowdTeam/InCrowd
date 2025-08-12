@@ -123,26 +123,80 @@
       <h3>{{ search ? 'Nessuna proposta trovata' : 'Tutto moderato!' }}</h3>
       <p>{{ search ? 'Prova a modificare i termini di ricerca' : 'Non ci sono proposte in attesa di moderazione' }}</p>
     </div>
+  </div>
 
-    <!-- Modal per commento di rifiuto -->
-    <div v-if="showRejectModal" class="modal-overlay" @click="closeRejectModal">
-      <div class="modal-content" @click.stop>
-        <h3>Rifiuta Proposta</h3>
-        <p>Stai per rifiutare la proposta: <strong>{{ selectedProposal?.titolo }}</strong></p>
-        <div class="form-group">
-          <label for="reject-comment">Motivo del rifiuto (opzionale):</label>
-          <textarea
-            id="reject-comment"
-            v-model="rejectComment"
-            placeholder="Spiega il motivo del rifiuto..."
-            rows="3"
-          ></textarea>
+  <!-- Modal Dettagli Proposta -->
+  <div v-if="showDetailsModal" class="modal-overlay" @click="closeDetailsModal">
+    <div class="modal-content details-modal" @click.stop>
+      <!-- Emoji icona -->
+      <div class="details-icon">📋</div>
+      <h3>Dettagli Proposta</h3>
+      
+      <div v-if="detailsProposal" class="proposal-details">
+        <!-- Immagine -->
+        <div v-if="detailsProposal.foto" class="proposal-image">
+          <img :src="getImageUrl(detailsProposal.foto)" alt="Foto proposta" />
         </div>
-        <div class="modal-actions">
-          <button @click="closeRejectModal" class="btn-secondary">Annulla</button>
-          <button @click="confirmReject" class="btn-danger">Rifiuta Proposta</button>
+        
+        <!-- Info principali -->
+        <div class="proposal-info">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">📝 Titolo:</span>
+              <span class="value">{{ detailsProposal.titolo }}</span>
+            </div>
+            
+            <div class="info-item">
+              <span class="label">📋 Categoria:</span>
+              <span class="value">{{ detailsProposal.categoria || 'Non specificata' }}</span>
+            </div>
+            
+            <div class="info-item">
+              <span class="label">📍 Luogo:</span>
+              <span class="value">
+                {{ detailsProposal.indirizzo?.citta || 'Non specificato' }}
+                <span v-if="detailsProposal.indirizzo?.via">
+                  , {{ detailsProposal.indirizzo.via }}
+                  <span v-if="detailsProposal.indirizzo?.civico">{{ detailsProposal.indirizzo.civico }}</span>
+                </span>
+              </span>
+            </div>
+            
+            <div class="info-item">
+              <span class="label">📅 Data creazione:</span>
+              <span class="value">{{ formatDate(detailsProposal.createdAt) }}</span>
+            </div>
+            
+            <div class="info-item">
+              <span class="label">🔥 Hyper:</span>
+              <span class="value">{{ detailsProposal.listaHyper?.length || 0 }}</span>
+            </div>
+            
+            <div class="info-item">
+              <span class="label">📊 Stato:</span>
+              <span class="value">
+                <span class="status-badge" :class="getStatusClass(detailsProposal.stato?.stato)">
+                  {{ getStatusText(detailsProposal.stato?.stato) }}
+                </span>
+              </span>
+            </div>
+          </div>
+          
+          <!-- Descrizione -->
+          <div class="description-section">
+            <span class="label">📄 Descrizione:</span>
+            <div class="description-text">{{ detailsProposal.descrizione }}</div>
+          </div>
+          
+          <!-- Commento stato se presente -->
+          <div v-if="detailsProposal.stato?.commento" class="comment-section">
+            <span class="label">💬 Commento moderazione:</span>
+            <div class="comment-text">{{ detailsProposal.stato.commento }}</div>
+          </div>
         </div>
       </div>
+      
+      <button @click="closeDetailsModal" class="btn btn-primary">Chiudi</button>
     </div>
   </div>
 </template>
@@ -151,14 +205,15 @@
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { getPendingProposte, changePropostaState } from '@/api/propostaApi'
+import { useModal } from '@/composables/useModal'
 
 const store = useUserStore()
+const { showError, showConfirm } = useModal()
 const proposte = ref<any[]>([])
 const search = ref('')
 const loading = ref(true)
-const showRejectModal = ref(false)
-const selectedProposal = ref<any>(null)
-const rejectComment = ref('')
+const showDetailsModal = ref(false)
+const detailsProposal = ref<any>(null)
 
 const fetchProposte = async () => {
   try {
@@ -177,43 +232,94 @@ const changeState = async (propostaId: string, stato: string, commento: string =
     await changePropostaState(propostaId, stato, store.token, commento)
     // Rimuovi la proposta dalla lista
     proposte.value = proposte.value.filter(p => p._id !== propostaId)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Errore nell\'aggiornamento stato:', error)
-    alert('Errore nell\'aggiornamento dello stato della proposta')
+    showError("Errore nell'aggiornamento dello stato della proposta", error.message);
   }
 }
 
 const approveProposal = async (proposta: any) => {
-  if (confirm(`Sei sicuro di voler approvare "${proposta.titolo}"?`)) {
+  const result = await showConfirm(
+    "Approva proposta",
+    `Sei sicuro di voler approvare "${proposta.titolo}"?`
+  );
+  
+  if (result) {
     await changeState(proposta._id, 'approvata', 'Proposta approvata dall\'operatore')
   }
 }
 
-const rejectProposal = (proposta: any) => {
-  selectedProposal.value = proposta
-  showRejectModal.value = true
-}
-
-const confirmReject = async () => {
-  if (selectedProposal.value) {
-    await changeState(
-      selectedProposal.value._id, 
-      'rifiutata', 
-      rejectComment.value || 'Proposta rifiutata dall\'operatore'
-    )
-    closeRejectModal()
+const rejectProposal = async (proposta: any) => {
+  const result = await showConfirm(
+    "⚠️", 
+    "Rifiuta Proposta", 
+    `Stai per rifiutare la proposta: "${proposta.titolo}". Questa azione non può essere annullata.`
+  )
+  
+  if (result) {
+    await changeState(proposta._id, 'rifiutata', 'Proposta rifiutata dall\'operatore')
   }
 }
 
-const closeRejectModal = () => {
-  showRejectModal.value = false
-  selectedProposal.value = null
-  rejectComment.value = ''
+const viewDetails = (proposta: any) => {
+  detailsProposal.value = proposta;
+  showDetailsModal.value = true;
 }
 
-const viewDetails = (proposta: any) => {
-  // Per ora mostra un alert con i dettagli, in futuro si può implementare un modal dettagliato
-  alert(`Dettagli Proposta:\n\nTitolo: ${proposta.titolo}\nDescrizione: ${proposta.descrizione}\nCategoria: ${proposta.categoria || 'Non specificata'}\nData: ${new Date(proposta.createdAt).toLocaleDateString('it-IT')}`)
+const closeDetailsModal = () => {
+  showDetailsModal.value = false;
+  detailsProposal.value = null;
+}
+
+function getImageUrl(foto: any): string {
+  if (!foto || !foto.data) return '';
+  
+  try {
+    if (typeof foto.data === 'string') {
+      return `data:${foto.contentType || 'image/jpeg'};base64,${foto.data}`;
+    }
+    
+    if (Array.isArray(foto.data)) {
+      let binary = '';
+      const bytes = new Uint8Array(foto.data);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return `data:${foto.contentType || 'image/jpeg'};base64,${btoa(binary)}`;
+    }
+  } catch (e) {
+    console.error('Errore nel processare l\'immagine:', e);
+  }
+  return '';
+}
+
+function formatDate(dateString: string): string {
+  if (!dateString) return 'Non specificata';
+  return new Date(dateString).toLocaleDateString('it-IT', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getStatusClass(status: string): string {
+  switch (status) {
+    case 'approvata': return 'status-approved'
+    case 'rifiutata': return 'status-rejected'
+    case 'in_approvazione': return 'status-pending'
+    default: return 'status-unknown'
+  }
+}
+
+function getStatusText(status: string): string {
+  switch (status) {
+    case 'approvata': return 'Approvata'
+    case 'rifiutata': return 'Rifiutata'
+    case 'in_approvazione': return 'In attesa'
+    default: return 'Sconosciuto'
+  }
 }
 
 onMounted(fetchProposte)
@@ -708,6 +814,139 @@ const filteredProposte = computed(() => {
   background: #c82333;
 }
 
+/* Stili Modal Dettagli - seguendo il design di AddPropostaView */
+.details-modal {
+  text-align: center;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.details-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.details-modal h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  color: #404149;
+}
+
+.proposal-details {
+  text-align: left;
+  margin-bottom: 2rem;
+}
+
+.proposal-image {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.proposal-image img {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.value {
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.description-section,
+.comment-section {
+  margin-top: 1.5rem;
+  grid-column: 1 / -1;
+}
+
+.description-text,
+.comment-text {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  line-height: 1.6;
+  color: #374151;
+  border-left: 4px solid #fe4654;
+}
+
+.comment-text {
+  border-left-color: #6366f1;
+}
+
+.btn {
+  padding: 0.75rem 2rem;
+  border-radius: 25px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 1rem;
+}
+
+.btn-primary {
+  background: #fe4654;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #e83e4c;
+  transform: translateY(-1px);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .page-header {
@@ -742,6 +981,20 @@ const filteredProposte = computed(() => {
 
   .modal-actions {
     flex-direction: column;
+  }
+  
+  .details-modal {
+    width: 95vw;
+    border-radius: 15px;
+    padding: 1.5rem;
+  }
+  
+  .details-icon {
+    font-size: 3rem;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

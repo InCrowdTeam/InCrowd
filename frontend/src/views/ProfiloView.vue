@@ -5,6 +5,7 @@ import type { IProposta } from "../types/Proposta";
 import { useUserStore } from "@/stores/userStore";
 import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
+import { useModal } from '@/composables/useModal';
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -16,6 +17,7 @@ declare global {
 
 const userStore = useUserStore();
 const router = useRouter();
+const { showConfirm, showSuccess, showError } = useModal();
 
 // Computed per verificare se è un operatore
 const isOperatore = computed(() => userStore.isOperatore);
@@ -66,11 +68,6 @@ onMounted(async () => {
   try {
     loading.value = true;
     
-    // Debug: verifica autenticazione
-    console.log("🔍 Debug - Token presente:", !!userStore.token);
-    console.log("🔍 Debug - User presente:", !!userStore.user);
-    console.log("🔍 Debug - User ID:", userStore.user?._id);
-    console.log("🔍 Debug - Backend URL:", import.meta.env.VITE_BACKEND_URL);
     
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
@@ -87,17 +84,14 @@ onMounted(async () => {
       biografia: userStore.user.biografia || '',
       fotoProfilo: null
     };
-    console.log("📝 ProfileForm inizializzato:", profileForm.value);
     
     // Carica le MIE proposte usando l'API dedicata
     try {
-      console.log("📡 Chiamando API /my con token...");
       const mieProposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
         headers: {
           Authorization: `Bearer ${userStore.token}`
         }
       });
-      console.log("✅ Proposte ricevute:", mieProposteRes.data);
       // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
       mieProposte.value = mieProposteRes.data.data || mieProposteRes.data;
     } catch (err) {
@@ -136,7 +130,14 @@ onMounted(async () => {
 });
 
 const rimuoviProposta = async (proposta: IProposta) => {
-  if (!confirm(`Sei sicuro di voler rimuovere "${proposta.titolo}"?`)) return;
+  const result = await showConfirm(
+    `Sei sicuro di voler eliminare "${proposta.titolo}"?\n\nQuesta azione non può essere annullata.`,
+    'Conferma eliminazione',
+    '🗑️ Elimina definitivamente',
+    'Annulla'
+  );
+  
+  if (!result) return;
   
   try {
     const response = await axios.delete(
@@ -151,12 +152,18 @@ const rimuoviProposta = async (proposta: IProposta) => {
     if (response.status === 200) {
       // Rimuovi la proposta dalla lista locale
       mieProposte.value = mieProposte.value.filter(p => p._id !== proposta._id);
-      alert("Proposta eliminata con successo!");
+      
+      await showSuccess("Proposta eliminata con successo!");
     }
   } catch (err: any) {
     console.error("Errore nella rimozione della proposta:", err);
     const errorMessage = err.response?.data?.message || "Errore nella rimozione della proposta";
-    alert(errorMessage);
+    
+    await showError(
+      "Non è stato possibile eliminare la proposta.",
+      `Dettagli tecnici: ${errorMessage}`,
+      "Errore eliminazione"
+    );
   }
 };
 
@@ -180,7 +187,7 @@ const unhypeProposta = async (proposta: IProposta) => {
   } catch (err: any) {
     console.error("Errore nell'unhype:", err);
     const errorMessage = err.response?.data?.message || "Errore nell'unhype della proposta";
-    alert(errorMessage);
+    showError("Errore nell'unhype della proposta", errorMessage);
   }
 };
 
@@ -515,7 +522,6 @@ const initializeGoogleSignIn = async (): Promise<void> => {
         logo_alignment: 'left',
         width: '100%'
       });
-      console.log('✅ Pulsante Google settings renderizzato');
     }
     
     if (initialContainer) {
@@ -528,7 +534,6 @@ const initializeGoogleSignIn = async (): Promise<void> => {
         text: 'signin_with',
         width: '100%'
       });
-      console.log('✅ Pulsante Google initial renderizzato');
     }
     
     googleInitialized = true;
@@ -735,7 +740,9 @@ const loadUserData = async () => {
                 <h3 class="proposal-title">{{ proposta.titolo }}</h3>
                 <p class="proposal-description">{{ proposta.descrizione }}</p>
                 <div class="proposal-footer">
-                  <span class="proposal-author">Proposta da altro utente</span>
+                  <span class="proposal-date">
+                    {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                  </span>
                   <button class="action-button unhype-button" @click="unhypeProposta(proposta)">
                     ⚡ Unhype
                   </button>

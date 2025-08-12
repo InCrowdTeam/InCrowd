@@ -43,7 +43,6 @@
           <option value="all">Tutti gli utenti ed enti</option>
           <option value="user">Solo utenti normali</option>
           <option value="ente">Solo enti</option>
-          <option value="operatore">Solo operatori</option>
         </select>
         
         <select v-model="sortBy" class="filter-select">
@@ -264,6 +263,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { getAllEnti } from '@/api/enteApi'
+import { useModal } from '@/composables/useModal'
 import axios from 'axios'
 
 // Tipi
@@ -292,6 +292,7 @@ interface User {
 }
 
 const store = useUserStore()
+const { showError } = useModal()
 
 // Stato reattivo
 const users = ref<User[]>([])
@@ -438,19 +439,19 @@ const loadUsers = async () => {
     // Gestisci l'errore più elegantemente
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
-        alert('Timeout nel caricamento degli utenti. Il server potrebbe essere lento. Riprova.')
+        showError('Timeout nel caricamento degli utenti', 'Il server potrebbe essere lento. Riprova.');
       } else if (error.response?.status === 401) {
-        alert('Sessione scaduta. Effettua nuovamente il login.')
+        showError('Sessione scaduta', 'Effettua nuovamente il login.');
         // Eventualmente reindirizza al login
       } else if (error.response?.status === 403) {
-        alert('Non hai i permessi per visualizzare gli utenti.')
+        showError('Permessi insufficienti', 'Non hai i permessi per visualizzare gli utenti.');
       } else if (error.response?.status === 500) {
-        alert('Errore del server. Riprova più tardi.')
+        showError('Errore del server', 'Riprova più tardi.');
       } else {
-        alert(`Errore nel caricamento degli utenti: ${error.message}`)
+        showError('Errore nel caricamento degli utenti', error.message);
       }
     } else {
-      alert('Errore di rete. Controlla la tua connessione.')
+      showError('Errore di rete', 'Controlla la tua connessione.');
     }
     
     users.value = []

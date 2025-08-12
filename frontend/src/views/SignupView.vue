@@ -354,27 +354,22 @@
       </form>
     </div>
 
-    <!-- Success Modal -->
-    <div v-if="showSuccessModal" class="modal-overlay" @click="closeSuccessModal">
-      <div class="success-modal" @click.stop>
-        <div class="success-icon">🎉</div>
-        <h3>Account creato con successo!</h3>
-        <p>Benvenuto in InCrowd! Ora puoi iniziare a esplorare e partecipare alla community.</p>
-        <button @click="closeSuccessModal" class="btn btn-primary">Inizia subito!</button>
-      </div>
-    </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios';
+import { useModal } from '@/composables/useModal';
 
 export default {
+  setup() {
+    const { showSuccess } = useModal();
+    return { showSuccess };
+  },
   data() {
     return {
       currentStep: 1,
       isSubmitting: false,
-      showSuccessModal: false,
       previewUrl: null,
       type: '',
       showPassword: true,
@@ -574,12 +569,6 @@ export default {
       }
     },
     
-    closeSuccessModal() {
-      this.showSuccessModal = false;
-      // Redirect to login or home
-      this.$router.push('/login');
-    },
-    
     async handleSignUp() {
       try {
         this.isSubmitting = true;
@@ -624,10 +613,20 @@ export default {
           throw new Error(errorData.message || "Failed to create user");
         }
         
-        this.showSuccessModal = true;
+        await this.showSuccess(
+          "🎉", 
+          "Account creato con successo!", 
+          "Benvenuto in InCrowd! Ora puoi iniziare a esplorare e partecipare alla community."
+        );
+        this.$router.push('/login');
       } catch (error) {
         console.error("Error creating user:", error);
         this.registrationMessage = `Errore durante la registrazione: ${error.message}`;
+        await this.showError(
+          "Errore durante la registrazione",
+          error.message || "Errore generico",
+          "Registrazione fallita"
+        );
       } finally {
         this.isSubmitting = false;
       }
@@ -636,7 +635,6 @@ export default {
     async initializeGoogle() {
       try {
         if (!this.$el) {
-          console.log('Componente non ancora montato, riprovo...');
           setTimeout(() => this.initializeGoogle(), 100);
           return;
         }
@@ -678,43 +676,48 @@ export default {
             logo_alignment: 'left',
             width: '100%'
           });
-          console.log('✅ Pulsante Google renderizzato con successo');
         } else {
           console.warn('Elemento google-signup-main non trovato');
         }
       } catch (error) {
         console.error('Errore inizializzazione Google:', error);
         this.registrationMessage = 'Errore durante l\'inizializzazione dell\'autenticazione Google';
+        await this.showError(
+          "Errore Google",
+          error.message || "Errore generico",
+          "Autenticazione Google fallita"
+        );
       }
     },
     
     async handleGoogle(response) {
       try {
         this.registrationMessage = '';
-        console.log('🚀 Processando registrazione Google...');
         
         const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/auth/google`, {
           idToken: response.credential,
         });
 
         if (res.data.needsRegistration) {
-          console.log('📝 Registrazione necessaria, reindirizzamento...');
           this.googleSignInCompleted = true;
           this.redirectToCompleteSignup(res.data.data);
           return;
         }
 
-        console.log('✅ Login Google riuscito, redirect alla home...');
         this.$router.push('/');
       } catch (err) {
         console.error('Errore Google registrazione:', err);
         if (err.response?.status === 404 && err.response?.data?.needsRegistration) {
-          console.log('📝 Registrazione necessaria (da errore), reindirizzamento...');
           this.googleSignInCompleted = true;
           this.redirectToCompleteSignup(err.response.data.data);
           return;
         }
         this.registrationMessage = err.response?.data?.message || 'Errore durante la registrazione con Google';
+        await this.showError(
+          "Errore Google",
+          err.response?.data?.message || err.message || "Errore generico",
+          "Registrazione Google fallita"
+        );
       }
     },
     
@@ -1403,35 +1406,6 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-}
-
-.success-modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 400px;
-  margin: 1rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.success-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.success-modal h3 {
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.success-modal p {
-  color: #64748b;
-  margin: 0 0 1.5rem 0;
-  line-height: 1.5;
-  font-size: 0.875rem;
 }
 
 /* Responsive Design */
