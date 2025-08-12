@@ -33,6 +33,19 @@ const getUserData = async (userId: string, userType?: string) => {
   }
 };
 
+// Formattazione response standardizzata per le proposte
+const successResponse = (data: any, message?: string) => ({
+  success: true,
+  data,
+  ...(message && { message })
+});
+
+const errorResponse = (message: string, error?: any) => ({
+  success: false,
+  error: message,
+  ...(error && { details: error })
+});
+
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
     const proposte = await Proposta.find({"stato.stato": "approvata"})
@@ -53,23 +66,16 @@ export const getAllProposte = async (req: Request, res: Response) => {
 };
 
 export const getMyProposte = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    console.log("🔍 Debug getMyProposte - req.user:", req.user);
-    
+  try {    
     // Verifica che l'utente sia autenticato
     if (!req.user || !req.user.userId) {
-      console.log("❌ Utente non autenticato in getMyProposte");
       return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
     }
-
-    console.log("🔍 Debug - User ID:", req.user.userId);
 
     // Recupera TUTTE le proposte dell'utente, indipendentemente dallo stato
     const proposte = await Proposta.find({ proponenteID: req.user.userId })
       .sort({ createdAt: -1 }); // Ordina per data di creazione (più recenti prima)
-    
-    console.log("🔍 Debug - Proposte trovate:", proposte.length);
-    
+        
     const proposteProcessate = proposte.map(p => {
       const obj = p.toObject();
       // se è ancora Buffer lo converto, altrimenti lascio la stringa
@@ -79,11 +85,9 @@ export const getMyProposte = async (req: AuthenticatedRequest, res: Response) =>
       return obj;
     });
     
-    console.log("✅ Inviando proposte:", proposteProcessate.length);
-    res.json(apiResponse({ data: proposteProcessate, message: "Le mie proposte" }));
+    res.json(successResponse(proposteProcessate));
   } catch (error) {
-    console.error("❌ Errore nel recupero proposte utente:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno nel recupero delle proposte", error }));
+    res.status(500).json(errorResponse("Errore interno nel recupero delle proposte"));
   }
 };
 

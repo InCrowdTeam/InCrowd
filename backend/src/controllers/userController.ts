@@ -343,7 +343,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   try {
     const userId = req.user?.userId;
     if (!userId) {
-  return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
+      return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
     }
 
     const { nome, cognome, biografia } = req.body;
@@ -365,7 +365,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     // Trova l'utente corrente
     const user = await User.findById(userId);
     if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     // Aggiorna i dati (email non modificabile)
