@@ -47,6 +47,7 @@ export async function searchProposte(filters: SearchFilters = {}) {
 }
 
 export async function getAllProposte() {
+  const res = await fetch(BASE_URL);
   
   if (!res.ok) {
     const error = await res.json();
