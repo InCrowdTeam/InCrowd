@@ -354,39 +354,40 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
 };
 
 export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const { contenuto } = req.body;
-  const userId = req.user?.userId;
   try {
-    const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
+    const { propostaId, contenuto } = req.body;
+    
+    // Impedisci agli operatori di commentare
+    if (req.user?.userType === 'operatore') {
+      return res.status(403).json(apiResponse({ message: "Gli operatori non possono aggiungere commenti" }));
+    }
 
-    // Validazione contenuto
-    if (!contenuto || !contenuto.trim()) {
+    if (!contenuto || contenuto.trim().length === 0) {
       return res.status(400).json(apiResponse({ message: "Il contenuto del commento è obbligatorio" }));
     }
-    
-    if (contenuto.trim().length > 500) {
+
+    if (contenuto.length > 500) {
       return res.status(400).json(apiResponse({ message: "Il commento non può superare i 500 caratteri" }));
     }
 
     // Crea il commento
-    if (!userId) return res.status(401).json(apiResponse({ message: 'Utente non autenticato' }));
+    const proposta = await Proposta.findById(propostaId);
+    if (!proposta) {
+      return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
+    }
 
     const nuovoCommento = new Commento({
-      utente: userId,
-      proposta: proposta._id,
-      contenuto: contenuto.trim(),
-      dataOra: new Date(),
-      isRisposta: false,
+      proposta: propostaId,
+      utente: req.user.userId,
+      contenuto: contenuto.trim()
     });
+
     await nuovoCommento.save();
 
     // Recupera tutti i commenti della proposta
     const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
-
     res.json(apiResponse({ data: { commenti }, message: "Commento aggiunto" }));
-  } catch (err) {
+  } catch (err: any) {
     console.error("Errore aggiunta commento:", err);
     res.status(500).json(apiResponse({ message: "Errore nell'aggiunta del commento", error: err }));
   }

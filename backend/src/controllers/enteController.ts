@@ -2,21 +2,29 @@ import { Request, Response } from "express";
 import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
-import { emailExists } from "../utils/emailHelper";
+import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 import { apiResponse } from "../utils/responseFormatter";
 
+/**
+ * Recupera tutti gli enti registrati (solo per operatori)
+ * @param req - Richiesta HTTP autenticata
+ * @param res - Risposta HTTP con lista enti
+ */
 export const getAllEnti = async (req: Request, res: Response) => {
   try {
-    const enti = await Ente.find().select("-credenziali.password");
+    const enti = await Ente.find();
     
-    // Processa le foto profilo convertendo Buffer in base64 se necessario
+    // Processa le foto profilo e crea versioni sicure
     const entiProcessati = enti.map(ente => {
-      const obj = ente.toObject();
-      if (obj.fotoProfilo?.data && Buffer.isBuffer(obj.fotoProfilo.data)) {
-        obj.fotoProfilo.data = obj.fotoProfilo.data.toString('base64');
+      const safeEnte = createSafeCredentials(ente);
+      
+      // Processa la foto profilo convertendo Buffer in base64 se necessario
+      if (safeEnte.fotoProfilo?.data && Buffer.isBuffer(safeEnte.fotoProfilo.data)) {
+        safeEnte.fotoProfilo.data = safeEnte.fotoProfilo.data.toString('base64');
       }
-      return obj;
+      
+      return safeEnte;
     });
     
     res.json(apiResponse({ data: entiProcessati, message: "Lista enti" }));
@@ -26,6 +34,11 @@ export const getAllEnti = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Crea un nuovo ente nel sistema
+ * @param req - Richiesta HTTP con dati ente
+ * @param res - Risposta HTTP
+ */
 export const createEnte = async (req: Request, res: Response): Promise<void> => {
   try {
     const { nome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
@@ -46,7 +59,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Sanitizza gli input
+    // Sanitizza gli input per prevenire injection
     const sanitizedNome = sanitizeInput(nome);
     const sanitizedBiografia = biografia ? sanitizeInput(biografia) : "";
     const sanitizedEmail = email.trim().toLowerCase();
@@ -56,7 +69,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
     
     if (securityEnabled) {
-      // Validazioni specifiche
+      // Validazioni specifiche per sicurezza
       if (!validateEmail(sanitizedEmail)) {
         res.status(400).json(apiResponse({ message: "Formato email non valido" }));
         return;
@@ -70,7 +83,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Validazione password (solo se fornita e non OAuth)
+    // Validazione e hashing password (solo se fornita e non OAuth)
     let hashedPassword: string | undefined = undefined;
     
     if (password && !oauthCode) {
@@ -128,10 +141,13 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     const newEnte = new Ente(enteData);
 
     await newEnte.save();
-    res.status(201).json(apiResponse({ data: newEnte, message: "Ente creato con successo" }));
+    
+    // Restituisce i dati sicuri dell'ente con hasPassword
+    const safeEnte = createSafeCredentials(newEnte);
+    res.status(201).json(apiResponse({ data: safeEnte, message: "Ente creato con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione dell'ente:", error);
     res.status(500).json(apiResponse({ message: "Errore nella creazione dell'ente", error }));
   }
-}
+};
 

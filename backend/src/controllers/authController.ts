@@ -6,20 +6,11 @@ import Operatore from "../models/Operatore";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
-import { findAccountByEmail } from "../utils/emailHelper";
+import { findAccountByEmail, createSafeCredentials } from "../utils/emailHelper";
 import fetch from 'node-fetch';
 import { apiResponse } from "../utils/responseFormatter";
 
-// Helper function per creare un oggetto utente sicuro con hasPassword
-const createSafeUser = (user: any) => {
-  const safeUser = user.toObject();
-  if (safeUser.credenziali) {
-    const hasPassword = !!safeUser.credenziali.password;
-    delete safeUser.credenziali.password;
-    (safeUser.credenziali as any).hasPassword = hasPassword;
-  }
-  return safeUser;
-};
+// Configurazione JWT e Google OAuth
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -30,7 +21,11 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "adminpass";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// Funzione helper per scaricare e convertire immagine da URL a base64
+/**
+ * Scarica un'immagine da URL e la converte in base64
+ * @param imageUrl - URL dell'immagine da scaricare
+ * @returns Oggetto con dati base64 e content-type, o null se fallisce
+ */
 const downloadImageAsBase64 = async (imageUrl: string): Promise<{ data: string, contentType: string } | null> => {
   try {
     const response = await fetch(imageUrl);
@@ -50,10 +45,16 @@ const downloadImageAsBase64 = async (imageUrl: string): Promise<{ data: string, 
   }
 };
 
+/**
+ * Gestisce il login tradizionale (email/password) o OAuth
+ * @param req - Richiesta HTTP con credenziali
+ * @param res - Risposta HTTP
+ */
 export const login = async (req: Request, res: Response): Promise<any> => {
   const { email, password, oauthCode } = req.body;
 
   try {
+    // Login admin speciale
     if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
       const token = jwt.sign(
         { email, userType: "admin" },
@@ -64,6 +65,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.json({ ...apiResponse({ data, message: "Login effettuato" }), ...data });
     }
 
+    // Cerca account per email (user, ente, operatore)
     const { user, ente, operatore, count } = await findAccountByEmail(email);
     if (count > 1) {
       return res.status(409).json(apiResponse({ message: "Email duplicata" }));
@@ -78,6 +80,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
     }
 
+    // Validazione credenziali
     if (account.credenziali.password) {
       if (!password) {
         return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
@@ -103,19 +106,25 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
     }
 
+    // Genera token JWT
     const token = jwt.sign(
       { userId: account._id, email: account.credenziali.email, userType },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    const data = { token, user: createSafeUser(account), userType };
+    const data = { token, user: createSafeCredentials(account), userType };
     return res.json({ ...apiResponse({ data, message: "Login effettuato" }), ...data });
   } catch (err) {
     return res.status(500).json(apiResponse({ message: "Errore del server", error: err }));
   }
 };
 
+/**
+ * Gestisce il login tramite Google OAuth
+ * @param req - Richiesta HTTP con token Google
+ * @param res - Risposta HTTP
+ */
 export const googleLogin = async (req: Request, res: Response) => {
   const { idToken } = req.body;
   if (!idToken) return res.status(400).json(apiResponse({ message: "Token mancante" }));
@@ -133,43 +142,67 @@ export const googleLogin = async (req: Request, res: Response) => {
       return res.status(400).json(apiResponse({ message: "Token non valido" }));
     }
 
-    const { user, ente, operatore, count } = await findAccountByEmail(
-      payload.email
-    );
+    // Cerca account esistente o creane uno nuovo
+    const { user, ente, operatore, count } = await findAccountByEmail(payload.email);
     if (count > 1) {
       return res.status(409).json(apiResponse({ message: "Email duplicata" }));
     }
 
-    const account: any = user || ente || operatore;
+    let account: any = user || ente || operatore;
     let userType = "user";
     if (ente) userType = "ente";
     if (operatore) userType = "operatore";
 
     if (!account) {
-      // Scarica foto profilo da Google se disponibile
-      let fotoProfilo = null;
-      if (payload.picture) {
-        fotoProfilo = await downloadImageAsBase64(payload.picture);
+      // Crea nuovo account per email Google
+      const User = (await import("../models/User")).default;
+      const Ente = (await import("../models/Ente")).default;
+      const Operatore = (await import("../models/Operatore")).default;
+
+      // Determina tipo: se c'è cognome, è user, altrimenti ente
+      let type = 'user';
+      if (payload.family_name) {
+        type = 'user';
+      } else {
+        // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
+        type = 'ente';
       }
 
-      const data = {
-        email: payload.email,
-        nome: payload.given_name || "",
-        cognome: payload.family_name || "",
-        oauthCode: payload.sub,
-        fotoProfilo: fotoProfilo
-      };
-      return res.status(404).json({
-        ...apiResponse({ message: "Account non registrato", data }),
-        needsRegistration: true,
-        ...data
-      });
+      if (type === 'user') {
+        account = new User({
+          nome: payload.given_name || "Nome",
+          cognome: payload.family_name || "Cognome",
+          codiceFiscale: "TEMP_" + Date.now(), // Temporaneo, da aggiornare
+          biografia: "",
+          credenziali: {
+            email: payload.email,
+            oauthCode: payload.sub,
+          },
+          fotoProfilo: payload.picture ? await downloadImageAsBase64(payload.picture) : undefined,
+        });
+      } else {
+        account = new Ente({
+          nome: payload.name || "Nome Ente",
+          codiceFiscale: "TEMP_" + Date.now(), // Temporaneo, da aggiornare
+          biografia: "",
+          credenziali: {
+            email: payload.email,
+            oauthCode: payload.sub,
+          },
+          fotoProfilo: payload.picture ? await downloadImageAsBase64(payload.picture) : undefined,
+        });
+      }
+
+      await account.save();
+    } else {
+      // Aggiorna OAuth code se diverso
+      if (account.credenziali.oauthCode !== payload.sub) {
+        account.credenziali.oauthCode = payload.sub;
+        await account.save();
+      }
     }
 
-    if (!account.credenziali.oauthCode) {
-      account.credenziali.oauthCode = payload.sub;
-      await account.save();
-    }
+
 
     // Aggiorna foto profilo se non presente e disponibile su Google
     if (!account.fotoProfilo && payload.picture) {
@@ -186,7 +219,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       { expiresIn: "7d" }
     );
 
-    const data = { token, user: createSafeUser(account), userType };
+    const data = { token, user: createSafeCredentials(account), userType };
     res.json({ ...apiResponse({ data, message: "Login Google effettuato" }), ...data });
   } catch (err: any) {
     const message = err?.message || err.toString();
@@ -194,7 +227,11 @@ export const googleLogin = async (req: Request, res: Response) => {
   }
 };
 
-// Collega un account Google a un utente esistente
+/**
+ * Collega un account Google a un utente esistente
+ * @param req - Richiesta HTTP autenticata con token Google
+ * @param res - Risposta HTTP
+ */
 export const linkGoogleAccount = async (req: Request, res: Response) => {
   const { idToken } = req.body;
   const userId = (req as any).user?.userId;
@@ -214,6 +251,7 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     }
 
     // Verifica che l'email del token Google corrisponda a quella dell'utente
+    const User = (await import("../models/User")).default;
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
@@ -257,7 +295,7 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
 
     // Restituisce i dati aggiornati dell'utente con hasPassword
     const updatedUser = await User.findById(userId);
-    const safeUser = createSafeUser(updatedUser!);
+    const safeUser = createSafeCredentials(updatedUser!);
 
     res.json({ 
       ...apiResponse({ message: "Account Google collegato con successo", data: { user: safeUser } }),
