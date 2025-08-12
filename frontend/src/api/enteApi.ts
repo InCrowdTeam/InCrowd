@@ -14,7 +14,8 @@ export async function getAllEnti(token: string) {
     throw new Error(error.message || 'Errore nel recupero enti')
   }
 
-  return res.json()
+  const body = await res.json()
+  return body.data ?? body
 }
 
 export async function createEnte(data: any) {
@@ -29,7 +30,8 @@ export async function createEnte(data: any) {
     throw new Error(error.message || 'Errore nella creazione ente')
   }
 
-  return res.json()
+  const body = await res.json()
+  return body.data ?? body
 }
 
 // Creazione ente con FormData (per file upload)
@@ -44,5 +46,6 @@ export async function createEnteWithFormData(formData: FormData) {
     throw new Error(error.message || 'Errore nella creazione ente')
   }
 
-  return res.json()
+  const body = await res.json()
+  return body.data ?? body
 }

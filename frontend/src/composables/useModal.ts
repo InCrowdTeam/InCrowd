@@ -154,7 +154,6 @@ export function useModal() {
     showWarning,
     showConfirm,
     showInfo,
-    showModal,
     
     // Funzioni di controllo
     closeModal,

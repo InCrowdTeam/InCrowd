@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { findAccountByEmail } from "../utils/emailHelper";
 import fetch from 'node-fetch';
+import { apiResponse } from "../utils/responseFormatter";
 
 // Helper function per creare un oggetto utente sicuro con hasPassword
 const createSafeUser = (user: any) => {
@@ -59,12 +60,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         JWT_SECRET,
         { expiresIn: "7d" }
       );
-      return res.json({ token, userType: "admin" });
+      const data = { token, userType: "admin" };
+      return res.json({ ...apiResponse({ data, message: "Login effettuato" }), ...data });
     }
 
     const { user, ente, operatore, count } = await findAccountByEmail(email);
     if (count > 1) {
-      return res.status(409).json({ message: "Email duplicata" });
+      return res.status(409).json(apiResponse({ message: "Email duplicata" }));
     }
 
     const account: any = user || ente || operatore;
@@ -73,12 +75,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     if (operatore) userType = "operatore";
 
     if (!account) {
-      return res.status(401).json({ message: "Credenziali non valide" });
+      return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
     }
 
     if (account.credenziali.password) {
       if (!password) {
-        return res.status(401).json({ message: "Credenziali non valide" });
+        return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
       }
       const passwordMatch = await bcrypt.compare(
         password,
@@ -90,15 +92,15 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     } else if (account.credenziali.oauthCode) {
       if (!oauthCode && password) {
         // L'utente sta cercando di fare login con password ma ha solo OAuth
-        return res.status(401).json({ 
+        return res.status(401).json(apiResponse({ 
           message: "Password non impostata. Accedere con Google e impostare una password dalle impostazioni del profilo." 
-        });
+        }));
       }
       if (!oauthCode || oauthCode !== account.credenziali.oauthCode) {
-        return res.status(401).json({ message: "Credenziali non valide" });
+        return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
       }
     } else {
-      return res.status(401).json({ message: "Credenziali non valide" });
+      return res.status(401).json(apiResponse({ message: "Credenziali non valide" }));
     }
 
     const token = jwt.sign(
@@ -107,15 +109,16 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       { expiresIn: "7d" }
     );
 
-    return res.json({ token, user: createSafeUser(account), userType });
+    const data = { token, user: createSafeUser(account), userType };
+    return res.json({ ...apiResponse({ data, message: "Login effettuato" }), ...data });
   } catch (err) {
-    return res.status(500).json({ message: "Errore del server", error: err });
+    return res.status(500).json(apiResponse({ message: "Errore del server", error: err }));
   }
 };
 
 export const googleLogin = async (req: Request, res: Response) => {
   const { idToken } = req.body;
-  if (!idToken) return res.status(400).json({ message: "Token mancante" });
+  if (!idToken) return res.status(400).json(apiResponse({ message: "Token mancante" }));
 
   try {
     if (!process.env.GOOGLE_CLIENT_ID) {
@@ -127,14 +130,14 @@ export const googleLogin = async (req: Request, res: Response) => {
     });
     const payload = ticket.getPayload();
     if (!payload?.email || !payload.sub) {
-      return res.status(400).json({ message: "Token non valido" });
+      return res.status(400).json(apiResponse({ message: "Token non valido" }));
     }
 
     const { user, ente, operatore, count } = await findAccountByEmail(
       payload.email
     );
     if (count > 1) {
-      return res.status(409).json({ message: "Email duplicata" });
+      return res.status(409).json(apiResponse({ message: "Email duplicata" }));
     }
 
     const account: any = user || ente || operatore;
@@ -149,16 +152,17 @@ export const googleLogin = async (req: Request, res: Response) => {
         fotoProfilo = await downloadImageAsBase64(payload.picture);
       }
 
+      const data = {
+        email: payload.email,
+        nome: payload.given_name || "",
+        cognome: payload.family_name || "",
+        oauthCode: payload.sub,
+        fotoProfilo: fotoProfilo
+      };
       return res.status(404).json({
-        message: "Account non registrato",
+        ...apiResponse({ message: "Account non registrato", data }),
         needsRegistration: true,
-        data: {
-          email: payload.email,
-          nome: payload.given_name || "",
-          cognome: payload.family_name || "",
-          oauthCode: payload.sub,
-          fotoProfilo: fotoProfilo
-        },
+        ...data
       });
     }
 
@@ -182,10 +186,11 @@ export const googleLogin = async (req: Request, res: Response) => {
       { expiresIn: "7d" }
     );
 
-    res.json({ token, user: createSafeUser(account), userType });
+    const data = { token, user: createSafeUser(account), userType };
+    res.json({ ...apiResponse({ data, message: "Login Google effettuato" }), ...data });
   } catch (err: any) {
     const message = err?.message || err.toString();
-    res.status(500).json({ message: `Errore login Google: ${message}` });
+    res.status(500).json(apiResponse({ message: `Errore login Google: ${message}` }));
   }
 };
 
@@ -194,8 +199,8 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
   const { idToken } = req.body;
   const userId = (req as any).user?.userId;
 
-  if (!idToken) return res.status(400).json({ message: "Token mancante" });
-  if (!userId) return res.status(401).json({ message: "Utente non autenticato" });
+  if (!idToken) return res.status(400).json(apiResponse({ message: "Token mancante" }));
+  if (!userId) return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
 
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -205,19 +210,19 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     const payload = ticket.getPayload();
     
     if (!payload?.email || !payload.sub) {
-      return res.status(400).json({ message: "Token non valido" });
+      return res.status(400).json(apiResponse({ message: "Token non valido" }));
     }
 
     // Verifica che l'email del token Google corrisponda a quella dell'utente
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Utente non trovato" });
+      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     if (user.credenziali?.email !== payload.email) {
-      return res.status(400).json({ 
+      return res.status(400).json(apiResponse({ 
         message: "L'email dell'account Google deve corrispondere a quella del profilo" 
-      });
+      }));
     }
 
     // Verifica che l'account Google non sia già collegato a un altro utente
@@ -227,9 +232,9 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     });
 
     if (existingUser) {
-      return res.status(409).json({ 
+      return res.status(409).json(apiResponse({ 
         message: "Questo account Google è già collegato a un altro profilo" 
-      });
+      }));
     }
 
     // Collega l'account Google
@@ -255,11 +260,11 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     const safeUser = createSafeUser(updatedUser!);
 
     res.json({ 
-      message: "Account Google collegato con successo",
+      ...apiResponse({ message: "Account Google collegato con successo", data: { user: safeUser } }),
       user: safeUser
     });
   } catch (err: any) {
     const message = err?.message || err.toString();
-    res.status(500).json({ message: `Errore collegamento Google: ${message}` });
+    res.status(500).json(apiResponse({ message: `Errore collegamento Google: ${message}` }));
   }
 };

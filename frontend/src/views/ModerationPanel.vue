@@ -221,7 +221,9 @@ const fetchProposte = async () => {
     const data = await getPendingProposte(store.token)
     proposte.value = data
   } catch (error) {
-    console.error('Errore nel caricamento proposte:', error)
+    console.error('Errore nel caricamento proposte:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto nel caricamento delle proposte';
+    showError('Errore nel caricamento delle proposte', errorMessage);
   } finally {
     loading.value = false
   }
@@ -233,8 +235,9 @@ const changeState = async (propostaId: string, stato: string, commento: string =
     // Rimuovi la proposta dalla lista
     proposte.value = proposte.value.filter(p => p._id !== propostaId)
   } catch (error: any) {
-    console.error('Errore nell\'aggiornamento stato:', error)
-    showError("Errore nell'aggiornamento dello stato della proposta", error.message);
+    console.error('Errore nell\'aggiornamento stato:', error);
+    const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Errore sconosciuto nell\'aggiornamento dello stato';
+    showError("Errore nell'aggiornamento dello stato della proposta", errorMessage);
   }
 }
 

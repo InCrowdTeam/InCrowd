@@ -410,7 +410,7 @@ const loadUsers = async () => {
     
     // Processa utenti
     if (usersResponse.status === 'fulfilled') {
-      const userData = usersResponse.value.data || []
+      const userData = usersResponse.value.data?.data || usersResponse.value.data || []
       allUsers = allUsers.concat(userData.map((user: any) => ({
         ...user,
         userType: 'user'
@@ -421,7 +421,7 @@ const loadUsers = async () => {
     
     // Processa enti
     if (entiResponse.status === 'fulfilled') {
-      const entiData = entiResponse.value || []
+      const entiData = entiResponse.value?.data || entiResponse.value || []
       allUsers = allUsers.concat(entiData.map((ente: any) => ({
         ...ente,
         userType: 'ente',
@@ -448,10 +448,13 @@ const loadUsers = async () => {
       } else if (error.response?.status === 500) {
         showError('Errore del server', 'Riprova più tardi.');
       } else {
-        showError('Errore nel caricamento degli utenti', error.message);
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData?.error || error.message || 'Errore sconosciuto';
+        showError('Errore nel caricamento degli utenti', errorMessage);
       }
     } else {
-      showError('Errore di rete', 'Controlla la tua connessione.');
+      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+      showError('Errore nel caricamento degli utenti', errorMessage);
     }
     
     users.value = []

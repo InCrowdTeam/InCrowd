@@ -269,10 +269,11 @@ const fetchOperatori = async () => {
     const data = await getAllOperatori(store.token)
     operatori.value = data
   } catch (err: any) {
-    errorMessage.value = err.message || 'Errore nel caricamento degli operatori'
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nel caricamento degli operatori';
+    errorMessage.value = errorMessage;
     showError(
       'Errore nel caricamento degli operatori',
-      err.message || undefined,
+      errorMessage,
       'Errore'
     )
   } finally {
@@ -324,10 +325,11 @@ const create = async () => {
     
     fetchOperatori()
   } catch (err: any) {
-    errorMessage.value = err.message || 'Errore nella creazione dell\'operatore'
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nella creazione dell\'operatore';
+    errorMessage.value = errorMessage;
     showError(
       'Errore nella creazione dell\'operatore',
-      err.message || undefined,
+      errorMessage,
       'Errore'
     )
   } finally {
@@ -361,10 +363,11 @@ const remove = async (id: string) => {
     
     fetchOperatori()
   } catch (err: any) {
-    errorMessage.value = err.message || 'Errore nella rimozione dell\'operatore'
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nella rimozione dell\'operatore';
+    errorMessage.value = errorMessage;
     showError(
       'Errore nella rimozione dell\'operatore',
-      err.message || undefined,
+      errorMessage,
       'Errore'
     )
   }

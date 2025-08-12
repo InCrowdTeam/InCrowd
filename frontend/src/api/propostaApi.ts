@@ -43,7 +43,7 @@ export async function searchProposte(filters: SearchFilters = {}) {
   }
 
   const response = await res.json();
-  return response.success ? response.data : response;
+  return response.data ?? response;
 }
 
 export async function getAllProposte() {
@@ -55,7 +55,7 @@ export async function getAllProposte() {
   }
 
   const response = await res.json();
-  return response.success ? response.data : response;
+  return response.data ?? response;
 }
 
 // Proposte in attesa di moderazione
@@ -72,7 +72,8 @@ export async function getPendingProposte(token: string) {
     throw new Error(error.message || 'Errore nel recupero proposte in attesa');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 // Aggiungi/rimuovi da hyper lista
@@ -90,7 +91,8 @@ export async function toggleHyperProposta(propostaId: string, token: string) {
     throw new Error(error.message || 'Errore nell\'aggiornamento hyper');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 // Cambia stato proposta (moderazione)
@@ -109,7 +111,8 @@ export async function changePropostaState(propostaId: string, stato: string, tok
     throw new Error(error.message || 'Errore nel cambio stato');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 // Gestione commenti
@@ -121,7 +124,8 @@ export async function getCommenti(propostaId: string) {
     throw new Error(error.message || 'Errore nel recupero commenti');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 export async function addCommento(propostaId: string, testoCommento: string, token: string) {
@@ -139,7 +143,8 @@ export async function addCommento(propostaId: string, testoCommento: string, tok
     throw new Error(error.message || 'Errore nell\'aggiunta commento');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 export async function deleteCommento(propostaId: string, commentoId: string, token: string) {
@@ -156,7 +161,8 @@ export async function deleteCommento(propostaId: string, commentoId: string, tok
     throw new Error(error.message || 'Errore nell\'eliminazione commento');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }
 
 export async function getPropostaById(id: string) {
@@ -167,5 +173,6 @@ export async function getPropostaById(id: string) {
     throw new Error(error.message || 'Errore nel recupero della proposta');
   }
 
-  return res.json();
+  const body = await res.json();
+  return body.data ?? body;
 }

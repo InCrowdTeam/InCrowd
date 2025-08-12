@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
+import { apiResponse } from "../utils/responseFormatter";
 
 export const getAllEnti = async (req: Request, res: Response) => {
   try {
@@ -18,10 +19,10 @@ export const getAllEnti = async (req: Request, res: Response) => {
       return obj;
     });
     
-    res.json(entiProcessati);
+    res.json(apiResponse({ data: entiProcessati, message: "Lista enti" }));
   } catch (error) {
     console.error("Errore nel recupero enti:", error);
-    res.status(500).json({ message: "Errore interno" });
+    res.status(500).json(apiResponse({ message: "Errore interno", error }));
   }
 };
 
@@ -31,17 +32,17 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
 
     // Validazioni input obbligatori
     if (!nome || !nome.trim()) {
-      res.status(400).json({ message: "Il nome dell'ente è obbligatorio" });
+      res.status(400).json(apiResponse({ message: "Il nome dell'ente è obbligatorio" }));
       return;
     }
 
     if (!codiceFiscale || !codiceFiscale.trim()) {
-      res.status(400).json({ message: "Il codice fiscale è obbligatorio" });
+      res.status(400).json(apiResponse({ message: "Il codice fiscale è obbligatorio" }));
       return;
     }
 
     if (!email || !email.trim()) {
-      res.status(400).json({ message: "L'email è obbligatoria" });
+      res.status(400).json(apiResponse({ message: "L'email è obbligatoria" }));
       return;
     }
 
@@ -57,7 +58,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     if (securityEnabled) {
       // Validazioni specifiche
       if (!validateEmail(sanitizedEmail)) {
-        res.status(400).json({ message: "Formato email non valido" });
+        res.status(400).json(apiResponse({ message: "Formato email non valido" }));
         return;
       }
     }
@@ -65,7 +66,7 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     // Per gli enti non validiamo il formato del codice fiscale (può essere P.IVA)
 
     if (await emailExists(sanitizedEmail)) {
-      res.status(409).json({ message: "Email già registrata" });
+      res.status(409).json(apiResponse({ message: "Email già registrata" }));
       return;
     }
 
@@ -76,10 +77,10 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
       if (securityEnabled) {
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
-          res.status(400).json({ 
+          res.status(400).json(apiResponse({ 
             message: "Password non valida", 
-            errors: passwordValidation.errors 
-          });
+            error: passwordValidation.errors 
+          }));
           return;
         }
       }
@@ -127,10 +128,10 @@ export const createEnte = async (req: Request, res: Response): Promise<void> => 
     const newEnte = new Ente(enteData);
 
     await newEnte.save();
-    res.status(201).json({ message: "Ente created successfully", ente: newEnte });
+    res.status(201).json(apiResponse({ data: newEnte, message: "Ente creato con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione dell'ente:", error);
-    res.status(500).json({ message: "Error creating ente", error });
+    res.status(500).json(apiResponse({ message: "Errore nella creazione dell'ente", error }));
   }
 }
 

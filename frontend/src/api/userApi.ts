@@ -12,7 +12,8 @@ export async function createUser(userData: any) {
     throw new Error(error.error || error.message || 'Errore nella creazione utente')
   }
 
-  return res.json()
+  const body = await res.json()
+  return body.data ?? body
 }
 
 // Creazione utente con FormData (per file upload)
@@ -27,7 +28,8 @@ export async function createUserWithFormData(formData: FormData) {
     throw new Error(error.error || error.message || 'Errore nella creazione utente')
   }
 
-  return res.json()
+  const body = await res.json()
+  return body.data ?? body
 }
 
 // Ottieni utente per ID (con token per dati completi, senza per dati pubblici)
@@ -47,7 +49,7 @@ export async function getUserById(id: string, token?: string) {
   }
 
   const response = await res.json()
-  return response.success ? response.data : response
+  return response.data ?? response
 }
 
 // Ottieni solo l'avatar di un utente (endpoint pubblico)
@@ -66,7 +68,7 @@ export async function getUserAvatar(id: string): Promise<string> {
   const response = await res.json()
   
   // Il backend restituisce { success: true, data: { userId, nome, avatarUrl } }
-  if (response.success && response.data && response.data.avatarUrl) {
+  if (response.data && response.data.avatarUrl) {
     return response.data.avatarUrl;
   }
   
@@ -87,7 +89,7 @@ export async function getAllUsers(token: string) {
   }
 
   const response = await res.json()
-  return response.success ? response.data : response
+  return response.data ?? response
 }
 
 

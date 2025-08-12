@@ -197,7 +197,6 @@
                 <div class="comment-header">
                   <span class="comment-author">{{ getUserName(commento) }}</span>
                   <div class="comment-actions">
-                    <span class="comment-date" :title="formatDateTime(commento.createdAt?.toString() || '')">{{ formatDate(commento.createdAt?.toString() || '') }}</span>
                     <button 
                       v-if="canDeleteComment(commento)"
                       @click="eliminaCommento(commento._id)"

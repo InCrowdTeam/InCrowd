@@ -116,7 +116,8 @@ onMounted(async () => {
     if (userId && !userStore.user?.biografia) {
       try {
         const userRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`);
-        userStore.setUser({ ...userStore.user, ...userRes.data.data });
+        const userData = userRes.data?.data || userRes.data;
+        userStore.setUser({ ...userStore.user, ...userData });
       } catch (err) {
         console.error("Errore nel caricamento dati utente:", err);
       }
@@ -1060,7 +1061,7 @@ const loadUserData = async () => {
                 class="save-button"
               >
                 <span v-if="saving">🔄 Impostando...</span>
-                <span v-else">🔑 Imposta password</span>
+                <span v-else>🔑 Imposta password</span>
               </button>
             </form>
           </div>
@@ -1197,7 +1198,7 @@ const loadUserData = async () => {
                   class="save-button"
                 >
                   <span v-if="saving">🔄 Creando...</span>
-                  <span v-else">🔑 Crea password</span>
+                  <span v-else>🔑 Crea password</span>
                 </button>
               </div>
             </form>

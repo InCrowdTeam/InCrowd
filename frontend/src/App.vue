@@ -104,7 +104,7 @@ function getUserRole(): string {
         
         <div class="admin-badge">
           <span class="admin-icon">👑</span>
-          <span class="admin-text">Admin Panel</span>
+          <span class="admin-text">Admin</span>
         </div>
         
         <nav class="nav-links">
@@ -145,13 +145,12 @@ function getUserRole(): string {
         
         <div class="operator-badge">
           <span class="operator-icon">🔧</span>
-          <span class="operator-text">Operatore Panel</span>
+          <span class="operator-text">Operatore</span>
         </div>
         
         <nav class="nav-links">
           <RouterLink to="/">Home</RouterLink>
           <RouterLink to="/pannello-operatore">Pannello Operatore</RouterLink>
-          <RouterLink to="/profilo">Profilo</RouterLink>
         </nav>
       </div>
       
@@ -195,7 +194,7 @@ function getUserRole(): string {
         <nav v-if="userStore.token" class="nav-links">
           <RouterLink to="/">Home</RouterLink>
           <RouterLink to="/addProposta">Aggiungi proposta</RouterLink>
-          <RouterLink to="/profilo">Profilo</RouterLink>
+          <RouterLink v-if="!userStore.isOperatore" to="/profilo">Profilo</RouterLink>
         </nav>
       </div>
       

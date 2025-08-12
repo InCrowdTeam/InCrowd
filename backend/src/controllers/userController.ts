@@ -4,23 +4,13 @@ import bcrypt from "bcrypt";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
+import { apiResponse } from "../utils/responseFormatter";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
-// Formattazione response standardizzata
-const successResponse = (data: any, message?: string) => ({
-  success: true,
-  data,
-  ...(message && { message })
-});
-
-const errorResponse = (message: string, error?: any) => ({
-  success: false,
-  error: message,
-  ...(error && { details: error })
-});
+// ...existing code...
 
 // Helper function per creare un oggetto utente sicuro con hasPassword
 const createSafeUser = (user: any) => {
@@ -55,14 +45,14 @@ export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
     // Verifica autorizzazione
     if (!canViewFullUserData(req.user)) {
-      return res.status(403).json(errorResponse("Accesso negato. Solo operatori e amministratori possono visualizzare tutti gli utenti."));
+  return res.status(403).json(apiResponse({ message: "Accesso negato. Solo operatori e amministratori possono visualizzare tutti gli utenti." }));
     }
 
     const users = await User.find();
-    res.json(successResponse(users));
+  res.json(apiResponse({ data: users, message: "Lista utenti" }));
   } catch (error) {
     console.error("Errore nel recupero utenti:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
 
@@ -73,22 +63,22 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     // Validazioni input obbligatori
     if (!nome || !nome.trim()) {
-      res.status(400).json(errorResponse("Il nome è obbligatorio"));
+  res.status(400).json(apiResponse({ message: "Il nome è obbligatorio" }));
       return;
     }
 
     if (!cognome || !cognome.trim()) {
-      res.status(400).json(errorResponse("Il cognome è obbligatorio"));
+  res.status(400).json(apiResponse({ message: "Il cognome è obbligatorio" }));
       return;
     }
 
     if (!codiceFiscale || !codiceFiscale.trim()) {
-      res.status(400).json(errorResponse("Il codice fiscale è obbligatorio"));
+  res.status(400).json(apiResponse({ message: "Il codice fiscale è obbligatorio" }));
       return;
     }
 
     if (!email || !email.trim()) {
-      res.status(400).json(errorResponse("L'email è obbligatoria"));
+  res.status(400).json(apiResponse({ message: "L'email è obbligatoria" }));
       return;
     }
 
@@ -105,18 +95,18 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     if (securityEnabled) {
       // Validazioni specifiche
       if (!validateEmail(sanitizedEmail)) {
-        res.status(400).json(errorResponse("Formato email non valido"));
+    res.status(400).json(apiResponse({ message: "Formato email non valido" }));
         return;
       }
 
       if (!isValidCodiceFiscale(sanitizedCodiceFiscale)) {
-        res.status(400).json(errorResponse("Codice fiscale non valido"));
+    res.status(400).json(apiResponse({ message: "Codice fiscale non valido" }));
         return;
       }
     }
 
     if (await emailExists(sanitizedEmail)) {
-      res.status(409).json(errorResponse("Email già registrata"));
+    res.status(409).json(apiResponse({ message: "Email già registrata" }));
       return;
     }
 
@@ -128,7 +118,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       if (securityEnabled) {
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
-          res.status(400).json(errorResponse("Password non valida", passwordValidation.errors));
+          res.status(400).json(apiResponse({ message: "Password non valida", error: passwordValidation.errors }));
           return;
         }
       }
@@ -142,14 +132,14 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       // Validazione semplice foto profilo
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(req.file.mimetype)) {
-        res.status(400).json(errorResponse("Tipo di file non supportato. Usa JPEG, PNG o GIF."));
+  res.status(400).json(apiResponse({ message: "Tipo di file non supportato. Usa JPEG, PNG o GIF." }));
         return;
       }
       
       // Controllo dimensione massima 5MB
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (req.file.size > maxSize) {
-        res.status(400).json(errorResponse("File troppo grande. Dimensione massima: 5MB"));
+  res.status(400).json(apiResponse({ message: "File troppo grande. Dimensione massima: 5MB" }));
         return;
       }
       
@@ -187,10 +177,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     await newUser.save();
     const safeUser = createSafeUser(newUser);
-    res.status(201).json(successResponse(safeUser, "Utente creato con successo"));
+  res.status(201).json(apiResponse({ data: safeUser, message: "Utente creato con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione dell'utente:", error);
-    res.status(500).json(errorResponse("Errore nella creazione dell'utente", error));
+  res.status(500).json(apiResponse({ message: "Errore nella creazione dell'utente", error }));
   }
 };
 
@@ -201,21 +191,21 @@ export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
     const user = await User.findById(userId);
     
     if (!user) {
-      return res.status(404).json(errorResponse("Utente non trovato"));
+  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     // Se l'utente è autenticato ed è operatore/admin, restituisce dati completi
     if (canViewFullUserData(req.user)) {
       const safeUser = createSafeUser(user);
-      return res.json(successResponse(safeUser));
+  return res.json(apiResponse({ data: safeUser, message: "Utente trovato" }));
     }
 
     // Altrimenti restituisce solo dati pubblici
     const publicUser = createPublicUser(user);
-    res.json(successResponse(publicUser));
+  res.json(apiResponse({ data: publicUser, message: "Dati pubblici utente" }));
   } catch (error) {
     console.error("Errore nel recupero utente:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
 
@@ -226,11 +216,11 @@ export const getUserAvatar = async (req: Request, res: Response) => {
     const user = await User.findById(userId).select("fotoProfilo nome");
     
     if (!user) {
-      return res.status(404).json(errorResponse("Utente non trovato"));
+  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     if (!user.fotoProfilo || !user.fotoProfilo.data) {
-      return res.status(404).json(errorResponse("Avatar non disponibile"));
+  return res.status(404).json(apiResponse({ message: "Avatar non disponibile" }));
     }
 
     // Prepara l'URL dell'avatar
@@ -244,21 +234,24 @@ export const getUserAvatar = async (req: Request, res: Response) => {
       avatarUrl = `data:${user.fotoProfilo.contentType};base64,${base64Data}`;
     }
 
-    res.json(successResponse({
-      userId: user._id,
-      nome: user.nome,
-      avatarUrl
+    res.json(apiResponse({
+      data: {
+        userId: user._id,
+        nome: user.nome,
+        avatarUrl
+      },
+      message: "Avatar utente"
     }));
   } catch (error) {
     console.error("Errore nel recupero avatar:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
 
 export const getUtente = async (req: Request, res: Response) => {
   try {
     const utente = await User.findById(req.params.id).select("nome biografia fotoProfilo");
-    if (!utente) return res.status(404).json(errorResponse("Utente non trovato"));
+  if (!utente) return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
 
     let fotoProfiloUrl = "";
     if (utente.fotoProfilo && utente.fotoProfilo.data && utente.fotoProfilo.contentType) {
@@ -270,13 +263,16 @@ export const getUtente = async (req: Request, res: Response) => {
       fotoProfiloUrl = `data:${utente.fotoProfilo.contentType};base64,${base64Data}`;
     }
 
-    res.json(successResponse({
-      nome: utente.nome,
-      biografia: utente.biografia,
-      fotoProfiloUrl
+    res.json(apiResponse({
+      data: {
+        nome: utente.nome,
+        biografia: utente.biografia,
+        fotoProfiloUrl
+      },
+      message: "Dati pubblici utente"
     }));
   } catch (err) {
-    res.status(500).json(errorResponse("Errore nel recupero utente"));
+  res.status(500).json(apiResponse({ message: "Errore nel recupero utente", error: err }));
   }
 };
 
@@ -285,21 +281,21 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json(errorResponse("Utente non autenticato"));
+  return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json(errorResponse("Utente non trovato"));
+  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     // Crea una versione sicura dell'utente senza la password ma con un flag che indica se esiste
     const safeUser = createSafeUser(user);
 
-    res.json(successResponse(safeUser));
+  res.json(apiResponse({ data: safeUser, message: "Utente corrente" }));
   } catch (error) {
     console.error("Errore nel recupero utente corrente:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
 
@@ -308,28 +304,28 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json(errorResponse("Utente non autenticato"));
+  return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
     }
 
     const { nome, cognome, biografia } = req.body;
 
     // Validazioni
     if (!nome || !nome.trim()) {
-      return res.status(400).json(errorResponse("Il nome è obbligatorio"));
+  return res.status(400).json(apiResponse({ message: "Il nome è obbligatorio" }));
     }
 
     if (!cognome || !cognome.trim()) {
-      return res.status(400).json(errorResponse("Il cognome è obbligatorio"));
+  return res.status(400).json(apiResponse({ message: "Il cognome è obbligatorio" }));
     }
 
     if (biografia && biografia.length > 500) {
-      return res.status(400).json(errorResponse("La biografia non può superare i 500 caratteri"));
+  return res.status(400).json(apiResponse({ message: "La biografia non può superare i 500 caratteri" }));
     }
 
     // Trova l'utente corrente
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json(errorResponse("Utente non trovato"));
+  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     // Aggiorna i dati (email non modificabile)
@@ -342,13 +338,13 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
       // Validazione semplice foto profilo
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       if (!allowedTypes.includes(req.file.mimetype)) {
-        return res.status(400).json(errorResponse("Tipo di file non supportato. Usa JPEG, PNG o GIF."));
+  return res.status(400).json(apiResponse({ message: "Tipo di file non supportato. Usa JPEG, PNG o GIF." }));
       }
       
       // Controllo dimensione massima 5MB
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (req.file.size > maxSize) {
-        return res.status(400).json(errorResponse("File troppo grande. Dimensione massima: 5MB"));
+  return res.status(400).json(apiResponse({ message: "File troppo grande. Dimensione massima: 5MB" }));
       }
       
       // Usa l'immagine originale senza compressione
@@ -364,10 +360,10 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     const updatedUser = await User.findById(userId);
     const safeUser = createSafeUser(updatedUser!);
     
-    res.json(successResponse(safeUser, "Profilo aggiornato con successo"));
+  res.json(apiResponse({ data: safeUser, message: "Profilo aggiornato con successo" }));
   } catch (error) {
     console.error("Errore nell'aggiornamento del profilo:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
 
@@ -376,14 +372,14 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json(errorResponse("Utente non autenticato"));
+  return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
     }
 
     const { newPassword } = req.body;
 
     // Validazioni con i nuovi standard
     if (!newPassword) {
-      return res.status(400).json(errorResponse("La nuova password è obbligatoria"));
+  return res.status(400).json(apiResponse({ message: "La nuova password è obbligatoria" }));
     }
 
     const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
@@ -391,14 +387,14 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
     if (securityEnabled) {
       const passwordValidation = validatePassword(newPassword);
       if (!passwordValidation.isValid) {
-        return res.status(400).json(errorResponse("Password non valida", passwordValidation.errors));
+        return res.status(400).json(apiResponse({ message: "Password non valida", error: passwordValidation.errors }));
       }
     }
 
     // Trova l'utente
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json(errorResponse("Utente non trovato"));
+  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     // Cripta la nuova password con 10 rounds
@@ -417,9 +413,9 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
     const updatedUser = await User.findById(userId);
     const safeUser = createSafeUser(updatedUser!);
 
-    res.json(successResponse(safeUser, "Password aggiornata con successo"));
+  res.json(apiResponse({ data: safeUser, message: "Password aggiornata con successo" }));
   } catch (error) {
     console.error("Errore nell'aggiornamento della password:", error);
-    res.status(500).json(errorResponse("Errore interno del server"));
+  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };

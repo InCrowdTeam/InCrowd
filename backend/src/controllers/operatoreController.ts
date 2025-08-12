@@ -6,13 +6,14 @@ import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import { emailExists } from "../utils/emailHelper";
 import { validatePassword } from "../utils/passwordValidator";
+import { apiResponse } from "../utils/responseFormatter";
 
 export const createOperatore = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, nome = 'Operatore', cognome = 'Admin', password, oauthCode } = req.body;
 
     if (await emailExists(email)) {
-      res.status(409).json({ message: 'Email già registrata' });
+  res.status(409).json(apiResponse({ message: 'Email già registrata' }));
       return;
     }
 
@@ -24,10 +25,7 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
       if (securityEnabled) {
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
-          res.status(400).json({ 
-            message: "Password non valida", 
-            errors: passwordValidation.errors 
-          });
+          res.status(400).json(apiResponse({ message: "Password non valida", error: passwordValidation.errors }));
           return;
         }
       }
@@ -45,19 +43,19 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
     });
 
     await newOperatore.save();
-    res.status(201).json({ message: "Operatore created successfully", operatore: newOperatore });
+  res.status(201).json(apiResponse({ data: newOperatore, message: "Operatore creato con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione dell'operatore:", error);
-    res.status(500).json({ message: "Error creating operatore", error });
+  res.status(500).json(apiResponse({ message: "Errore creazione operatore", error }));
   }
 }
 
 export const getAllOperatori = async (_req: Request, res: Response): Promise<void> => {
   try {
     const operatori = await Operatore.find()
-    res.json(operatori)
+  res.json(apiResponse({ data: operatori, message: "Lista operatori" }));
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching operatori', error })
+  res.status(500).json(apiResponse({ message: 'Errore recupero operatori', error }))
   }
 }
 
@@ -71,12 +69,12 @@ export const updateOperatore = async (req: Request, res: Response): Promise<void
     }
     const updated = await Operatore.findByIdAndUpdate(id, updateData, { new: true })
     if (!updated) {
-      res.status(404).json({ message: 'Operatore not found' })
+      res.status(404).json(apiResponse({ message: 'Operatore non trovato' }))
       return
     }
-    res.json(updated)
+    res.json(apiResponse({ data: updated, message: "Operatore aggiornato" }))
   } catch (error) {
-    res.status(500).json({ message: 'Error updating operatore', error })
+  res.status(500).json(apiResponse({ message: 'Errore aggiornamento operatore', error }))
   }
 }
 
@@ -85,12 +83,12 @@ export const deleteOperatore = async (req: Request, res: Response): Promise<void
     const { id } = req.params
     const deleted = await Operatore.findByIdAndDelete(id)
     if (!deleted) {
-      res.status(404).json({ message: 'Operatore not found' })
+      res.status(404).json(apiResponse({ message: 'Operatore non trovato' }))
       return
     }
-    res.json({ message: 'Operatore deleted' })
+    res.json(apiResponse({ message: 'Operatore eliminato' }))
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting operatore', error })
+  res.status(500).json(apiResponse({ message: 'Errore eliminazione operatore', error }))
   }
 }
 
@@ -115,10 +113,10 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
       proposteRifiutate
     };
     
-    res.json(stats);
+  res.json(apiResponse({ data: stats, message: "Statistiche operatore" }));
   } catch (error) {
     console.error("Errore nel recupero statistiche operatore:", error);
-    res.status(500).json({ message: "Errore interno nel recupero statistiche" });
+  res.status(500).json(apiResponse({ message: "Errore interno nel recupero statistiche", error }));
   }
 }
 
