@@ -360,11 +360,13 @@
 <script>
 import axios from 'axios';
 import { useModal } from '@/composables/useModal';
+import { useUserStore } from '@/stores/userStore';
 
 export default {
   setup() {
-    const { showSuccess } = useModal();
-    return { showSuccess };
+    const { showSuccess, showError } = useModal();
+    const userStore = useUserStore();
+    return { showSuccess, showError, userStore };
   },
   data() {
     return {
@@ -599,9 +601,10 @@ export default {
           formData.append("oauthCode", this.form.credenziali.oauthCode);
         }
 
+        // Determina l'endpoint corretto in base al tipo di account
         const url = this.type === 'ente'
-          ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'}/api/enti`
-          : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'}/api/users`;
+          ? `${import.meta.env.VITE_BACKEND_URL}/api/enti`
+          : `${import.meta.env.VITE_BACKEND_URL}/api/users`;
 
         const response = await fetch(url, {
           method: "POST",
@@ -610,15 +613,35 @@ export default {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || "Failed to create user");
+          throw new Error(errorData.message || "Impossibile creare l'account");
         }
         
-        await this.showSuccess(
-          "🎉", 
-          "Account creato con successo!", 
-          "Benvenuto in InCrowd! Ora puoi iniziare a esplorare e partecipare alla community."
-        );
-        this.$router.push('/login');
+        // Gestisce login automatico se il backend restituisce token
+        const responseData = await response.json();
+        
+        if (responseData.data && responseData.data.token && responseData.data.user) {
+          // Salva i dati di login nello store per login automatico
+          this.userStore.setToken(responseData.data.token);
+          this.userStore.setUser(responseData.data.user);
+          this.userStore.setUserType(responseData.data.userType);
+          
+          await this.showSuccess(
+            "🎉", 
+            "Account creato con successo!", 
+            "Benvenuto in InCrowd! Sei già collegato e puoi iniziare a esplorare la community."
+          );
+          
+          // Reindirizza alla home invece che al login
+          this.$router.push('/');
+        } else {
+          // Fallback: reindirizza al login se il token non è disponibile
+          await this.showSuccess(
+            "🎉", 
+            "Account creato con successo!", 
+            "Benvenuto in InCrowd! Ora puoi effettuare il login."
+          );
+          this.$router.push('/login');
+        }
       } catch (error) {
         console.error("Error creating user:", error);
         this.registrationMessage = `Errore durante la registrazione: ${error.message}`;
@@ -782,7 +805,7 @@ export default {
 
 .signup-container {
   min-height: 100vh;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   padding: 2rem 1rem;
   margin: -2rem -1rem;
   position: relative;
@@ -799,13 +822,13 @@ export default {
 .main-title {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0 0 1.5rem 0;
   font-weight: 400;
 }
@@ -832,16 +855,16 @@ export default {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: var(--color-background-mute);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .step-indicator.active .step-circle {
@@ -859,7 +882,7 @@ export default {
 
 .step-label {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-secondary);
   text-align: center;
   font-weight: 500;
 }
@@ -873,9 +896,9 @@ export default {
 .form-container {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
+  background: var(--color-card-background);
   border-radius: 1rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   overflow: hidden;
 }
 
@@ -894,7 +917,7 @@ export default {
 
 .step-header h2 {
   font-size: 1.25rem;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0;
   font-weight: 600;
 }
@@ -908,22 +931,23 @@ export default {
 }
 
 .account-type-card {
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--color-border);
   border-radius: 12px;
   padding: 1.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #fafafa;
+  background: var(--color-background-soft);
 }
 
 .account-type-card:hover {
-  border-color: #fe4654;
-  background: white;
+  border-color: var(--color-primary);
+  background: var(--color-card-background);
 }
 
 .account-type-card.active {
-  border-color: #fe4654;
-  background: #fee;
+  border-color: var(--color-primary);
+  background: var(--color-card-background);
+  box-shadow: 0 4px 20px var(--color-primary-light);
 }
 
 .card-content {
@@ -939,13 +963,13 @@ export default {
 
 .card-info h3 {
   font-size: 1rem;
-  color: #1e293b;
+  color: var(--color-heading);
   margin: 0 0 0.25rem 0;
   font-weight: 600;
 }
 
 .card-info p {
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   margin: 0;
   line-height: 1.4;
@@ -1022,7 +1046,7 @@ export default {
   height: 40px;
   background: #f1f5f9;
   border-radius: 50%;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -1051,7 +1075,7 @@ export default {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #404149;
+  color: var(--color-text);
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
 }
@@ -1170,7 +1194,7 @@ export default {
   align-items: center;
   font-size: 0.8rem;
   margin-bottom: 0.25rem;
-  color: #64748b;
+  color: var(--color-text-secondary);
   transition: color 0.2s ease;
 }
 
@@ -1269,7 +1293,7 @@ export default {
   display: flex;
   justify-content: space-between;
   padding: 1.5rem 2rem;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   gap: 1rem;
 }
 
@@ -1290,7 +1314,7 @@ export default {
   display: flex;
   justify-content: space-between;
   padding: 1.5rem 2rem;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   gap: 1rem;
 }
 

@@ -506,7 +506,7 @@ export default {
 
 .add-proposta-container {
   min-height: 100vh;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   padding: 2rem 1rem;
   margin: -2rem -1rem;
   position: relative;
@@ -523,13 +523,13 @@ export default {
 .main-title {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0 0 1.5rem 0;
   font-weight: 400;
 }
@@ -556,16 +556,16 @@ export default {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: var(--color-background-mute);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .step-indicator.active .step-circle {
@@ -583,13 +583,13 @@ export default {
 
 .step-label {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-secondary);
   text-align: center;
   font-weight: 500;
 }
 
 .step-indicator.active .step-label {
-  color: #fe4654;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -597,9 +597,9 @@ export default {
 .form-container {
   max-width: 900px;
   margin: 0 auto;
-  background: white;
+  background: var(--color-card-background);
   border-radius: 1rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   overflow: hidden;
 }
 
@@ -614,7 +614,7 @@ export default {
 
 .step-header h2 {
   font-size: 1.25rem;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0;
   font-weight: 600;
 }
@@ -642,7 +642,7 @@ export default {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #404149;
+  color: var(--color-text);
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
 }
@@ -657,20 +657,21 @@ export default {
 .form-select {
   width: 100%;
   padding: 0.8rem 1.2rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--color-input-border);
   border-radius: 1.2rem;
   font-size: 1rem;
   transition: all 0.3s ease;
-  background: #fafafa;
+  background: var(--color-input-background);
+  color: var(--color-text);
   outline: none;
 }
 
 .form-input:focus,
 .form-textarea:focus,
 .form-select:focus {
-  border-color: #fe4654;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  border-color: var(--color-primary);
+  background: var(--color-card-background);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .form-textarea {
@@ -730,7 +731,7 @@ export default {
 
 .upload-subtext {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -777,16 +778,16 @@ export default {
 
 /* Summary Card */
 .summary-card {
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   border-radius: 12px;
   padding: 1.5rem;
   margin-top: 1rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 }
 
 .summary-card h3 {
   margin: 0 0 1rem 0;
-  color: #404149;
+  color: var(--color-heading);
   font-size: 1rem;
   font-weight: 600;
 }
@@ -814,7 +815,7 @@ export default {
   display: flex;
   justify-content: space-between;
   padding: 1.5rem 3rem 2rem;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   gap: 1rem;
 }
 

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import User from "../models/User";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
@@ -178,7 +179,23 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     await newUser.save();
     const safeUser = createSafeCredentials(newUser);
-    res.status(201).json(apiResponse({ data: safeUser, message: "Utente creato con successo" }));
+    
+    // Genera token JWT per consentire login automatico dopo registrazione
+    const JWT_SECRET = process.env.JWT_SECRET || "default_secret";
+    const token = jwt.sign(
+      { userId: newUser._id, email: newUser.credenziali.email, userType: "user" },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+    
+    // Restituisce dati utente, token e tipo per login automatico
+    const responseData = {
+      user: safeUser,
+      token,
+      userType: "user"
+    };
+    
+    res.status(201).json(apiResponse({ data: responseData, message: "Utente creato con successo" }));
   } catch (error) {
     console.error("Errore durante la creazione dell'utente:", error);
     res.status(500).json(apiResponse({ message: "Errore nella creazione dell'utente", error }));
@@ -333,11 +350,12 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
 
     // Validazioni
     if (!nome || !nome.trim()) {
-  return res.status(400).json(apiResponse({ message: "Il nome è obbligatorio" }));
+      return res.status(400).json(apiResponse({ message: "Il nome è obbligatorio" }));
     }
 
-    if (!cognome || !cognome.trim()) {
-  return res.status(400).json(apiResponse({ message: "Il cognome è obbligatorio" }));
+    // Il cognome è obbligatorio solo per gli utenti di tipo "user"
+    if (req.user?.userType === 'user' && (!cognome || !cognome.trim())) {
+      return res.status(400).json(apiResponse({ message: "Il cognome è obbligatorio" }));
     }
 
     if (biografia && biografia.length > 500) {
@@ -352,7 +370,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
 
     // Aggiorna i dati (email non modificabile)
     user.nome = nome.trim();
-    user.cognome = cognome.trim();
+    user.cognome = cognome?.trim() || "";
     user.biografia = biografia?.trim() || "";
 
     // Gestione foto profilo

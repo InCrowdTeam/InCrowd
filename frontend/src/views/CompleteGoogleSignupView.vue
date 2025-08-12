@@ -372,7 +372,7 @@ async function handleSignUp() {
 
 .signup-container {
   min-height: 100vh;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   padding: 2rem 1rem;
   margin: -2rem -1rem;
   position: relative;
@@ -389,13 +389,13 @@ async function handleSignUp() {
 .main-title {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0 0 1.5rem 0;
   font-weight: 400;
 }
@@ -422,16 +422,16 @@ async function handleSignUp() {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: var(--color-background-mute);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 1rem;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .step-indicator.active .step-circle {
@@ -449,13 +449,13 @@ async function handleSignUp() {
 
 .step-label {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-secondary);
   text-align: center;
   font-weight: 500;
 }
 
 .step-indicator.active .step-label {
-  color: #fe4654;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -463,9 +463,9 @@ async function handleSignUp() {
 .form-container {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
+  background: var(--color-card-background);
   border-radius: 1rem;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  box-shadow: 0 2px 16px var(--color-shadow);
   overflow: hidden;
 }
 
@@ -484,7 +484,7 @@ async function handleSignUp() {
 
 .step-header h2 {
   font-size: 1.25rem;
-  color: #404149;
+  color: var(--color-heading);
   margin: 0;
   font-weight: 600;
 }
@@ -494,9 +494,9 @@ async function handleSignUp() {
   text-align: center;
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   border-radius: 1.2rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--color-border);
 }
 
 .profile-photo-container {
@@ -510,8 +510,8 @@ async function handleSignUp() {
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #fe4654;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 3px solid var(--color-primary);
+  box-shadow: 0 4px 16px var(--color-shadow);
 }
 
 .photo-badge {
@@ -528,7 +528,7 @@ async function handleSignUp() {
 }
 
 .photo-description {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin: 0;
   font-style: italic;
@@ -544,8 +544,8 @@ async function handleSignUp() {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: #f8f7f3;
-  color: #404149;
+  background: var(--color-background-soft);
+  color: var(--color-text);
   padding: 0.8rem 1.5rem;
   border-radius: 1.2rem;
   font-weight: 500;
@@ -579,7 +579,7 @@ async function handleSignUp() {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #404149;
+  color: var(--color-text);
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
   display: flex;
@@ -623,7 +623,7 @@ async function handleSignUp() {
 
 .form-input.disabled {
   background: #f5f5f5;
-  color: #666;
+  color: var(--color-text-secondary);
   cursor: not-allowed;
   border-color: #ccc;
 }
@@ -636,7 +636,7 @@ async function handleSignUp() {
 
 .input-note {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--color-text-secondary);
   font-style: italic;
   margin-top: 0.3rem;
 }
@@ -716,7 +716,7 @@ async function handleSignUp() {
   display: flex;
   justify-content: space-between;
   padding: 1.5rem 2rem;
-  background: #f8f7f3;
+  background: var(--color-background-soft);
   gap: 1rem;
 }
 

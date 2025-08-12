@@ -1,10 +1,37 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
+import User from "../models/User";
+import Ente from "../models/Ente";
+import Operatore from "../models/Operatore";
 import Commento from "../models/Commento";
 import { apiResponse } from "../utils/responseFormatter";
 
-// Rimuoviamo helpers locali per uniformare all'apiResponse
+// Helper per recuperare dati utente da modelli diversi
+const getUserData = async (userId: string, userType?: string) => {
+  try {
+    let userData = null;
+    
+    // Se conosciamo il userType, andiamo direttamente al modello corretto
+    if (userType === 'user') {
+      userData = await User.findById(userId, 'nome cognome');
+    } else if (userType === 'ente') {
+      userData = await Ente.findById(userId, 'nome');
+    } else if (userType === 'operatore') {
+      userData = await Operatore.findById(userId, 'nome cognome');
+    } else {
+      // Se non conosciamo il tipo, proviamo tutti i modelli
+      userData = await User.findById(userId, 'nome cognome') ||
+                 await Ente.findById(userId, 'nome') ||
+                 await Operatore.findById(userId, 'nome cognome');
+    }
+    
+    return userData;
+  } catch (error) {
+    console.error('Errore nel recupero dati utente:', error);
+    return null;
+  }
+};
 
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
@@ -355,7 +382,8 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
 
 export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { propostaId, contenuto } = req.body;
+    const { id: propostaId } = req.params;
+    const { contenuto } = req.body;
     
     // Impedisci agli operatori di commentare
     if (req.user?.userType === 'operatore') {
@@ -399,8 +427,28 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
     const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
 
-    const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
-    res.json(apiResponse({ data: { commenti }, message: "Commenti proposta" }));
+    // Recupera i commenti senza populate
+    const commenti = await Commento.find({ proposta: proposta._id }).sort({ dataOra: 1 });
+    
+    // Recupera manualmente i dati utente per ogni commento
+    const commentiConUtente = await Promise.all(
+      commenti.map(async (commento) => {
+        const userData = await getUserData(commento.utente.toString());
+        return {
+          ...commento.toObject(),
+          utente: userData ? {
+            _id: userData._id,
+            nome: userData.nome,
+            cognome: (userData as any).cognome || undefined // Solo per User e Operatore
+          } : {
+            _id: commento.utente,
+            nome: 'Utente non trovato'
+          }
+        };
+      })
+    );
+    
+    res.json(apiResponse({ data: { commenti: commentiConUtente }, message: "Commenti proposta" }));
   } catch (err) {
     console.error("Errore nel recupero commenti:", err);
     res.status(500).json(apiResponse({ message: "Errore nel recupero dei commenti", error: err }));

@@ -235,6 +235,7 @@ export const googleLogin = async (req: Request, res: Response) => {
 export const linkGoogleAccount = async (req: Request, res: Response) => {
   const { idToken } = req.body;
   const userId = (req as any).user?.userId;
+  const userType = (req as any).user?.userType;
 
   if (!idToken) return res.status(400).json(apiResponse({ message: "Token mancante" }));
   if (!userId) return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
@@ -250,9 +251,22 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
       return res.status(400).json(apiResponse({ message: "Token non valido" }));
     }
 
-    // Verifica che l'email del token Google corrisponda a quella dell'utente
-    const User = (await import("../models/User")).default;
-    const user = await User.findById(userId);
+    // Determina quale modello utilizzare in base al tipo di utente autenticato
+    let user: any;
+    let Model: any;
+    
+    if (userType === 'user') {
+      const User = (await import("../models/User")).default;
+      Model = User;
+      user = await User.findById(userId);
+    } else if (userType === 'ente') {
+      const Ente = (await import("../models/Ente")).default;
+      Model = Ente;
+      user = await Ente.findById(userId);
+    } else {
+      return res.status(400).json(apiResponse({ message: "Tipo utente non supportato per il collegamento Google" }));
+    }
+    
     if (!user) {
       return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
@@ -264,12 +278,21 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     }
 
     // Verifica che l'account Google non sia già collegato a un altro utente
+    // Controlla in entrambi i modelli (User ed Ente) per evitare duplicati
+    const User = (await import("../models/User")).default;
+    const Ente = (await import("../models/Ente")).default;
+    
     const existingUser = await User.findOne({
       "credenziali.oauthCode": payload.sub,
       _id: { $ne: userId }
     });
+    
+    const existingEnte = await Ente.findOne({
+      "credenziali.oauthCode": payload.sub,
+      _id: { $ne: userId }
+    });
 
-    if (existingUser) {
+    if (existingUser || existingEnte) {
       return res.status(409).json(apiResponse({ 
         message: "Questo account Google è già collegato a un altro profilo" 
       }));
@@ -293,8 +316,8 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Restituisce i dati aggiornati dell'utente con hasPassword
-    const updatedUser = await User.findById(userId);
+    // Restituisce i dati aggiornati dell'utente con credenziali sicure
+    const updatedUser = await Model.findById(userId);
     const safeUser = createSafeCredentials(updatedUser!);
 
     res.json({ 
