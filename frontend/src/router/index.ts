@@ -12,6 +12,7 @@ import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import { useUserStore } from '@/stores/userStore'
+import PropostaView from '@/views/PropostaView.vue'
 
 const routes = [
   {
@@ -58,6 +59,11 @@ const routes = [
     name: 'addProposta',
     component: AddPropostaView,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/proposte/:id',
+    name: 'proposta',
+    component: PropostaView
   },
   { path: '/login',
     name: 'Login',

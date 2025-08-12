@@ -1,0 +1,1312 @@
+<template>
+  <div class="proposta-view">
+    <!-- Loading State -->
+    <div v-if="!proposta" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Caricamento proposta...</p>
+    </div>
+
+    <!-- Main Content -->
+    <div v-else class="proposta-container">
+      <!-- Hero Section with Image -->
+      <div class="hero-section">
+        <div class="hero-image-container">
+          <img
+            v-if="proposta.foto"
+            :src="processImageUrl(proposta.foto)"
+            alt="Foto della proposta"
+            class="hero-image"
+          />
+          <div v-else class="hero-image-placeholder">
+            <span class="placeholder-icon">📸</span>
+            <p>Nessuna immagine disponibile</p>
+          </div>
+          
+          <!-- Category Badge -->
+          <div v-if="proposta.categoria" class="category-hero-badge">
+            {{ getCategoryLabel(proposta.categoria) }}
+          </div>
+          
+          <!-- Back Button -->
+          <button @click="$router.go(-1)" class="back-btn">
+            ← Indietro
+          </button>
+        </div>
+
+        <!-- Title and Creator -->
+        <div class="hero-content">
+          <h1 class="proposal-title">{{ proposta.titolo }}</h1>
+          
+          <!-- Creator Badge and Hyper Counter Row -->
+          <div class="creator-hyper-row">
+            <div class="creator-badge">
+              <div class="creator-avatar">
+                <img 
+                  v-if="proponenteAvatar"
+                  :src="proponenteAvatar"
+                  alt="Avatar del proponente" 
+                  class="avatar-image"
+                  @error="onProponenteAvatarError"
+                />
+                <div v-else class="avatar-placeholder">
+                  {{ getInitials(proponente?.nome, proponente?.cognome) }}
+                </div>
+              </div>
+              <div class="creator-info">
+                <span class="creator-label">Proposto da</span>
+                <span class="creator-name">{{ getFullName(proponente) }}</span>
+              </div>
+            </div>
+            
+            <!-- Hyper Counter Badge -->
+            <div class="hyper-counter-badge">
+              <div class="hyper-button-container">
+                <button
+                  v-if="canHype"
+                  class="hyper-btn"
+                  :class="{ active: isHyperUser }"
+                  :disabled="isHyperLoading"
+                  @click="handleHyper"
+                  title="Metti un hyper!"
+                >
+                  <span v-if="!isHyperLoading" class="hyper-icon">⚡</span>
+                  <span v-else class="loading-hourglass">⏳</span>
+                </button>
+                <div v-else class="hyper-disabled-container">
+                  <span class="hyper-icon-disabled">⚡</span>
+                </div>
+              </div>
+              <div class="hyper-info">
+                <span class="hyper-count">{{ hyperCount }}</span>
+                <div v-if="!canHype" class="hyper-disabled-text-compact">
+                  <small v-if="isOperatore">Gli operatori non possono mettere hyper</small>
+                  <small v-else>Effettua il login per mettere hyper</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <p class="proposal-description">{{ proposta.descrizione }}</p>
+          
+          <!-- Compact Meta Info -->
+          <div class="proposal-meta-compact">
+            <div v-if="proposta.luogo" class="meta-item">
+              <span class="meta-icon">📍</span>
+              <span class="meta-text">{{ proposta.luogo.citta }}</span>
+            </div>
+            
+            <div class="meta-item">
+              <span class="meta-icon">📅</span>
+              <span class="meta-text">
+                {{ proposta.dataIpotetica ? DateService.formatCompactDate(proposta.dataIpotetica.toString()) : 'Data da definire' }}
+              </span>
+            </div>
+            
+            <div class="meta-item">
+              <span class="meta-icon">🗓️</span>
+              <span class="meta-text">Creata {{ formatDate(proposta.createdAt.toString()) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comments Section -->
+      <div class="comments-section">
+        <div class="comments-header">
+          <h2 class="comments-title">💬 Commenti</h2>
+          <div class="comments-count">{{ commentiProposta.length }} {{ commentiProposta.length === 1 ? 'commento' : 'commenti' }}</div>
+        </div>
+
+        <!-- Comment Form -->
+        <div v-if="userStore.user" class="comment-form-section">
+          <div class="comment-form">
+            <div class="comment-author-avatar">
+              <img 
+                v-if="getUserAvatar(userStore.user)"
+                :src="getUserAvatar(userStore.user)"
+                alt="Foto profilo" 
+                class="avatar-image"
+                @error="onUserAvatarError"
+              />
+              <div v-else class="avatar-placeholder">
+                {{ getInitials(userStore.user.nome, userStore.user.cognome) }}
+              </div>
+            </div>
+            <div class="comment-input-container">
+              <textarea
+                v-model="nuovoCommento"
+                :disabled="isLoading"
+                placeholder="Scrivi un commento..."
+                class="comment-textarea"
+                rows="3"
+                @keydown.ctrl.enter="inviaCommento"
+              ></textarea>
+              <button 
+                @click="inviaCommento" 
+                :disabled="isLoading || !nuovoCommento.trim()"
+                class="comment-submit-btn"
+              >
+                <span v-if="!isLoading" class="send-icon">Pubblica</span>
+                <span v-else class="loading-dots">Invio...</span>
+              </button>
+            </div>
+          </div>
+          <small class="keyboard-hint">Premi Ctrl + Invio per inviare rapidamente</small>
+        </div>
+
+        <!-- Login Reminder -->
+        <div v-else class="login-reminder-card">
+          <div class="login-icon">🔐</div>
+          <div class="login-text">
+            <h3>Partecipa alla discussione</h3>
+            <p>Effettua il login per lasciare un commento</p>
+            <router-link to="/login" class="login-btn">Accedi</router-link>
+          </div>
+        </div>
+
+        <!-- Comments List -->
+        <div class="comments-container">
+          <div v-if="isCommentsLoading" class="loading-comments">
+            <div class="loading-spinner small"></div>
+            <p>Caricamento commenti...</p>
+          </div>
+          
+          <div v-else-if="commentiProposta.length === 0" class="no-comments">
+            <div class="empty-icon">💭</div>
+            <h3>Nessun commento ancora</h3>
+            <p>Sii il primo a commentare questa proposta!</p>
+          </div>
+          
+          <div v-else class="comments-list">
+            <div v-for="commento in commentiProposta" :key="commento._id" class="comment-item">
+              <div class="comment-avatar">
+                <img 
+                  v-if="getCommentUserAvatar(commento.utente?._id)"
+                  :src="getCommentUserAvatar(commento.utente?._id)"
+                  alt="Avatar del commentatore" 
+                  class="avatar-image"
+                  @error="onAvatarError($event, commento.utente?._id)"
+                />
+                <div v-else class="avatar-placeholder">
+                  {{ getInitials(commento.utente?.nome, commento.utente?.cognome) }}
+                </div>
+              </div>
+              <div class="comment-content">
+                <div class="comment-header">
+                  <span class="comment-author">{{ getUserName(commento) }}</span>
+                  <span class="comment-date" :title="formatDateTime(commento.createdAt?.toString() || '')">{{ formatDate(commento.createdAt?.toString() || '') }}</span>
+                </div>
+                <div class="comment-text">{{ commento.contenuto }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useUserStore } from '@/stores/userStore';
+import { PropostaService } from '@/services/PropostaService';
+import { UserService } from '@/services/UserService';
+import { DateService } from '@/services/DateService';
+import type { IProposta } from '@/types/Proposta';
+import type { IUser } from '@/types/User';
+
+const route = useRoute();
+const userStore = useUserStore();
+const proposta = ref<IProposta | null>(null);
+const proponente = ref<IUser | null>(null);
+
+// Stati per i commenti
+const commentiProposta = ref<any[]>([]);
+const nuovoCommento = ref("");
+const isCommentsLoading = ref(false);
+const isLoading = ref(false);
+const isHyperLoading = ref(false);
+
+// Cache per gli avatar dei commentatori (caricamento asincrono)
+const commentUserAvatars = ref<Map<string, string>>(new Map());
+const proponenteAvatar = ref<string | null>(null);
+
+// Funzione per caricare gli avatar in modo asincrono
+async function loadCommentAvatars() {
+  if (!commentiProposta.value?.length) return;
+  
+  for (const commento of commentiProposta.value) {
+    if (commento.utente?._id && !commentUserAvatars.value.has(commento.utente._id)) {
+      try {
+        const avatarUrl = await UserService.loadUserAvatar(commento.utente._id);
+        // Salviamo sempre in cache il risultato (stringa vuota se nessun avatar)
+        // Questo eviterà richieste ripetute e il v-if funzionerà correttamente
+        commentUserAvatars.value.set(commento.utente._id, avatarUrl || '');
+      } catch (error) {
+        console.error('❌ Errore nel caricamento avatar per', commento.utente._id, ':', error);
+        // Salviamo stringa vuota in caso di errore
+        commentUserAvatars.value.set(commento.utente._id, '');
+      }
+    }
+  }
+}
+
+// Funzione per caricare l'avatar del proponente
+async function loadProponenteAvatar() {
+  if (proponente.value?._id) {
+    try {
+      const avatarUrl = await UserService.loadUserAvatar(proponente.value._id);
+      // Impostiamo sempre il valore - se vuoto, il v-if mostrerà il placeholder
+      proponenteAvatar.value = avatarUrl || null;
+    } catch (error) {
+      console.error('❌ Errore nel caricamento avatar proponente:', error);
+      proponenteAvatar.value = null;
+    }
+  }
+}
+
+// Funzione per ottenere l'avatar di un commentatore
+function getCommentUserAvatar(userId?: string): string {
+  if (!userId) return '';
+  const avatar = commentUserAvatars.value.get(userId);
+  // Restituiamo stringa vuota se non c'è avatar o se è stringa vuota
+  // Questo farà funzionare correttamente il v-if nel template
+  return avatar || '';
+}
+
+// Funzione per gestire errori di caricamento avatar
+function onAvatarError(event: Event, userId?: string) {
+  if (userId) {
+    // Rimuovi l'avatar dalla cache così il placeholder verrà mostrato
+    commentUserAvatars.value.set(userId, '');
+    // Nascondi l'elemento img che ha dato errore
+    const img = event.target as HTMLImageElement;
+    img.style.display = 'none';
+  }
+}
+
+// Funzione per gestire errori di caricamento avatar del proponente
+function onProponenteAvatarError(event: Event) {
+  // Reset dell'avatar del proponente così il placeholder verrà mostrato
+  proponenteAvatar.value = null;
+  // Nascondi l'elemento img che ha dato errore
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+}
+
+// Funzione per gestire errori di caricamento avatar dell'utente nel form
+function onUserAvatarError(event: Event) {
+  // Nascondi l'elemento img che ha dato errore
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  // Il getUserAvatar fallirà al prossimo render e mostrerà il placeholder
+}
+
+// Funzione per processare le immagini (spostata dal service)
+function processImageUrl(foto: any): string {
+  return PropostaService.processImageUrl(foto);
+}
+
+// Funzione per ottenere l'etichetta della categoria (spostata dal service)
+function getCategoryLabel(categoria: string): string {
+  return PropostaService.getCategoryLabel(categoria);
+}
+
+// Funzione per ottenere le iniziali del nome (spostata dal service)
+function getInitials(nome?: string, cognome?: string): string {
+  return UserService.getInitials(nome, cognome);
+}
+
+// Funzione per ottenere il nome completo dell'utente (spostata dal service)
+function getFullName(user?: any): string {
+  return UserService.getFullName(user);
+}
+
+// Funzione per processare l'avatar dell'utente (deprecata - ora usa endpoint dedicato)
+function getUserAvatar(user: any): string {
+  // Per il proponente, usa il caricamento asincrono
+  if (user?._id === proponente.value?._id) {
+    return proponenteAvatar.value || '';
+  }
+  
+  // Per altri utenti (come nel form commenti), usa il processing diretto
+  return UserService.processUserAvatar(user);
+}
+
+// Computed per i controlli utente
+const canHype = computed(() => userStore.canHype);
+const isOperatore = computed(() => userStore.isOperatore);
+
+// Computed per hyper
+const isHyperUser = computed(() => {
+  const listaHyper = proposta.value?.listaHyper;
+  return Array.isArray(listaHyper) && listaHyper.includes(userStore.user?._id);
+});
+
+const hyperCount = computed(() => {
+  return proposta.value?.listaHyper?.length || 0;
+});
+
+// Funzione per ottenere il nome dell'utente dai commenti (spostata dal service)
+function getUserName(commento: any): string {
+  return UserService.getCommentUserName(commento);
+}
+
+// Funzione per formattare la data in modo più leggibile (spostata dal service)
+function formatDate(dateString: string): string {
+  return DateService.formatRelativeDate(dateString);
+}
+
+// Funzione per formattare data e ora completa (spostata dal service)
+function formatDateTime(dateString: string): string {
+  return DateService.formatDateTime(dateString);
+}
+
+// Funzioni per i commenti (spostate nel service)
+async function caricaCommenti() {
+  if (!proposta.value || isCommentsLoading.value) return;
+  
+  isCommentsLoading.value = true;
+  try {
+    commentiProposta.value = await PropostaService.loadCommenti(proposta.value._id);
+    // Carica gli avatar dei commentatori in modo asincrono
+    await loadCommentAvatars();
+  } catch (err: any) {
+    console.error("Errore nel caricamento commenti:", err);
+    commentiProposta.value = [];
+    // Mostra messaggio di errore user-friendly
+    alert(err.message || "Errore nel caricamento dei commenti");
+  } finally {
+    isCommentsLoading.value = false;
+  }
+}
+
+async function inviaCommento() {
+  if (!nuovoCommento.value.trim() || !proposta.value || !userStore.user?._id || isLoading.value) return;
+  
+  const commentoTemp = nuovoCommento.value.trim();
+  nuovoCommento.value = "";
+  isLoading.value = true;
+  
+  try {
+    await PropostaService.inviaCommento(
+      proposta.value._id,
+      commentoTemp,
+      userStore.token
+    );
+    
+    // Ricarica i commenti per mostrare il nuovo commento
+    await caricaCommenti();
+  } catch (err: any) {
+    console.error("Errore commento:", err);
+    nuovoCommento.value = commentoTemp; // Ripristina il commento in caso di errore
+    alert(err.message || "Errore nell'invio del commento");
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// Funzione per gestire l'hyper (spostata nel service)
+async function handleHyper() {
+  if (!canHype.value || !proposta.value || !userStore.user?._id || isHyperLoading.value) return;
+  
+  isHyperLoading.value = true;
+  
+  try {
+    const updatedProposta = await PropostaService.toggleHyper(
+      proposta.value._id,
+      userStore.token
+    );
+    
+    // Aggiorna la proposta con i dati aggiornati
+    proposta.value = updatedProposta;
+    
+  } catch (err: any) {
+    console.error("Errore hyper:", err);
+    alert(err.message || "Errore nell'aggiunta dell'hyper");
+  } finally {
+    isHyperLoading.value = false;
+  }
+}
+
+// Caricamento iniziale (logica spostata nei service)
+onMounted(async () => {
+  const propostaId = route.params.id as string;
+  if (propostaId) {
+    try {
+      // Carica la proposta usando il service
+      proposta.value = await PropostaService.loadProposta(propostaId);
+      
+      // Carica il proponente se presente
+      if (proposta.value && proposta.value.proponenteID) {
+        console.log('🔍 Caricamento proponente per ID:', proposta.value.proponenteID);
+        proponente.value = await UserService.loadUser(proposta.value.proponenteID);
+        console.log('📋 Proponente caricato:', proponente.value);
+        // Carica l'avatar del proponente in modo asincrono
+        await loadProponenteAvatar();
+      }
+      
+      // Carica i commenti
+      await caricaCommenti();
+    } catch (error) {
+      console.error("Errore nel caricamento della proposta:", error);
+      alert("Errore nel caricamento della proposta. Riprova più tardi.");
+    }
+  }
+});
+
+// Watch per ricaricare i commenti quando cambia la proposta
+watch(proposta, (newProposta) => {
+  if (newProposta) {
+    caricaCommenti();
+  }
+});
+</script>
+
+<style scoped>
+/* Base styles */
+.proposta-view {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 0;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f0f0f0;
+  border-top: 4px solid #fe4654;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.loading-spinner.small {
+  width: 30px;
+  height: 30px;
+  border-width: 3px;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.proposta-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Hero Section */
+.hero-section {
+  background: #fff;
+  border-radius: 2rem;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+.hero-image-container {
+  position: relative;
+  height: 400px;
+  overflow: hidden;
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.hero-image:hover {
+  transform: scale(1.02);
+}
+
+.hero-image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+}
+
+.placeholder-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.category-hero-badge {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  background: rgba(254, 70, 84, 0.95);
+  color: #fff;
+  padding: 0.8rem 1.5rem;
+  border-radius: 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  backdrop-filter: blur(15px);
+  box-shadow: 0 4px 20px rgba(254, 70, 84, 0.4);
+  animation: fadeInScale 0.6s ease-out;
+}
+
+.back-btn {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(15px);
+  transition: all 0.3s ease;
+  animation: fadeInScale 0.6s ease-out 0.2s both;
+}
+
+.back-btn:hover {
+  background: rgba(254, 70, 84, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.hero-content {
+  padding: 3rem;
+}
+
+.proposal-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #2c3e50;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Creator and Hyper Row */
+.creator-hyper-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+/* Creator Badge */
+.creator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: rgba(254, 70, 84, 0.1);
+  border: 1px solid rgba(254, 70, 84, 0.3);
+  border-radius: 1.5rem;
+  padding: 0.8rem 1.2rem;
+  margin-bottom: 2rem;
+  transition: all 0.3s ease;
+}
+
+.creator-badge:hover {
+  background: rgba(254, 70, 84, 0.15);
+  transform: translateY(-1px);
+}
+
+.creator-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(254, 70, 84, 0.3);
+}
+
+.creator-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.creator-avatar .avatar-placeholder {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.creator-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.creator-label {
+  font-size: 0.7rem;
+  color: #6c757d;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.creator-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fe4654;
+}
+
+/* Hyper Counter Badge */
+.hyper-counter-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hyper-button-container {
+  flex-shrink: 0;
+}
+
+.hyper-btn {
+  font-size: 1.7rem;
+  background: #fff;
+  border: 2px solid #fe4654;
+  color: #fe4654;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.hyper-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(254, 70, 84, 0.4);
+}
+
+.hyper-btn.active {
+  background: #fe4654;
+  color: #fff;
+  border-color: #fe4654;
+  box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
+  animation: hyperPulse 2s infinite;
+}
+
+.hyper-btn:disabled {
+  background: #fe4654;
+  color: #fff;
+  border-color: #fe4654;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.hyper-icon {
+  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.8));
+  transition: filter 0.3s ease;
+}
+
+.hyper-btn.active .hyper-icon {
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1));
+}
+
+.loading-hourglass {
+  animation: rotate 1.5s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
+}
+
+@keyframes hyperPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(254, 70, 84, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(254, 70, 84, 0.9);
+  }
+}
+
+.hyper-disabled-container {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hyper-icon-disabled {
+  font-size: 1.7rem;
+  color: #ccc;
+}
+
+.hyper-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.hyper-count {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #2B2C34;
+}
+
+.hyper-disabled-text-compact {
+  text-align: center;
+}
+
+.hyper-disabled-text-compact small {
+  color: #999;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.proposal-description {
+  font-size: 1.3rem;
+  line-height: 1.8;
+  color: #5a6c7d;
+  margin-bottom: 2rem;
+  font-weight: 400;
+}
+
+/* Compact Meta Info */
+.proposal-meta-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: center;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem 1rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.meta-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.meta-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.meta-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #2c3e50;
+  white-space: nowrap;
+}
+
+/* Comments Section */
+.comments-section {
+  background: #fff;
+  border-radius: 2rem;
+  padding: 3rem;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  animation: fadeInUp 0.6s ease-out 0.5s both;
+}
+
+.comments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #f8f9fa;
+}
+
+.comments-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.comments-count {
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Comment Form */
+.comment-form-section {
+  background: #f8f9fa;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  margin-bottom: 3rem;
+}
+
+.comment-form {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.comment-author-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+  overflow: hidden;
+}
+
+.comment-author-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.comment-author-avatar .avatar-placeholder {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.comment-input-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.comment-textarea {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  border: 2px solid #e6e6e6;
+  border-radius: 1.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: all 0.3s ease;
+  background: #fff;
+}
+
+.comment-textarea:focus {
+  outline: none;
+  border-color: #fe4654;
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+}
+
+.comment-submit-btn {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.comment-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
+}
+
+.comment-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.keyboard-hint {
+  color: #6c757d;
+  font-style: italic;
+  text-align: right;
+}
+
+/* Login Reminder */
+.login-reminder-card {
+  background: linear-gradient(135deg, #f8f9fa, #fff);
+  border: 2px dashed #fe4654;
+  border-radius: 1.5rem;
+  padding: 3rem;
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.login-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.login-text h3 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.login-text p {
+  color: #6c757d;
+  margin-bottom: 2rem;
+}
+
+.login-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  text-decoration: none;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
+}
+
+/* Comments List */
+.comments-container {
+  margin-top: 2rem;
+}
+
+.loading-comments {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  color: #6c757d;
+}
+
+.no-comments {
+  text-align: center;
+  padding: 4rem;
+  color: #6c757d;
+}
+
+.no-comments .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.no-comments h3 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.comment-item {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 1.5rem;
+  transition: all 0.3s ease;
+  border-left: 4px solid transparent;
+}
+
+.comment-item:hover {
+  background: #f1f3f4;
+  border-left-color: #fe4654;
+  transform: translateX(5px);
+}
+
+.comment-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6c757d, #495057);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+  overflow: hidden;
+}
+
+.comment-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.comment-avatar .avatar-placeholder {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.comment-content {
+  flex: 1;
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.comment-author {
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.comment-date {
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.comment-text {
+  color: #495057;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .proposta-container {
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+  
+  .hero-image-container {
+    height: 250px;
+  }
+  
+  .category-hero-badge,
+  .back-btn {
+    top: 1rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .category-hero-badge {
+    left: 1rem;
+  }
+  
+  .back-btn {
+    right: 1rem;
+  }
+  
+  .hero-content {
+    padding: 2rem;
+  }
+  
+  .proposal-title {
+    font-size: 2rem;
+  }
+  
+  .proposal-description {
+    font-size: 1.1rem;
+  }
+  
+  .creator-hyper-row {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  
+  .hyper-counter-badge {
+    align-items: flex-start;
+  }
+  
+  .creator-badge {
+    padding: 0.6rem 1rem;
+    gap: 0.6rem;
+  }
+  
+  .creator-avatar {
+    width: 35px;
+    height: 35px;
+    font-size: 0.9rem;
+  }
+  
+  .creator-name {
+    font-size: 0.85rem;
+  }
+  
+  .proposal-meta-compact {
+    gap: 1rem;
+  }
+  
+  .meta-item {
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .meta-text {
+    font-size: 0.8rem;
+  }
+  
+  .comments-section {
+    padding: 2rem;
+  }
+  
+  .comments-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .comment-form {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .comment-author-avatar {
+    align-self: center;
+  }
+  
+  .comment-item {
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .comment-avatar {
+    width: 45px;
+    height: 45px;
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-content {
+    padding: 1.5rem;
+  }
+  
+  .proposal-title {
+    font-size: 1.8rem;
+  }
+  
+  .proposal-title {
+    font-size: 1.8rem;
+  }
+  
+  .creator-badge {
+    padding: 0.5rem 0.8rem;
+    gap: 0.5rem;
+  }
+  
+  .creator-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+  }
+  
+  .creator-label {
+    font-size: 0.6rem;
+  }
+  
+  .creator-name {
+    font-size: 0.8rem;
+  }
+  
+  .proposal-meta-compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+  
+  .meta-item {
+    padding: 0.3rem 0.6rem;
+  }
+  
+  .meta-icon {
+    font-size: 1rem;
+  }
+  
+  .meta-text {
+    font-size: 0.75rem;
+  }
+  
+  .hyper-section-youtube {
+    padding: 0 1.5rem;
+  }
+  
+  .comments-section {
+    padding: 1.5rem;
+  }
+}
+</style>

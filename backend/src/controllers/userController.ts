@@ -9,6 +9,19 @@ interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
+// Formattazione response standardizzata
+const successResponse = (data: any, message?: string) => ({
+  success: true,
+  data,
+  ...(message && { message })
+});
+
+const errorResponse = (message: string, error?: any) => ({
+  success: false,
+  error: message,
+  ...(error && { details: error })
+});
+
 // Helper function per creare un oggetto utente sicuro con hasPassword
 const createSafeUser = (user: any) => {
   const safeUser = user.toObject();
@@ -20,13 +33,36 @@ const createSafeUser = (user: any) => {
   return safeUser;
 };
 
-export const getAllUsers = async (req: Request, res: Response) => {
+// Helper function per creare dati utente pubblici (limitati)
+const createPublicUser = (user: any) => {
+  return {
+    _id: user._id,
+    nome: user.nome,
+    cognome: user.cognome,
+    biografia: user.biografia,
+    fotoProfilo: user.fotoProfilo,
+    createdAt: user.createdAt
+  };
+};
+
+// Verifica se l'utente ha permessi per vedere tutti i dati
+const canViewFullUserData = (requestUser: any) => {
+  return requestUser && (requestUser.userType === 'operatore' || requestUser.userType === 'admin');
+};
+
+// SOLO per operatori e admin - Lista completa utenti
+export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // Verifica autorizzazione
+    if (!canViewFullUserData(req.user)) {
+      return res.status(403).json(errorResponse("Accesso negato. Solo operatori e amministratori possono visualizzare tutti gli utenti."));
+    }
+
     const users = await User.find();
-    res.json(users);
+    res.json(successResponse(users));
   } catch (error) {
     console.error("Errore nel recupero utenti:", error);
-    res.status(500).json({ message: "Errore interno" });
+    res.status(500).json(errorResponse("Errore interno del server"));
   }
 };
 
@@ -37,22 +73,22 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     // Validazioni input obbligatori
     if (!nome || !nome.trim()) {
-      res.status(400).json({ message: "Il nome è obbligatorio" });
+      res.status(400).json(errorResponse("Il nome è obbligatorio"));
       return;
     }
 
     if (!cognome || !cognome.trim()) {
-      res.status(400).json({ message: "Il cognome è obbligatorio" });
+      res.status(400).json(errorResponse("Il cognome è obbligatorio"));
       return;
     }
 
     if (!codiceFiscale || !codiceFiscale.trim()) {
-      res.status(400).json({ message: "Il codice fiscale è obbligatorio" });
+      res.status(400).json(errorResponse("Il codice fiscale è obbligatorio"));
       return;
     }
 
     if (!email || !email.trim()) {
-      res.status(400).json({ message: "L'email è obbligatoria" });
+      res.status(400).json(errorResponse("L'email è obbligatoria"));
       return;
     }
 
@@ -69,18 +105,18 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     if (securityEnabled) {
       // Validazioni specifiche
       if (!validateEmail(sanitizedEmail)) {
-        res.status(400).json({ message: "Formato email non valido" });
+        res.status(400).json(errorResponse("Formato email non valido"));
         return;
       }
 
       if (!isValidCodiceFiscale(sanitizedCodiceFiscale)) {
-        res.status(400).json({ message: "Codice fiscale non valido" });
+        res.status(400).json(errorResponse("Codice fiscale non valido"));
         return;
       }
     }
 
     if (await emailExists(sanitizedEmail)) {
-      res.status(409).json({ message: "Email già registrata" });
+      res.status(409).json(errorResponse("Email già registrata"));
       return;
     }
 
@@ -92,10 +128,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       if (securityEnabled) {
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
-          res.status(400).json({ 
-            message: "Password non valida", 
-            errors: passwordValidation.errors 
-          });
+          res.status(400).json(errorResponse("Password non valida", passwordValidation.errors));
           return;
         }
       }
@@ -139,30 +172,97 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     });
 
     await newUser.save();
-    res.status(201).json({ message: "User created successfully", user: newUser });
+    const safeUser = createSafeUser(newUser);
+    res.status(201).json(successResponse(safeUser, "Utente creato con successo"));
   } catch (error) {
     console.error("Errore durante la creazione dell'utente:", error);
-    res.status(500).json({ message: "Error creating user", error });
+    res.status(500).json(errorResponse("Errore nella creazione dell'utente", error));
+  }
+};
+
+// Nuovo endpoint sicuro per ottenere un utente specifico
+export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json(errorResponse("Utente non trovato"));
+    }
+
+    // Se l'utente è autenticato ed è operatore/admin, restituisce dati completi
+    if (canViewFullUserData(req.user)) {
+      const safeUser = createSafeUser(user);
+      return res.json(successResponse(safeUser));
+    }
+
+    // Altrimenti restituisce solo dati pubblici
+    const publicUser = createPublicUser(user);
+    res.json(successResponse(publicUser));
+  } catch (error) {
+    console.error("Errore nel recupero utente:", error);
+    res.status(500).json(errorResponse("Errore interno del server"));
+  }
+};
+
+// Endpoint pubblico per ottenere solo l'avatar di un utente
+export const getUserAvatar = async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select("fotoProfilo nome");
+    
+    if (!user) {
+      return res.status(404).json(errorResponse("Utente non trovato"));
+    }
+
+    if (!user.fotoProfilo || !user.fotoProfilo.data) {
+      return res.status(404).json(errorResponse("Avatar non disponibile"));
+    }
+
+    // Prepara l'URL dell'avatar
+    let avatarUrl = "";
+    if (user.fotoProfilo.data && user.fotoProfilo.contentType) {
+      // Assicuriamoci che i dati siano correttamente convertiti in base64
+      let base64Data = user.fotoProfilo.data;
+      if (Buffer.isBuffer(user.fotoProfilo.data)) {
+        base64Data = user.fotoProfilo.data.toString('base64');
+      }
+      avatarUrl = `data:${user.fotoProfilo.contentType};base64,${base64Data}`;
+    }
+
+    res.json(successResponse({
+      userId: user._id,
+      nome: user.nome,
+      avatarUrl
+    }));
+  } catch (error) {
+    console.error("Errore nel recupero avatar:", error);
+    res.status(500).json(errorResponse("Errore interno del server"));
   }
 };
 
 export const getUtente = async (req: Request, res: Response) => {
   try {
     const utente = await User.findById(req.params.id).select("nome biografia fotoProfilo");
-    if (!utente) return res.status(404).json({ message: "Utente non trovato" });
+    if (!utente) return res.status(404).json(errorResponse("Utente non trovato"));
 
     let fotoProfiloUrl = "";
     if (utente.fotoProfilo && utente.fotoProfilo.data && utente.fotoProfilo.contentType) {
-      fotoProfiloUrl = `data:${utente.fotoProfilo.contentType};base64,${utente.fotoProfilo.data}`;
+      // Assicuriamoci che i dati siano correttamente convertiti in base64
+      let base64Data = utente.fotoProfilo.data;
+      if (Buffer.isBuffer(utente.fotoProfilo.data)) {
+        base64Data = utente.fotoProfilo.data.toString('base64');
+      }
+      fotoProfiloUrl = `data:${utente.fotoProfilo.contentType};base64,${base64Data}`;
     }
 
-    res.json({
+    res.json(successResponse({
       nome: utente.nome,
       biografia: utente.biografia,
       fotoProfiloUrl
-    });
+    }));
   } catch (err) {
-    res.status(500).json({ message: "Errore nel recupero utente" });
+    res.status(500).json(errorResponse("Errore nel recupero utente"));
   }
 };
 
@@ -171,21 +271,21 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ message: "Utente non autenticato" });
+      return res.status(401).json(errorResponse("Utente non autenticato"));
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Utente non trovato" });
+      return res.status(404).json(errorResponse("Utente non trovato"));
     }
 
     // Crea una versione sicura dell'utente senza la password ma con un flag che indica se esiste
     const safeUser = createSafeUser(user);
 
-    res.json(safeUser);
+    res.json(successResponse(safeUser));
   } catch (error) {
     console.error("Errore nel recupero utente corrente:", error);
-    res.status(500).json({ message: "Errore interno del server" });
+    res.status(500).json(errorResponse("Errore interno del server"));
   }
 };
 
@@ -194,28 +294,28 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ message: "Utente non autenticato" });
+      return res.status(401).json(errorResponse("Utente non autenticato"));
     }
 
     const { nome, cognome, biografia } = req.body;
 
     // Validazioni
     if (!nome || !nome.trim()) {
-      return res.status(400).json({ message: "Il nome è obbligatorio" });
+      return res.status(400).json(errorResponse("Il nome è obbligatorio"));
     }
 
     if (!cognome || !cognome.trim()) {
-      return res.status(400).json({ message: "Il cognome è obbligatorio" });
+      return res.status(400).json(errorResponse("Il cognome è obbligatorio"));
     }
 
     if (biografia && biografia.length > 500) {
-      return res.status(400).json({ message: "La biografia non può superare i 500 caratteri" });
+      return res.status(400).json(errorResponse("La biografia non può superare i 500 caratteri"));
     }
 
     // Trova l'utente corrente
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Utente non trovato" });
+      return res.status(404).json(errorResponse("Utente non trovato"));
     }
 
     // Aggiorna i dati (email non modificabile)
@@ -237,13 +337,10 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     const updatedUser = await User.findById(userId);
     const safeUser = createSafeUser(updatedUser!);
     
-    res.json({
-      message: "Profilo aggiornato con successo",
-      user: safeUser
-    });
+    res.json(successResponse(safeUser, "Profilo aggiornato con successo"));
   } catch (error) {
     console.error("Errore nell'aggiornamento del profilo:", error);
-    res.status(500).json({ message: "Errore interno del server" });
+    res.status(500).json(errorResponse("Errore interno del server"));
   }
 };
 
@@ -252,14 +349,14 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ message: "Utente non autenticato" });
+      return res.status(401).json(errorResponse("Utente non autenticato"));
     }
 
     const { newPassword } = req.body;
 
     // Validazioni con i nuovi standard
     if (!newPassword) {
-      return res.status(400).json({ message: "La nuova password è obbligatoria" });
+      return res.status(400).json(errorResponse("La nuova password è obbligatoria"));
     }
 
     const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
@@ -267,17 +364,14 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
     if (securityEnabled) {
       const passwordValidation = validatePassword(newPassword);
       if (!passwordValidation.isValid) {
-        return res.status(400).json({ 
-          message: "Password non valida", 
-          errors: passwordValidation.errors 
-        });
+        return res.status(400).json(errorResponse("Password non valida", passwordValidation.errors));
       }
     }
 
     // Trova l'utente
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Utente non trovato" });
+      return res.status(404).json(errorResponse("Utente non trovato"));
     }
 
     // Cripta la nuova password con 10 rounds
@@ -296,12 +390,9 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
     const updatedUser = await User.findById(userId);
     const safeUser = createSafeUser(updatedUser!);
 
-    res.json({ 
-      message: "Password aggiornata con successo",
-      user: safeUser
-    });
+    res.json(successResponse(safeUser, "Password aggiornata con successo"));
   } catch (error) {
     console.error("Errore nell'aggiornamento della password:", error);
-    res.status(500).json({ message: "Errore interno del server" });
+    res.status(500).json(errorResponse("Errore interno del server"));
   }
 };
