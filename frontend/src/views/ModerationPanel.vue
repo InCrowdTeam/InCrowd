@@ -42,7 +42,7 @@
       <div class="proposals-grid">
         <div
           v-for="proposta in filteredProposte"
-          :key="proposta.titolo"
+          :key="proposta._id"
           class="proposal-card"
         >
           <!-- Immagine proposta -->
@@ -172,11 +172,11 @@ const fetchProposte = async () => {
   }
 }
 
-const changeState = async (titolo: string, stato: string, commento: string = '') => {
+const changeState = async (propostaId: string, stato: string, commento: string = '') => {
   try {
-    await changePropostaState(titolo, stato, store.token, commento)
+    await changePropostaState(propostaId, stato, store.token, commento)
     // Rimuovi la proposta dalla lista
-    proposte.value = proposte.value.filter(p => p.titolo !== titolo)
+    proposte.value = proposte.value.filter(p => p._id !== propostaId)
   } catch (error) {
     console.error('Errore nell\'aggiornamento stato:', error)
     alert('Errore nell\'aggiornamento dello stato della proposta')
@@ -185,7 +185,7 @@ const changeState = async (titolo: string, stato: string, commento: string = '')
 
 const approveProposal = async (proposta: any) => {
   if (confirm(`Sei sicuro di voler approvare "${proposta.titolo}"?`)) {
-    await changeState(proposta.titolo, 'approvata', 'Proposta approvata dall\'operatore')
+    await changeState(proposta._id, 'approvata', 'Proposta approvata dall\'operatore')
   }
 }
 
@@ -197,7 +197,7 @@ const rejectProposal = (proposta: any) => {
 const confirmReject = async () => {
   if (selectedProposal.value) {
     await changeState(
-      selectedProposal.value.titolo, 
+      selectedProposal.value._id, 
       'rifiutata', 
       rejectComment.value || 'Proposta rifiutata dall\'operatore'
     )

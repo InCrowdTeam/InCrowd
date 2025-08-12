@@ -33,6 +33,18 @@
   --color-heading: var(--vt-c-text-light-1);
   --color-text: var(--vt-c-text-light-1);
 
+  /* InCrowd specific colors */
+  --color-primary: #fe4654;
+  --color-primary-hover: #e63946;
+  --color-primary-light: rgba(254, 70, 84, 0.1);
+  --color-secondary: #404149;
+  --color-secondary-hover: #2B2C34;
+  --color-text-secondary: rgba(60, 60, 60, 0.7);
+  --color-card-background: var(--vt-c-white);
+  --color-input-background: var(--vt-c-white);
+  --color-input-border: #e6e6e6;
+  --color-shadow: rgba(0, 0, 0, 0.08);
+
   --section-gap: 160px;
 }
 
@@ -47,6 +59,18 @@
 
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
+
+    /* InCrowd specific colors for dark mode */
+    --color-primary: #fe4654;
+    --color-primary-hover: #ff5a68;
+    --color-primary-light: rgba(254, 70, 84, 0.2);
+    --color-secondary: #f8f9fa;
+    --color-secondary-hover: #e9ecef;
+    --color-text-secondary: rgba(235, 235, 235, 0.7);
+    --color-card-background: var(--vt-c-black-soft);
+    --color-input-background: var(--vt-c-black-mute);
+    --color-input-border: rgba(84, 84, 84, 0.48);
+    --color-shadow: rgba(0, 0, 0, 0.3);
   }
 }
 

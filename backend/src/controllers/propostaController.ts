@@ -3,9 +3,23 @@ import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
 import Commento from "../models/Commento";
 
+// Formattazione response standardizzata per le proposte
+const successResponse = (data: any, message?: string) => ({
+  success: true,
+  data,
+  ...(message && { message })
+});
+
+const errorResponse = (message: string, error?: any) => ({
+  success: false,
+  error: message,
+  ...(error && { details: error })
+});
+
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
-    const proposte = await Proposta.find({"stato.stato": "approvata"});
+    const proposte = await Proposta.find({"stato.stato": "approvata"})
+      .sort({ createdAt: -1 }); // Ordina per data di creazione decrescente (più recenti prima)
     const proposteProcessate = proposte.map(p => {
       const obj = p.toObject();
       // se è ancora Buffer lo converto, altrimenti lascio la stringa
@@ -14,10 +28,10 @@ export const getAllProposte = async (req: Request, res: Response) => {
       }
       return obj;
     });
-    res.json(proposteProcessate);
+    res.json(successResponse(proposteProcessate));
   } catch (error) {
     console.error("Errore nel recupero proposte:", error);
-    res.status(500).json({ message: "Errore interno" });
+    res.status(500).json(errorResponse("Errore interno del server"));
   }
 };
 
@@ -28,7 +42,7 @@ export const getMyProposte = async (req: AuthenticatedRequest, res: Response) =>
     // Verifica che l'utente sia autenticato
     if (!req.user || !req.user.userId) {
       console.log("❌ Utente non autenticato in getMyProposte");
-      return res.status(401).json({ message: "Utente non autenticato" });
+      return res.status(401).json(errorResponse("Utente non autenticato"));
     }
 
     console.log("🔍 Debug - User ID:", req.user.userId);
@@ -49,10 +63,10 @@ export const getMyProposte = async (req: AuthenticatedRequest, res: Response) =>
     });
     
     console.log("✅ Inviando proposte:", proposteProcessate.length);
-    res.json(proposteProcessate);
+    res.json(successResponse(proposteProcessate));
   } catch (error) {
     console.error("❌ Errore nel recupero proposte utente:", error);
-    res.status(500).json({ message: "Errore interno nel recupero delle proposte" });
+    res.status(500).json(errorResponse("Errore interno nel recupero delle proposte"));
   }
 };
 
@@ -253,11 +267,10 @@ export const getPendingProposte = async (_req: Request, res: Response) => {
 };
 
 export const updateStatoProposta = async (req: Request, res: Response) => {
-  const { titolo } = req.params;
-  const titoloDecoded = decodeURIComponent(titolo);
+  const { id } = req.params;
   const { stato, commento } = req.body;
   try {
-    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
     proposta.stato = {
@@ -278,11 +291,10 @@ export const updateStatoProposta = async (req: Request, res: Response) => {
 };
 
 export const hyperProposta = async (req: AuthenticatedRequest, res: Response) => {
-  const { titolo } = req.params;
-  const titoloDecoded = decodeURIComponent(titolo);
+  const { id } = req.params;
   const userId = req.user?.userId;
   try {
-    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
     
     // Inizializza listaHyper se non esiste
@@ -321,12 +333,11 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
 };
 
 export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
-  const { titolo } = req.params;
-  const titoloDecoded = decodeURIComponent(titolo);
+  const { id } = req.params;
   const { contenuto } = req.body;
   const userId = req.user?.userId;
   try {
-    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
     // Crea il commento
@@ -352,10 +363,9 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
 };
 
 export const getCommentiProposta = async (req: Request, res: Response) => {
-  const { titolo } = req.params;
-  const titoloDecoded = decodeURIComponent(titolo);
+  const { id } = req.params;
   try {
-    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
     const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
@@ -366,10 +376,10 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
   }
 };
 
-export const getPropostaByTitolo = async (req: Request, res: Response) => {
+export const getPropostaById = async (req: Request, res: Response) => {
   try {
-    const titoloDecoded = decodeURIComponent(req.params.titolo);
-    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    const { id } = req.params;
+    const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json({ message: "Proposta non trovata" });
 
     const propostaObj = proposta.toObject();
@@ -425,12 +435,11 @@ export const createProposta = async (req: Request, res: Response) => {
 };
 
 export const deleteProposta = async (req: AuthenticatedRequest, res: Response) => {
-  const { titolo } = req.params;
-  const titoloDecoded = decodeURIComponent(titolo);
+  const { id } = req.params;
   const userId = req.user?.userId;
   
   try {
-    const proposta = await Proposta.findOne({ titolo: titoloDecoded });
+    const proposta = await Proposta.findById(id);
     if (!proposta) {
       return res.status(404).json({ message: "Proposta non trovata" });
     }

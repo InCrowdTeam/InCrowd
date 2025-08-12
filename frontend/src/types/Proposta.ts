@@ -3,6 +3,7 @@ import type { IIndirizzo } from "./Indirizzo";
 import type { IStatoProposta } from "./StatoProposta";
 
 export interface IProposta {
+    _id: string;
     titolo: string;
     stato: IStatoProposta;
     proponenteID: string;
