@@ -630,6 +630,33 @@ const loadUserData = async () => {
     console.error('Errore nel caricamento dati utente:', error);
   }
 };
+
+//badge per lo stato delle proposte
+const getStatoBadge = (proposta: IProposta) => {
+  const stato = proposta.stato?.stato || 'in_approvazione';
+  
+  switch (stato) {
+    case 'approvata':
+      return {
+        text: 'Approvata',
+        class: 'status-approved',
+        icon: '✅'
+      };
+    case 'rifiutata':
+      return {
+        text: 'Rifiutata',
+        class: 'status-rejected',
+        icon: '❌'
+      };
+    case 'in_approvazione':
+    default:
+      return {
+        text: 'In attesa',
+        class: 'status-pending',
+        icon: '⏳'
+      };
+  }
+};
 </script>
 
 <template>
@@ -745,7 +772,9 @@ const loadUserData = async () => {
                     <span class="hype-icon">⚡</span>
                     {{ proposta.listaHyper.length }}
                   </span>
+                  <span :class="['status-badge', getStatoBadge(proposta).class]">{{ getStatoBadge(proposta).icon }} {{ getStatoBadge(proposta).text }}</span>
                   <span class="proposal-category">{{ getCategoryLabel(proposta.categoria || '') || 'Generale' }}</span>
+
                 </div>
                 <h3 class="proposal-title">{{ proposta.titolo }}</h3>
                 <p class="proposal-description">{{ proposta.descrizione }}</p>
@@ -2621,5 +2650,29 @@ const loadUserData = async () => {
     min-width: auto;
     font-size: 0.9rem;
   }
+}
+
+/* Badge stato proposta */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background:var(--color-background-mute);
+}
+
+.status-approved {
+  color: #155724;
+}
+
+.status-rejected {
+  color: #721c24;
+}
+
+.status-pending {
+  color: #856404;
 }
 </style>
