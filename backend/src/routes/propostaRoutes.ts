@@ -1,11 +1,13 @@
+
 import express from "express";
-import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte, getMyProposte, getPropostaById, deleteCommento } from "../controllers/propostaController";
+import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte, getMyProposte, getPropostaById, deleteCommento, getUltimiCommenti } from "../controllers/propostaController";
 import multer from "multer";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
-
-
 const router = express.Router();
+
+// Rotta per ottenere gli ultimi commenti globali
+router.get("/commenti", getUltimiCommenti);
 
 // Configura Multer per caricare i file in memoria (memoria temporanea)
 const storage = multer.memoryStorage();
