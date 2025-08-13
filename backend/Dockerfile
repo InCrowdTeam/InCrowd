@@ -2,7 +2,7 @@
 FROM node:22.15.1-alpine AS build
 
 # Dipendenze per moduli nativi (bcrypt, ecc.)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ ca-certificates curl
 
 WORKDIR /app
 
@@ -39,10 +39,6 @@ USER nodejs
 
 # Esponi la porta dell'app
 EXPOSE 3000
-
-# Healthcheck opzionale
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/ping', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # Avvio dell'app
 CMD ["node", "dist/app.js"]
