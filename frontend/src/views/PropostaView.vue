@@ -118,7 +118,7 @@
         </div>
 
         <!-- Comment Form -->
-        <div v-if="userStore.user" class="comment-form-section">
+        <div v-if="userStore.user && !userStore.isOperatore" class="comment-form-section">
           <div class="comment-form">
             <div class="comment-author-avatar">
               <img 
@@ -154,6 +154,15 @@
             </div>
           </div>
           <small class="keyboard-hint">Premi Ctrl + Invio per inviare rapidamente</small>
+        </div>
+
+        <!-- Operator Comment Restriction -->
+        <div v-else-if="userStore.user && userStore.isOperatore" class="operator-restriction-card">
+          <div class="restriction-icon">🛡️</div>
+          <div class="restriction-text">
+            <h3>Funzione commenti non disponibile</h3>
+            <p>Gli operatori non possono aggiungere commenti alle proposte per mantenere la neutralità della moderazione</p>
+          </div>
         </div>
 
         <!-- Login Reminder -->
@@ -1086,6 +1095,32 @@ watch(proposta, (newProposta) => {
 .login-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 25px rgba(254, 70, 84, 0.4);
+}
+
+/* Operator Restriction */
+.operator-restriction-card {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border: 2px dashed #ffc107;
+  border-radius: 1.5rem;
+  padding: 3rem;
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.restriction-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.restriction-text h3 {
+  color: #856404;
+  margin-bottom: 0.5rem;
+}
+
+.restriction-text p {
+  color: #856404;
+  margin-bottom: 0;
+  opacity: 0.8;
 }
 
 /* Comments List */

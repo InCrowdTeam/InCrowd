@@ -173,60 +173,12 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Statistiche (placeholder per future funzioni) -->
-          <div class="action-card disabled">
-            <div class="action-header">
-              <div class="action-icon">📊</div>
-              <div class="coming-soon-badge">Prossimamente</div>
-            </div>
-            <div class="action-content">
-              <h3>Statistiche Avanzate</h3>
-              <p>Dashboard completa con metriche dettagliate, report e analisi dei trend della piattaforma.</p>
-            </div>
-          </div>
 
-          <!-- Configurazioni (placeholder per future funzioni) -->
-          <div class="action-card disabled">
-            <div class="action-header">
-              <div class="action-icon">⚙️</div>
-              <div class="coming-soon-badge">Prossimamente</div>
-            </div>
-            <div class="action-content">
-              <h3>Configurazioni</h3>
-              <p>Gestisci le impostazioni della piattaforma, categorie, filtri e parametri di moderazione.</p>
-            </div>
-          </div>
 
         </div>
       </div>
 
-      <!-- Area notifiche/attività recenti -->
-      <div class="recent-activity">
-        <h2>Attività Recente</h2>
-        <div class="activity-list">
-          <div class="activity-item">
-            <div class="activity-icon">✅</div>
-            <div class="activity-content">
-              <p><strong>Proposta approvata:</strong> "Festival Musicale Estivo"</p>
-              <span class="activity-time">2 ore fa</span>
-            </div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-icon">👤</div>
-            <div class="activity-content">
-              <p><strong>Nuovo utente registrato:</strong> Marco Rossi</p>
-              <span class="activity-time">4 ore fa</span>
-            </div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-icon">❌</div>
-            <div class="activity-content">
-              <p><strong>Proposta rifiutata:</strong> Contenuto inappropriato</p>
-              <span class="activity-time">1 giorno fa</span>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
     </div>
   </div>
@@ -477,7 +429,7 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-.action-card:not(.disabled):hover {
+.action-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
 }
@@ -487,15 +439,7 @@ onMounted(async () => {
   color: #fff;
 }
 
-.action-card.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
-.action-card.disabled:hover {
-  transform: none;
-  box-shadow: 0 2px 20px rgba(0,0,0,0.08);
-}
 
 .action-header {
   padding: 1.5rem 1.5rem 0 1.5rem;
@@ -518,14 +462,7 @@ onMounted(async () => {
   font-weight: 700;
 }
 
-.coming-soon-badge {
-  background: #ffc107;
-  color: #fff;
-  padding: 0.3rem 0.8rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
+
 
 .action-content {
   padding: 0 1.5rem;
@@ -585,47 +522,7 @@ onMounted(async () => {
   opacity: 0.9;
 }
 
-/* Attività recente */
-.activity-list {
-  background: #fff;
-  border-radius: 1rem;
-  overflow: hidden;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-}
 
-.activity-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.activity-item:last-child {
-  border-bottom: none;
-}
-
-.activity-icon {
-  font-size: 1.2rem;
-  width: 40px;
-  height: 40px;
-  background: #f8f7f3;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.activity-content p {
-  margin: 0 0 0.3rem 0;
-  color: #404149;
-}
-
-.activity-time {
-  font-size: 0.85rem;
-  color: #666;
-}
 
 /* Responsive */
 @media (max-width: 768px) {
