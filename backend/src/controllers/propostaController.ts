@@ -1,3 +1,19 @@
+// Restituisce gli ultimi commenti globali (tutte le proposte)
+export const getUltimiCommenti = async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+    // Popola utente (nome) e proposta (titolo e _id)
+    const commenti = await Commento.find({})
+      .sort({ dataOra: -1 })
+      .limit(limit)
+      .populate('utente', 'nome')
+      .populate('proposta', 'titolo');
+    res.json(apiResponse({ data: { commenti }, message: 'Ultimi commenti' }));
+  } catch (err) {
+    console.error('Errore nel recupero ultimi commenti:', err);
+    res.status(500).json(apiResponse({ message: 'Errore nel recupero ultimi commenti', error: err }));
+  }
+};
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";

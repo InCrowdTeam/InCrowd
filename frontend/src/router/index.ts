@@ -83,7 +83,12 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'notFound',
     component: NotFoundView
-  }
+  },
+  {
+  path: '/comments',
+  name: 'UltimiCommenti',
+  component: () => import('@/views/UltimiCommentiView.vue') 
+  },
 ]
 
 const router = createRouter({
