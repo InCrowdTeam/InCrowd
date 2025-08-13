@@ -2,7 +2,6 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
-import path from "path";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import userRoutes from "./routes/userRoutes";
 import propostaRoutes from "./routes/propostaRoutes";
@@ -48,23 +47,9 @@ app.use("/api/operatori", operatoreRoutes);
 app.use("/api/admin/operatori", adminOperatoreRoutes);
 app.use("/api/auth", authRoutes);
 
-// Serve static files from the React app build
-app.use(express.static(path.join(__dirname, '../../frontend/dist')));
-
 // Base route
 app.get("/", (req, res) => {
   res.send("Welcome to InCrowd API!");
-});
-
-// SPA Routing: serve index.html for all non-API routes
-app.get('*', (req, res) => {
-  // Skip API routes
-  if (req.path.startsWith('/api/')) {
-    return notFoundMiddleware(req, res, () => {});
-  }
-  
-  // Serve index.html for all other routes (SPA routing)
-  res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });
 
 // 404 handler for unmatched routes (only for API routes)
