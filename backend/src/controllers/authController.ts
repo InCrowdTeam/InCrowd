@@ -154,46 +154,17 @@ export const googleLogin = async (req: Request, res: Response) => {
     if (operatore) userType = "operatore";
 
     if (!account) {
-      // Crea nuovo account per email Google
-      const User = (await import("../models/User")).default;
-      const Ente = (await import("../models/Ente")).default;
-      const Operatore = (await import("../models/Operatore")).default;
-
-      // Determina tipo: se c'è cognome, è user, altrimenti ente
-      let type = 'user';
-      if (payload.family_name) {
-        type = 'user';
-      } else {
-        // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
-        type = 'ente';
-      }
-
-      if (type === 'user') {
-        account = new User({
+      // NON creare account automaticamente, mandare a completeGoogleSignup
+      return res.status(404).json({ 
+        needsRegistration: true,
+        data: { 
+          email: payload.email,
+          oauthCode: payload.sub,
           nome: payload.given_name || "Nome",
-          cognome: payload.family_name || "Cognome",
-          codiceFiscale: "TEMP_" + Date.now(), // Temporaneo, da aggiornare
-          biografia: "",
-          credenziali: {
-            email: payload.email,
-            oauthCode: payload.sub,
-          },
-          fotoProfilo: payload.picture ? await downloadImageAsBase64(payload.picture) : undefined,
-        });
-      } else {
-        account = new Ente({
-          nome: payload.name || "Nome Ente",
-          codiceFiscale: "TEMP_" + Date.now(), // Temporaneo, da aggiornare
-          biografia: "",
-          credenziali: {
-            email: payload.email,
-            oauthCode: payload.sub,
-          },
-          fotoProfilo: payload.picture ? await downloadImageAsBase64(payload.picture) : undefined,
-        });
-      }
-
-      await account.save();
+          cognome: payload.family_name || undefined,
+          fotoProfilo: payload.picture ? await downloadImageAsBase64(payload.picture) : undefined
+        }
+      });
     } else {
       // Aggiorna OAuth code se diverso
       if (account.credenziali.oauthCode !== payload.sub) {

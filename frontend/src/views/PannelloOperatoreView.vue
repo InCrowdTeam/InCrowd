@@ -37,10 +37,7 @@ const goToUserManagement = () => {
   router.push('/users')
 }
 
-const goToCommentManagement = () => {
-  router.push('/comments')
-}
-
+// Carica statistiche reali dal backend
 onMounted(async () => {
   try {
     loading.value = true
@@ -54,7 +51,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
 </script>
 
 <template>
@@ -174,20 +170,6 @@ onMounted(async () => {
             </div>
             <div class="action-footer">
               <span class="action-cta">Visualizza Utenti →</span>
-            </div>
-          </div>
-
-          <!-- Ultimi Commenti -->
-          <div class="action-card" @click="goToCommentManagement">
-            <div class="action-header">
-              <div class="action-icon">💬</div>
-            </div>
-            <div class="action-content">
-              <h3>Ultimi Commenti</h3>
-              <p>Visualizza gli ultimi commenti inseriti dagli utenti su tutte le proposte.</p>
-            </div>
-            <div class="action-footer">
-              <span class="action-cta">Visualizza Commenti →</span>
             </div>
           </div>
 

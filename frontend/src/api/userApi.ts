@@ -92,4 +92,33 @@ export async function getAllUsers(token: string) {
   return response.data ?? response
 }
 
+/**
+ * Elimina l'account dell'utente corrente e tutti i suoi dati associati
+ * Questa operazione è IRREVERSIBILE e cancella:
+ * - L'account utente
+ * - Tutte le proposte create dall'utente
+ * - Tutti i commenti scritti dall'utente
+ * 
+ * @param token - Token di autenticazione dell'utente
+ * @returns Messaggio di conferma eliminazione
+ * @throws Error se l'eliminazione fallisce
+ */
+export async function deleteAccount(token: string): Promise<{ message: string }> {
+  const res = await fetch(`${BASE_URL}/me`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nell\'eliminazione dell\'account');
+  }
+
+  const body = await res.json();
+  return body;
+}
+
 

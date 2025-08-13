@@ -72,7 +72,7 @@ const routes = [
     path: '/profilo',
     name: 'profilo',
     component: ProfiloView,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, hideFromOperators: true }
   },
   {
     path: '/not-logged',
@@ -120,6 +120,12 @@ router.beforeEach((to, _from, next) => {
   // Guard per pagine che richiedono autenticazione
   if (to.meta.requiresAuth && !store.token) {
     next('/not-logged')
+    return
+  }
+  
+  // Guard per nascondere pagine agli operatori
+  if (to.meta.hideFromOperators && store.isOperatore) {
+    next('/pannello-operatore')
     return
   }
   

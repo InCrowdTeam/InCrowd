@@ -143,33 +143,8 @@ const handleGoogleResponse = async (response: any) => {
     });
 
     if (res.needsRegistration) {
-      // Determina tipo: se c'è cognome, è user, altrimenti ente
-      let nome = res.data.nome || '';
-      let cognome = res.data.cognome || '';
-      let type = 'user';
-      // Se non c'è cognome, o se l'utente ha scelto ente, tutto in nome
-      if (!cognome) {
-        type = 'ente';
-        cognome = '';
-      } else {
-        // Split nome Google in nome/cognome se possibile
-        const parts = nome.split(' ');
-        if (parts.length > 1) {
-          nome = parts[0];
-          cognome = parts.slice(1).join(' ');
-        }
-      }
-      router.push({
-        name: 'completeGoogleSignup',
-        query: {
-          nome,
-          cognome,
-          email: res.data.email,
-          oauthCode: res.data.oauthCode,
-          type,
-          fotoProfilo: res.data.fotoProfilo ? JSON.stringify(res.data.fotoProfilo) : undefined
-        },
-      });
+      // Account non trovato - mostra errore e non permettere registrazione
+      errorMessage.value = "Account non trovato. Registrati prima di fare login.";
       return;
     }
 
