@@ -11,6 +11,7 @@ import adminOperatoreRoutes from "./routes/adminOperatoreRoutes";
 import authRoutes from "./routes/authRoutes";
 import { notFoundMiddleware } from "./middleware/notFoundMiddleware";
 import { errorMiddleware } from "./middleware/errorMiddleware";
+import followRoutes from "./routes/followRoutes";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use("/api/enti", enteRoutes);
 app.use("/api/operatori", operatoreRoutes);
 app.use("/api/admin/operatori", adminOperatoreRoutes);
 app.use("/api/auth", authRoutes);
+app.use('/api', followRoutes);
 
 // Base route
 app.get("/", (req, res) => {
