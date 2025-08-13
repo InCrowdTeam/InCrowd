@@ -3,6 +3,7 @@ import Operatore from "../models/Operatore";
 import Proposta from "../models/Proposta";
 import User from "../models/User";
 import Ente from "../models/Ente";
+import Commento from "../models/Commento";
 import bcrypt from "bcrypt";
 import { emailExists } from "../utils/emailHelper";
 import { validatePassword } from "../utils/passwordValidator";
@@ -129,14 +130,12 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
     const utentiTotali = utentiCount + entiCount;
     
     // Conta proposte per stato
-    const proposteInAttesa = await Proposta.countDocuments({ stato: 'in_attesa' });
-    const proposteApprovate = await Proposta.countDocuments({ stato: 'approvata' });
-    const proposteRifiutate = await Proposta.countDocuments({ stato: 'rifiutata' });
+    const proposteInAttesa = await Proposta.countDocuments({ "stato.stato": 'in_approvazione' });
+    const proposteApprovate = await Proposta.countDocuments({ "stato.stato": 'approvata' });
+    const proposteRifiutate = await Proposta.countDocuments({ "stato.stato": 'rifiutata' });
     
     // Conta commenti totali
-    const commentiTotali = await Proposta.aggregate([
-      { $group: { _id: null, total: { $sum: { $size: "$commenti" } } } }
-    ]);
+    const commentiTotali = await Commento.countDocuments();
     
     const stats = {
       proposteInAttesa,
@@ -144,7 +143,7 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
       proposteRifiutate,
       utentiRegistrati: utentiCount,
       entiRegistrati: entiCount,
-      commentiTotali: commentiTotali[0]?.total || 0,
+      commentiTotali,
       utentiTotali
     };
     
