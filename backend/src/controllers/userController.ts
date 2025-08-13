@@ -466,3 +466,52 @@ export const updatePassword = async (req: AuthenticatedRequest, res: Response) =
   res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
+
+/**
+ * Elimina l'account dell'utente corrente e tutti i suoi dati
+ * Gestisce sia utenti che enti
+ * @param req - Richiesta HTTP autenticata
+ * @param res - Risposta HTTP
+ */
+export const deleteAccount = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const userType = req.user?.userType;
+    
+    if (!userId || !userType) {
+      return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
+    }
+
+    // Verifica che sia un utente o ente (non operatore/admin)
+    if (userType === 'operatore' || userType === 'admin') {
+      return res.status(403).json(apiResponse({ message: "Operatori e amministratori non possono eliminare il proprio account" }));
+    }
+
+    // Elimina tutte le proposte dell'utente/ente
+    const Proposta = (await import("../models/Proposta")).default;
+    await Proposta.deleteMany({ proponenteID: userId });
+    
+    // Elimina tutti i commenti dell'utente/ente
+    const Commento = (await import("../models/Commento")).default;
+    await Commento.deleteMany({ utente: userId });
+    
+    let deleted = null;
+    
+    // Elimina l'account in base al tipo
+    if (userType === 'user') {
+      deleted = await User.findByIdAndDelete(userId);
+    } else if (userType === 'ente') {
+      const Ente = (await import("../models/Ente")).default;
+      deleted = await Ente.findByIdAndDelete(userId);
+    }
+    
+    if (!deleted) {
+      return res.status(404).json(apiResponse({ message: "Account non trovato" }));
+    }
+    
+    res.json(apiResponse({ message: "Account eliminato definitivamente" }));
+  } catch (error) {
+    console.error("Errore eliminazione account:", error);
+    res.status(500).json(apiResponse({ message: "Errore eliminazione account", error }));
+  }
+};

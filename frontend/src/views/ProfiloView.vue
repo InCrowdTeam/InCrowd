@@ -7,6 +7,7 @@ import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import { useModal } from '@/composables/useModal';
 import { updateEnteProfile, updateEntePassword } from "@/api/enteApi";
+import { deleteAccount } from "@/api/userApi";
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -26,18 +27,13 @@ const isUser = computed(() => userStore.isUser);
 const isEnte = computed(() => userStore.isEnte);
 const canModifyProfile = computed(() => isUser.value || isEnte.value);
 
-const tabs = computed(() => {
-  if (isOperatore.value) {
-    return []; // Nascondi i tab per gli operatori
-  }
-  return [
-    { label: "Mie proposte", value: "mie" },
-    { label: "Hyped", value: "hyped" },
-    { label: "Seguiti", value: "seguiti" }
-  ];
-});
+const tabs = [
+  { label: "Mie proposte", value: "mie" },
+  { label: "Hyped", value: "hyped" },
+  { label: "Seguiti", value: "seguiti" }
+];
 
-const selectedTab = ref(isOperatore.value ? "" : "mie");
+const selectedTab = ref("mie");
 
 const mieProposte = ref<IProposta[]>([]);
 const hypedProposte = ref<IProposta[]>([]);
@@ -52,11 +48,8 @@ const nomeCompleto = computed(() => {
   return userStore.user?.nome || 'Nome utente';
 });
 
-// Computed per biografia con supporto operatori
+// Computed per biografia
 const biografiaUtente = computed(() => {
-  if (isOperatore.value) {
-    return "🔧 Operatore di InCrowd - Mi occupo della moderazione e gestione della piattaforma per garantire un'esperienza sicura e piacevole a tutti gli utenti.";
-  }
   return userStore.user?.biografia || "Nessuna biografia disponibile";
 });
 
@@ -72,11 +65,17 @@ onMounted(async () => {
   try {
     loading.value = true;
     
-    
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
       console.error("❌ Utente non autenticato");
       loading.value = false;
+      return;
+    }
+    
+    // Protezione aggiuntiva: gli operatori non possono accedere al profilo
+    if (userStore.isOperatore) {
+      console.log("🔧 Operatore reindirizzato al pannello operatore");
+      router.push('/pannello-operatore');
       return;
     }
     
@@ -631,6 +630,60 @@ const loadUserData = async () => {
   }
 };
 
+/**
+ * Conferma ed esegue l'eliminazione definitiva dell'account
+ * Questa funzione mostra un modal di conferma e procede con l'eliminazione
+ */
+const confermaEliminaAccount = async () => {
+  const accountType = isEnte.value ? 'ente' : 'account utente';
+  const result = await showConfirm(
+    `⚠️ ATTENZIONE: Stai per eliminare definitivamente il tuo ${accountType}!\n\n` +
+    `Questa azione cancellerà PERMANENTEMENTE:\n` +
+    `• Il tuo profilo ${isEnte.value ? 'ente' : 'utente'}\n` +
+    `• Tutte le tue proposte\n` +
+    `• Tutti i tuoi commenti\n` +
+    `• Tutti i dati associati al tuo ${accountType}\n\n` +
+    `Questa operazione NON può essere annullata.\n\n` +
+    `Sei assolutamente sicuro di voler procedere?`,
+    'Conferma eliminazione account',
+    '🗑️ SÌ, ELIMINA TUTTO',
+    'Annulla'
+  );
+  
+  if (!result) return;
+  
+  try {
+    saving.value = true;
+    clearMessage();
+    
+    // Chiamata API per eliminare l'account
+    await deleteAccount(userStore.token);
+    
+    // Mostra messaggio di successo
+    const accountType = isEnte.value ? 'Ente' : 'Account';
+    await showSuccess(
+      `${accountType} eliminato con successo. Verrai disconnesso automaticamente.`,
+      `${accountType} eliminato`
+    );
+    
+    // Logout automatico e redirect
+    userStore.logout();
+    router.push('/');
+    
+  } catch (error: any) {
+    console.error('Errore eliminazione account:', error);
+    const errorMessage = error.message || 'Errore durante l\'eliminazione dell\'account';
+    
+    await showError(
+      'Non è stato possibile eliminare l\'account.',
+      `Dettagli tecnici: ${errorMessage}`,
+      'Errore eliminazione account'
+    );
+  } finally {
+    saving.value = false;
+  }
+};
+
 //badge per lo stato delle proposte
 const getStatoBadge = (proposta: IProposta) => {
   const stato = proposta.stato?.stato || 'in_approvazione';
@@ -656,6 +709,19 @@ const getStatoBadge = (proposta: IProposta) => {
         icon: '⏳'
       };
   }
+};
+
+// Badge per il tipo di utente
+const getUserTypeClass = (): string => {
+  if (isEnte.value) return 'type-ente';
+  if (isUser.value) return 'type-user';
+  return 'type-user'; // fallback
+};
+
+const getUserTypeLabel = (): string => {
+  if (isEnte.value) return 'ENTE';
+  if (isUser.value) return 'UTENTE PRIVATO';
+  return 'UTENTE'; // fallback
 };
 </script>
 
@@ -689,7 +755,10 @@ const getStatoBadge = (proposta: IProposta) => {
         </div>
         <div class="profile-info">
           <div class="profile-header-top">
-            <h1 class="profile-name">{{ nomeCompleto }}</h1>
+            <div class="profile-name-section">
+              <h1 class="profile-name">{{ nomeCompleto }}</h1>
+              <span class="user-type-badge" :class="getUserTypeClass()">{{ getUserTypeLabel() }}</span>
+            </div>
             <button 
               v-if="canModifyProfile" 
               class="settings-button" 
@@ -703,7 +772,7 @@ const getStatoBadge = (proposta: IProposta) => {
           <p class="profile-bio">
             {{ biografiaUtente }}
           </p>
-          <div v-if="!isOperatore" class="profile-stats">
+          <div class="profile-stats">
             <div class="stat">
               <span class="stat-number">{{ mieProposte.length }}</span>
               <span class="stat-label">Proposte</span>
@@ -713,17 +782,12 @@ const getStatoBadge = (proposta: IProposta) => {
               <span class="stat-label">Hyped</span>
             </div>
           </div>
-          <div v-else class="operator-info">
-            <div class="operator-badge">
-              <span class="operator-icon">🔧</span>
-              <span class="operator-text">Operatore Ufficiale</span>
-            </div>
-          </div>
+
         </div>
       </div>
 
-      <!-- Tabs (nascosti per operatori) -->
-      <div v-if="!isOperatore" class="profile-tabs">
+      <!-- Tabs -->
+      <div class="profile-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.value"
@@ -737,17 +801,10 @@ const getStatoBadge = (proposta: IProposta) => {
 
       <!-- Contenuto tab -->
       <div class="profile-content">
-        <!-- Profilo Operatore (minimalista) -->
-        <div v-if="isOperatore" class="simple-operator-profile">
-          <div class="operator-welcome">
-            <div class="welcome-icon">🔧</div>
-            <h3>Profilo Operatore</h3>
-            <p>Questo è il tuo profilo personale. Per accedere agli strumenti di moderazione, vai al <RouterLink to="/pannello-operatore" class="panel-link">Pannello Operatore</RouterLink>.</p>
-          </div>
-        </div>
+
 
         <!-- Mie proposte -->
-        <div v-else-if="selectedTab === 'mie'" class="proposals-section">
+        <div v-if="selectedTab === 'mie'" class="proposals-section">
           <div v-if="mieProposte.length === 0" class="empty-state">
             <div class="empty-icon">📝</div>
             <h3>Nessuna proposta ancora</h3>
@@ -1195,6 +1252,23 @@ const getStatoBadge = (proposta: IProposta) => {
               </div>
             </div>
           </div>
+
+          <!-- Zona pericolosa - Elimina Account (nascosta per operatori) -->
+          <div v-if="!isOperatore" class="danger-zone">
+            <div class="danger-header">
+              <h4>🚨 Zona pericolosa</h4>
+              <p>Azioni irreversibili che elimineranno definitivamente il tuo {{ isEnte ? 'ente' : 'account' }}</p>
+            </div>
+            
+            <button 
+              type="button" 
+              class="delete-account-btn"
+              @click="confermaEliminaAccount"
+            >
+              <span class="delete-icon">🗑️</span>
+              <span class="delete-text">Elimina {{ isEnte ? 'ente' : 'account' }} definitivamente</span>
+            </button>
+          </div>
         </div>
 
         <!-- Sezione setup password iniziale -->
@@ -1380,6 +1454,51 @@ const getStatoBadge = (proposta: IProposta) => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 0.5rem;
+}
+
+.profile-name-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.user-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  animation: badgeAppear 0.5s ease-out;
+}
+
+@keyframes badgeAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.user-type-badge.type-user {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+.user-type-badge.type-ente {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #e1bee7;
 }
 
 .settings-button {
@@ -1677,75 +1796,9 @@ const getStatoBadge = (proposta: IProposta) => {
   font-weight: 500;
 }
 
-/* Stili per Operatori */
-.operator-info {
-  margin-top: 1rem;
-}
 
-.operator-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: linear-gradient(135deg, #fe4654, #404149);
-  color: #fff;
-  padding: 0.5rem 1rem;
-  border-radius: 1.5rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
-}
 
-.operator-icon {
-  font-size: 1.1rem;
-}
 
-/* Profilo operatore semplificato */
-.simple-operator-profile {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-}
-
-.operator-welcome {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 1.2rem;
-  text-align: center;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
-  max-width: 500px;
-}
-
-.welcome-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  display: block;
-}
-
-.operator-welcome h3 {
-  color: #404149;
-  font-size: 1.5rem;
-  margin: 0 0 1rem 0;
-  font-weight: 600;
-}
-
-.operator-welcome p {
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.panel-link {
-  color: #fe4654;
-  text-decoration: none;
-  font-weight: 600;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s;
-}
-
-.panel-link:hover {
-  border-bottom-color: #fe4654;
-}
 
 /* Responsive */
 @media (min-width: 768px) {
@@ -1784,6 +1837,12 @@ const getStatoBadge = (proposta: IProposta) => {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+  }
+  
+  .profile-name-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
   
   .settings-button {
@@ -2674,5 +2733,70 @@ const getStatoBadge = (proposta: IProposta) => {
 
 .status-pending {
   color: #856404;
+}
+
+/* Zona pericolosa - Elimina Account */
+.danger-zone {
+  background: linear-gradient(135deg, #fff5f5, #ffe6e6);
+  border: 2px solid #dc3545;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.danger-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.danger-header h4 {
+  margin: 0 0 0.5rem 0;
+  color: #721c24;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.danger-header p {
+  margin: 0;
+  color: #721c24;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.delete-account-btn {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  border: 2px solid #dc3545;
+  border-radius: 1rem;
+  background: #fff;
+  color: #dc3545;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
+}
+
+.delete-account-btn:hover {
+  background: #dc3545;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+}
+
+.delete-account-btn:active {
+  transform: translateY(0);
+}
+
+.delete-icon {
+  font-size: 1.2rem;
+}
+
+.delete-text {
+  font-weight: 700;
 }
 </style>

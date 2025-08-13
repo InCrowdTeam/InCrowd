@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllUsers, createUser, getUtente, getCurrentUser, updateProfile, updatePassword, getUserById, getUserAvatar } from "../controllers/userController";
+import { getAllUsers, createUser, getUtente, getCurrentUser, updateProfile, updatePassword, getUserById, getUserAvatar, deleteAccount } from "../controllers/userController";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 import multer from "multer";
 
@@ -49,6 +49,9 @@ router.patch("/profile", authMiddleware, upload.single("fotoProfilo"), updatePro
 
 // Rotta per aggiornare la password dell'utente corrente
 router.patch("/password", authMiddleware, updatePassword);
+
+// Rotta per eliminare l'account dell'utente corrente e tutti i suoi dati
+router.delete("/me", authMiddleware, deleteAccount);
 
 // Endpoint pubblico per ottenere solo l'avatar di un utente (DEVE essere prima di /:id)
 router.get("/:id/avatar", getUserAvatar);

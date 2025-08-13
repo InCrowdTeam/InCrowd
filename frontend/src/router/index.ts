@@ -11,6 +11,7 @@ import ModerationPanel from '@/views/ModerationPanel.vue'
 import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import UltimiCommentiView from '@/views/UltimiCommentiView.vue'
 import { useUserStore } from '@/stores/userStore'
 import PropostaView from '@/views/PropostaView.vue'
 
@@ -72,7 +73,7 @@ const routes = [
     path: '/profilo',
     name: 'profilo',
     component: ProfiloView,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, hideFromOperators: true }
   },
   {
     path: '/not-logged',
@@ -85,9 +86,9 @@ const routes = [
     component: NotFoundView
   },
   {
-  path: '/comments',
-  name: 'UltimiCommenti',
-  component: () => import('@/views/UltimiCommentiView.vue') 
+    path: '/comments',
+    name: 'UltimiCommenti',
+    component: UltimiCommentiView
   },
 ]
 
@@ -120,6 +121,12 @@ router.beforeEach((to, _from, next) => {
   // Guard per pagine che richiedono autenticazione
   if (to.meta.requiresAuth && !store.token) {
     next('/not-logged')
+    return
+  }
+  
+  // Guard per nascondere pagine agli operatori
+  if (to.meta.hideFromOperators && store.isOperatore) {
+    next('/pannello-operatore')
     return
   }
   
