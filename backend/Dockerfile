@@ -6,13 +6,17 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
+# Copia package.json e package-lock.json
 COPY package*.json ./
 RUN npm ci
 
+# Copia tutto il codice
 COPY . .
+
+# Build TypeScript -> JavaScript
 RUN npm run build
 
-# === Production stage con strumenti di base ===
+# === Production stage con strumenti di debug ===
 FROM node:22.15.1-alpine AS production
 
 WORKDIR /app
@@ -21,23 +25,19 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
-# Copia build dallo stage precedente
+# Copia la build dallo stage precedente
 COPY --from=build /app/dist ./dist
 
 # Creazione utente non-root
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 RUN chown -R nodejs:nodejs /app
-USER nodejs
 
-# Strumenti di base per debug
+# Passa a root temporaneamente per installare strumenti di debug
 USER root
-RUN apk add --no-cache \
-    bash \
-    bind-tools \   # nslookup, dig
-    busybox-extras # nc (netcat)
+RUN apk add --no-cache bash bind-tools busybox-extras
 USER nodejs
 
-# Porta dell'app
+# Esponi la porta dell'app
 EXPOSE 3000
 
 # Healthcheck opzionale
