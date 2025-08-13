@@ -168,11 +168,6 @@
             </div>
             
             <div class="info-item">
-              <span class="label">🔥 Hyper:</span>
-              <span class="value">{{ detailsProposal.listaHyper?.length || 0 }}</span>
-            </div>
-            
-            <div class="info-item">
               <span class="label">📊 Stato:</span>
               <span class="value">
                 <span class="status-badge" :class="getStatusClass(detailsProposal.stato?.stato)">

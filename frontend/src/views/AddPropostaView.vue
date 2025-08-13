@@ -100,7 +100,7 @@
               <div v-if="!form.foto.data" class="upload-placeholder">
                 <div class="upload-icon">📁</div>
                 <p class="upload-text">Clicca per selezionare o trascina qui la tua foto</p>
-                <p class="upload-subtext">JPG, PNG fino a 10MB</p>
+                <p class="upload-subtext">JPG, PNG fino a 5MB</p>
               </div>
               <div v-else class="upload-preview">
                 <img :src="previewUrl" alt="Preview" class="preview-image" />
