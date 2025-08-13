@@ -11,6 +11,7 @@ import ModerationPanel from '@/views/ModerationPanel.vue'
 import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import UltimiCommentiView from '@/views/UltimiCommentiView.vue'
 import { useUserStore } from '@/stores/userStore'
 import PropostaView from '@/views/PropostaView.vue'
 
@@ -85,9 +86,9 @@ const routes = [
     component: NotFoundView
   },
   {
-  path: '/comments',
-  name: 'UltimiCommenti',
-  component: () => import('@/views/UltimiCommentiView.vue') 
+    path: '/comments',
+    name: 'UltimiCommenti',
+    component: UltimiCommentiView
   },
 ]
 
