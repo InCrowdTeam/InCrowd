@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue'
 import type { IProposta } from "../types/Proposta"
+import type { IUser } from "../types/User"
 import { useUserStore } from '@/stores/userStore'
 import { 
   searchProposte, 
   type SearchFilters, 
   getAllProposte
 } from '@/api/propostaApi'
+import { searchUsers, type SearchUsersResponse } from '@/api/userApi'
 
 // Stato di caricamento
 const isLoading = ref(false)
@@ -52,9 +54,11 @@ const userStore = useUserStore()
 
 // Stato per la ricerca
 const searchQuery = ref('')
+const searchType = ref<'proposte' | 'utenti'>('proposte') // Toggle per tipo ricerca
 const showFilters = ref(false)
 const isSearching = ref(false)
 const searchResults = ref<IProposta[]>([])
+const searchUsersResults = ref<IUser[]>([])
 const searchExecuted = ref(false)
 
 const searchFilters = ref<SearchFilters>({
@@ -99,8 +103,7 @@ const proposteVisualizzate = computed(() => {
 // Computed per verificare se ci sono filtri attivi
 const hasActiveFilters = computed(() => {
   return searchQuery.value || 
-         searchFilters.value.categoria || 
-         searchFilters.value.citta
+         (searchType.value === 'proposte' && (searchFilters.value.categoria || searchFilters.value.citta))
 })
 
 // CLASSIFICA - proposte ordinate per numero di hyper
@@ -156,6 +159,7 @@ const clearSearch = () => {
   searchQuery.value = ''
   searchExecuted.value = false
   searchResults.value = []
+  searchUsersResults.value = []
 }
 
 const onSearch = () => {
@@ -169,26 +173,71 @@ const executeSearch = async () => {
   if (!searchQuery.value && !hasActiveFilters.value) {
     searchExecuted.value = false
     searchResults.value = []
+    searchUsersResults.value = []
     return
   }
 
   isSearching.value = true
   try {
-    const filters: SearchFilters = {
-      ...searchFilters.value,
-      q: searchQuery.value || undefined
-    }
+    if (searchType.value === 'proposte') {
+      const filters: SearchFilters = {
+        ...searchFilters.value,
+        q: searchQuery.value || undefined
+      }
 
-    const response = await searchProposte(filters)
-    searchResults.value = response.proposte
+      const response = await searchProposte(filters)
+      searchResults.value = response.proposte
+      searchUsersResults.value = []
+    } else {
+      // Ricerca utenti
+      if (searchQuery.value) {
+        const response: SearchUsersResponse = await searchUsers(searchQuery.value, 1, 20)
+        searchUsersResults.value = response.data.users
+        searchResults.value = []
+      }
+    }
     searchExecuted.value = true
     
   } catch (error) {
     console.error('Errore nella ricerca:', error)
     searchResults.value = []
+    searchUsersResults.value = []
   } finally {
     isSearching.value = false
   }
+}
+
+// Funzione per cambiare il tipo di ricerca
+const onSearchTypeChange = () => {
+  clearSearch()
+  // Se c'è già una query, riesegui la ricerca con il nuovo tipo
+  if (searchQuery.value) {
+    executeSearch()
+  }
+}
+
+// Funzione per gestire l'immagine del profilo utente
+function processUserProfileImage(foto: any): string {
+  if (!foto || !foto.data) return '';
+  
+  try {
+    if (typeof foto.data === 'string') {
+      return `data:${foto.contentType || 'image/jpeg'};base64,${foto.data}`;
+    }
+    
+    if (Array.isArray(foto.data)) {
+      let binary = '';
+      const bytes = new Uint8Array(foto.data);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return `data:${foto.contentType || 'image/jpeg'};base64,${btoa(binary)}`;
+    }
+  } catch (e) {
+    console.error('Errore nella conversione dell\'immagine profilo:', e);
+  }
+  
+  return '';
 }
 
 onMounted(async () => {
@@ -225,12 +274,30 @@ onMounted(async () => {
 
     <!-- Barra di ricerca -->
     <div class="search-container">
+      <!-- Toggle tipo ricerca -->
+      <div class="search-type-toggle">
+        <button
+          @click="searchType = 'proposte'; onSearchTypeChange()"
+          :class="['search-type-btn', { active: searchType === 'proposte' }]"
+        >
+          📝 Proposte
+        </button>
+        <button
+          @click="searchType = 'utenti'; onSearchTypeChange()"
+          :class="['search-type-btn', { active: searchType === 'utenti' }]"
+        >
+          👥 Utenti
+        </button>
+      </div>
+
       <div class="search-bar">
         <div class="search-input-container">
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Cerca proposte per titolo o descrizione..."
+            :placeholder="searchType === 'proposte' 
+              ? 'Cerca proposte per titolo o descrizione...' 
+              : 'Cerca utenti per nome, cognome o email...'"
             class="search-input"
             @input="onSearch"
           />
@@ -245,6 +312,7 @@ onMounted(async () => {
         </div>
         
         <button 
+          v-if="searchType === 'proposte'"
           @click="toggleFilters" 
           class="filters-btn"
           :class="{ active: showFilters }"
@@ -256,7 +324,7 @@ onMounted(async () => {
 
       <!-- Pannello filtri avanzati -->
       <Transition name="slide-down">
-        <div v-if="showFilters" class="filters-panel">
+        <div v-if="showFilters && searchType === 'proposte'" class="filters-panel">
           <div class="filters-grid">
             <!-- Filtro categoria -->
             <div class="filter-group">
@@ -300,14 +368,14 @@ onMounted(async () => {
         <span class="active-filters-label">Filtri attivi:</span>
         <div class="filter-tags">
           <span v-if="searchQuery" class="filter-tag">
-            Ricerca: "{{ searchQuery }}"
+            {{ searchType === 'proposte' ? 'Ricerca proposte' : 'Ricerca utenti' }}: "{{ searchQuery }}"
             <button @click="searchQuery = ''; onSearch()" class="tag-remove">✕</button>
           </span>
-          <span v-if="searchFilters.categoria" class="filter-tag">
+          <span v-if="searchType === 'proposte' && searchFilters.categoria" class="filter-tag">
             Categoria: {{ getCategoryLabel(searchFilters.categoria) }}
             <button @click="searchFilters.categoria = ''; onSearch()" class="tag-remove">✕</button>
           </span>
-          <span v-if="searchFilters.citta" class="filter-tag">
+          <span v-if="searchType === 'proposte' && searchFilters.citta" class="filter-tag">
             Città: {{ searchFilters.citta }}
             <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
           </span>
@@ -417,72 +485,156 @@ onMounted(async () => {
           </div>
         </div> -->
 
-        <!--sezione nuove proposte--> 
-        <div class="proposte-section">
-          <div class="section-header">
-            <h2 class="section-title">✨ Nuove Proposte</h2>
-            <p class="section-subtitle">Scopri le ultime idee della community</p>
-          </div>
-          
-          <div v-if="isLoading || isSearching" class="loading-container">
-            <div class="loading-spinner"></div>
-            <p>{{ isSearching ? 'Ricerca in corso...' : 'Caricamento proposte...' }}</p>
-          </div>
-          
-          <div v-else-if="proposteVisualizzate.length === 0" class="empty-proposte">
-            <div class="empty-icon">{{ searchExecuted ? '�' : '�📝' }}</div>
-            <h3>{{ searchExecuted ? 'Nessun risultato trovato' : 'Nessuna proposta ancora' }}</h3>
-            <p>{{ searchExecuted ? 'Prova a modificare i criteri di ricerca' : 'Sii il primo a condividere un\'idea con la community!' }}</p>
-            <RouterLink v-if="userStore.user && !searchExecuted" to="/addProposta" class="cta-button">
-              ➕ Aggiungi la tua proposta
-            </RouterLink>
-            <button v-if="searchExecuted" @click="clearSearch" class="cta-button">
-              🔄 Mostra tutte le proposte
-            </button>
-          </div>
-          
-          <div v-else>
-            <div class="proposte-grid">
-              <div
-                v-for="proposta in proposteVisualizzate"
-                :key="proposta.titolo"
-                class="proposta-card"
-                @click="$router.push(`/proposte/${proposta._id}`)"
-              >
-                <div class="proposta-image-container">
-                  <img
-                    v-if="proposta.foto"
-                    :src="processImageUrl(proposta.foto)"
-                    alt="Immagine proposta"
-                    class="proposta-img"
-                  />
-                  <div v-else class="proposta-img-placeholder">
-                    <span class="placeholder-icon">📸</span>
+        <!--sezione risultati ricerca o proposte--> 
+        <div class="risultati-section">
+          <!-- Sezione proposte -->
+          <div v-if="searchType === 'proposte'" class="proposte-section">
+            <div class="section-header">
+              <h2 class="section-title">
+                {{ searchExecuted ? '🔍 Risultati ricerca proposte' : '✨ Nuove Proposte' }}
+              </h2>
+              <p class="section-subtitle">
+                {{ searchExecuted ? 
+                  (searchResults.length > 0 ? `Trovate ${searchResults.length} proposte` : 'Nessuna proposta trovata') :
+                  'Scopri le ultime idee della community' 
+                }}
+              </p>
+            </div>
+            
+            <div v-if="isLoading || isSearching" class="loading-container">
+              <div class="loading-spinner"></div>
+              <p>{{ isSearching ? 'Ricerca in corso...' : 'Caricamento proposte...' }}</p>
+            </div>
+            
+            <div v-else-if="proposteVisualizzate.length === 0" class="empty-proposte">
+              <div class="empty-icon">{{ searchExecuted ? '🔍' : '📝' }}</div>
+              <h3>{{ searchExecuted ? 'Nessun risultato trovato' : 'Nessuna proposta ancora' }}</h3>
+              <p>{{ searchExecuted ? 'Prova a modificare i criteri di ricerca' : 'Sii il primo a condividere un\'idea con la community!' }}</p>
+              <RouterLink v-if="userStore.user && !searchExecuted" to="/addProposta" class="cta-button">
+                ➕ Aggiungi la tua proposta
+              </RouterLink>
+              <button v-if="searchExecuted" @click="clearSearch" class="cta-button">
+                🔄 Mostra tutte le proposte
+              </button>
+            </div>
+            
+            <div v-else>
+              <div class="proposte-grid">
+                <div
+                  v-for="proposta in proposteVisualizzate"
+                  :key="proposta.titolo"
+                  class="proposta-card"
+                  @click="$router.push(`/proposte/${proposta._id}`)"
+                >
+                  <div class="proposta-image-container">
+                    <img
+                      v-if="proposta.foto"
+                      :src="processImageUrl(proposta.foto)"
+                      alt="Immagine proposta"
+                      class="proposta-img"
+                    />
+                    <div v-else class="proposta-img-placeholder">
+                      <span class="placeholder-icon">📸</span>
+                    </div>
+                    
+                    <!-- Badge categoria -->
+                    <div v-if="proposta.categoria" class="categoria-badge">
+                      {{ getCategoryLabel(proposta.categoria) }}
+                    </div>
+                    
+                    <!-- Badge hyper count -->
+                    <div class="hyper-badge">
+                      <span class="hyper-icon">⚡</span>
+                      <span class="hyper-count">{{ proposta.listaHyper?.length || 0 }}</span>
+                    </div>
                   </div>
                   
-                  <!-- Badge categoria -->
-                  <div v-if="proposta.categoria" class="categoria-badge">
-                    {{ getCategoryLabel(proposta.categoria) }}
-                  </div>
-                  
-                  <!-- Badge hyper count -->
-                  <div class="hyper-badge">
-                    <span class="hyper-icon">⚡</span>
-                    <span class="hyper-count">{{ proposta.listaHyper?.length || 0 }}</span>
+                  <div class="proposta-content">
+                    <h3 class="proposta-title">{{ proposta.titolo }}</h3>
+                    <p class="proposta-description">
+                      {{ proposta.descrizione.substring(0, 80) }}{{ proposta.descrizione.length > 80 ? '...' : '' }}
+                    </p>
+                    
+                    <div class="proposta-footer">
+                      <div class="proposta-meta">
+                        <span v-if="proposta.luogo?.citta" class="meta-item">
+                          <span class="meta-icon">📍</span>
+                          {{ proposta.luogo.citta }}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                
-                <div class="proposta-content">
-                  <h3 class="proposta-title">{{ proposta.titolo }}</h3>
-                  <p class="proposta-description">
-                    {{ proposta.descrizione.substring(0, 80) }}{{ proposta.descrizione.length > 80 ? '...' : '' }}
-                  </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sezione utenti -->
+          <div v-else-if="searchType === 'utenti'" class="utenti-section">
+            <div class="section-header">
+              <h2 class="section-title">👥 Ricerca Utenti</h2>
+              <p class="section-subtitle">
+                {{ searchExecuted ? 
+                  (searchUsersResults.length > 0 ? `Trovati ${searchUsersResults.length} utenti` : 'Nessun utente trovato') :
+                  'Cerca utenti nella community' 
+                }}
+              </p>
+            </div>
+            
+            <div v-if="isSearching" class="loading-container">
+              <div class="loading-spinner"></div>
+              <p>Ricerca utenti in corso...</p>
+            </div>
+
+            <div v-else-if="!searchExecuted" class="empty-utenti">
+              <div class="empty-icon">👥</div>
+              <h3>Inizia a cercare</h3>
+              <p>Inserisci nome, cognome o email per trovare utenti nella community</p>
+            </div>
+            
+            <div v-else-if="searchUsersResults.length === 0" class="empty-utenti">
+              <div class="empty-icon">🔍</div>
+              <h3>Nessun utente trovato</h3>
+              <p>Prova con un altro termine di ricerca</p>
+              <button @click="clearSearch" class="cta-button">
+                🔄 Cancella ricerca
+              </button>
+            </div>
+            
+            <div v-else>
+              <div class="utenti-grid">
+                <div
+                  v-for="utente in searchUsersResults"
+                  :key="utente._id"
+                  class="utente-card"
+                  @click="$router.push(`/utenti/${utente._id}`)"
+                >
+                  <div class="utente-image-container">
+                    <img
+                      v-if="utente.fotoProfilo"
+                      :src="processUserProfileImage(utente.fotoProfilo)"
+                      alt="Foto profilo"
+                      class="utente-img"
+                    />
+                    <div v-else class="utente-img-placeholder">
+                      <span class="placeholder-icon">👤</span>
+                    </div>
+                  </div>
                   
-                  <div class="proposta-footer">
-                    <div class="proposta-meta">
-                      <span v-if="proposta.luogo?.citta" class="meta-item">
-                        <span class="meta-icon">📍</span>
-                        {{ proposta.luogo.citta }}
+                  <div class="utente-content">
+                    <h3 class="utente-nome">
+                      {{ `${utente.nome || ''} ${utente.cognome || ''}`.trim() || 'Utente' }}
+                    </h3>
+                    <p v-if="utente.credenziali?.email" class="utente-email">{{ utente.credenziali.email }}</p>
+                    <p v-if="utente.biografia" class="utente-bio">{{ utente.biografia.substring(0, 100) }}{{ utente.biografia.length > 100 ? '...' : '' }}</p>
+                    <div class="utente-stats">
+                      <span class="stat-item">
+                        <span class="stat-icon">�</span>
+                        {{ utente.followers || 0 }} follower
+                      </span>
+                      <span class="stat-item">
+                        <span class="stat-icon">➡️</span>
+                        {{ utente.following || 0 }} following
                       </span>
                     </div>
                   </div>
@@ -1246,6 +1398,155 @@ ul {
   font-size: 0.9rem;
 }
 
+/* Stili per le card utenti */
+.utenti-section {
+  margin: 2rem 0;
+}
+
+.utenti-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+}
+
+.utente-card {
+  background: var(--color-card-background);
+  border-radius: 1.2rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 16px var(--color-shadow);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.utente-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px var(--color-shadow-hover);
+  border-color: var(--color-primary);
+}
+
+.utente-image-container {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.utente-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+
+.utente-card:hover .utente-img {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.utente-img-placeholder {
+  width: 80px;
+  height: 80px;
+  background: var(--color-background-mute);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--color-text-secondary);
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+
+.utente-card:hover .utente-img-placeholder {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.utente-content {
+  width: 100%;
+}
+
+.utente-nome {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.utente-email {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem 0;
+  word-break: break-all;
+}
+
+.utente-bio {
+  color: var(--color-text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.utente-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.stat-icon {
+  font-size: 0.9rem;
+}
+
+.empty-utenti {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: var(--color-card-background);
+  border-radius: 1.2rem;
+  margin: 1.5rem;
+  box-shadow: 0 2px 16px var(--color-shadow);
+}
+
+.empty-utenti .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.empty-utenti h3 {
+  color: var(--color-heading);
+  margin-bottom: 0.5rem;
+}
+
+.empty-utenti p {
+  color: var(--color-text-secondary);
+  margin-bottom: 1.5rem;
+}
+
 /* Search styles */
 .search-container {
   margin-bottom: 2rem;
@@ -1254,6 +1555,68 @@ ul {
   box-shadow: 0 4px 20px var(--color-shadow);
   padding: 1.5rem;
   border: 1px solid var(--color-border);
+}
+
+/* Search type toggle */
+.search-type-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.search-type-btn {
+  padding: 0.5rem 1.5rem;
+  border: 2px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  border-radius: 2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.search-type-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.search-type-btn:hover:not(.active) {
+  background: var(--color-primary-light);
+}
+
+/* Search type toggle */
+.search-type-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.search-type-btn {
+  padding: 0.5rem 1.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 2rem;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.search-type-btn.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px var(--color-primary-light);
+}
+
+.search-type-btn:hover:not(.active) {
+  background: var(--color-background-mute);
+  border-color: var(--color-primary);
 }
 
 .search-bar {

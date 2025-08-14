@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from "vue";
+import { ref, onMounted, computed, nextTick, watch } from "vue";
 import { useRouter } from "vue-router";
 import type { IProposta } from "../types/Proposta";
+import type { IUser } from "../types/User";
 import { useUserStore } from "@/stores/userStore";
+import { useFollowStore } from "@/stores/followStore";
 import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import { useModal } from '@/composables/useModal';
@@ -18,6 +20,7 @@ declare global {
 }
 
 const userStore = useUserStore();
+const followStore = useFollowStore();
 const router = useRouter();
 const { showConfirm, showSuccess, showError } = useModal();
 
@@ -37,7 +40,9 @@ const selectedTab = ref("mie");
 
 const mieProposte = ref<IProposta[]>([]);
 const hypedProposte = ref<IProposta[]>([]);
+const utentiSeguiti = ref<IUser[]>([]);
 const loading = ref(true);
+const loadingSeguiti = ref(false);
 const error = ref('');
 
 // Computed per mostrare nome completo
@@ -133,6 +138,29 @@ onMounted(async () => {
   }
 });
 
+// Funzione per caricare gli utenti seguiti
+const caricaUtentiSeguiti = async () => {
+  if (!userStore.user?._id) return;
+  
+  try {
+    loadingSeguiti.value = true;
+    utentiSeguiti.value = await followStore.loadFollowing(userStore.user._id);
+    console.log(`✅ Caricati ${utentiSeguiti.value.length} utenti seguiti`);
+  } catch (err) {
+    console.error("❌ Errore nel caricamento degli utenti seguiti:", err);
+    await showError("Errore nel caricamento degli utenti seguiti", "Riprova più tardi");
+  } finally {
+    loadingSeguiti.value = false;
+  }
+};
+
+// Watcher per caricare i dati quando si cambia tab
+watch(selectedTab, async (newTab) => {
+  if (newTab === 'seguiti' && utentiSeguiti.value.length === 0) {
+    await caricaUtentiSeguiti();
+  }
+});
+
 const rimuoviProposta = async (proposta: IProposta) => {
   const result = await showConfirm(
     `Sei sicuro di voler eliminare "${proposta.titolo}"?\n\nQuesta azione non può essere annullata.`,
@@ -192,6 +220,31 @@ const unhypeProposta = async (proposta: IProposta) => {
     console.error("Errore nell'unhype:", err);
     const errorMessage = err.response?.data?.message || "Errore nell'unhype della proposta";
     showError("Errore nell'unhype della proposta", errorMessage);
+  }
+};
+
+// Funzione per smettere di seguire un utente
+const smettereSeguitoUtente = async (utente: IUser) => {
+  const result = await showConfirm(
+    `Sei sicuro di voler smettere di seguire ${utente.nome}?`,
+    'Conferma unfollow',
+    '👋 Smetti di seguire',
+    'Annulla'
+  );
+  
+  if (!result || !utente._id) return;
+  
+  try {
+    await followStore.unfollowUser(utente._id);
+    
+    // Rimuovi l'utente dalla lista locale
+    utentiSeguiti.value = utentiSeguiti.value.filter(u => u._id !== utente._id);
+    
+    await showSuccess(`Non segui più ${utente.nome}`);
+  } catch (err: any) {
+    console.error("❌ Errore nell'unfollow:", err);
+    const errorMessage = err.response?.data?.message || "Errore nello smettere di seguire l'utente";
+    await showError("Errore unfollow", errorMessage);
   }
 };
 
@@ -893,10 +946,59 @@ const getUserTypeLabel = (): string => {
 
         <!-- Seguiti -->
         <div v-else-if="selectedTab === 'seguiti'" class="proposals-section">
-          <div class="empty-state">
+          <!-- Loading state -->
+          <div v-if="loadingSeguiti" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Caricamento utenti seguiti...</p>
+          </div>
+
+          <!-- Empty state -->
+          <div v-else-if="utentiSeguiti.length === 0" class="empty-state">
             <div class="empty-icon">👥</div>
             <h3>Nessun utente seguito</h3>
             <p>Gli utenti che seguirai appariranno qui</p>
+          </div>
+
+          <!-- Lista utenti seguiti -->
+          <div v-else class="users-grid">
+            <div v-for="utente in utentiSeguiti" :key="utente._id" class="user-card">
+              <div class="user-avatar-container">
+                <img 
+                  v-if="utente.fotoProfilo?.data"
+                  :src="`data:${utente.fotoProfilo.contentType};base64,${utente.fotoProfilo.data}`"
+                  class="user-avatar"
+                  :alt="`Avatar di ${utente.nome}`"
+                />
+                <div v-else class="user-avatar-placeholder">
+                  <span>👤</span>
+                </div>
+              </div>
+              
+              <div class="user-info">
+                <h4 class="user-name">
+                  {{ utente.nome }}{{ utente.cognome ? ` ${utente.cognome}` : '' }}
+                </h4>
+                <p v-if="utente.biografia" class="user-bio">{{ utente.biografia }}</p>
+                <p v-else class="user-bio-placeholder">Nessuna biografia</p>
+                
+                <div class="user-actions">
+                  <button 
+                    class="action-button unfollow-button" 
+                    @click="smettereSeguitoUtente(utente)"
+                    title="Smetti di seguire"
+                  >
+                    👋 Non seguire più
+                  </button>
+                  <button 
+                    class="action-button view-profile-button" 
+                    @click="$router.push(`/utenti/${utente._id}`)"
+                    title="Visualizza profilo"
+                  >
+                    👁️ Vedi profilo
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2798,5 +2900,165 @@ const getUserTypeLabel = (): string => {
 
 .delete-text {
   font-weight: 700;
+}
+
+/* Stili per la sezione utenti seguiti */
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.user-card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.user-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #667eea;
+}
+
+.user-avatar-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.user-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.user-avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.user-info {
+  text-align: center;
+}
+
+.user-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.user-bio {
+  color: #4a5568;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.user-bio-placeholder {
+  color: #a0aec0;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0 0 1.5rem 0;
+}
+
+.user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.unfollow-button {
+  background: linear-gradient(135deg, #fd746c 0%, #ff9068 100%);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+
+.unfollow-button:hover {
+  background: linear-gradient(135deg, #fc5c54 0%, #fe7f5c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(253, 116, 108, 0.4);
+}
+
+.view-profile-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+
+.view-profile-button:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #4a5568;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive per la griglia utenti */
+@media (max-width: 768px) {
+  .users-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .user-card {
+    padding: 1rem;
+  }
+  
+  .user-avatar,
+  .user-avatar-placeholder {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .user-avatar-placeholder {
+    font-size: 1.5rem;
+  }
 }
 </style>

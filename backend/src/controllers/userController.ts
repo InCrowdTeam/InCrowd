@@ -515,3 +515,62 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
     res.status(500).json(apiResponse({ message: "Errore eliminazione account", error }));
   }
 };
+
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    const { query, page = 1, limit = 10 } = req.query;
+    
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Query di ricerca richiesta'
+      });
+    }
+
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Ricerca per nome, cognome o biografia
+    const searchRegex = new RegExp(query, 'i');
+    const searchQuery = {
+      $or: [
+        { nome: { $regex: searchRegex } },
+        { cognome: { $regex: searchRegex } },
+        { biografia: { $regex: searchRegex } }
+      ]
+    };
+
+    // Esegui ricerca con paginazione
+    const [users, total] = await Promise.all([
+      User.find(searchQuery)
+        .select('nome cognome biografia fotoProfilo createdAt')
+        .sort({ nome: 1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      User.countDocuments(searchQuery)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(total / limitNum),
+          totalUsers: total,
+          hasNextPage: skip + limitNum < total,
+          hasPrevPage: pageNum > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Errore nella ricerca utenti:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Errore interno del server'
+    });
+  }
+};
