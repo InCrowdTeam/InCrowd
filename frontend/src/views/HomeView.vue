@@ -222,8 +222,8 @@ const executeSearch = async () => {
         searchUsersResults.value = filteredUsers
         searchResults.value = []
 
-        // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato
-        if (userStore.user) {
+        // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato e non è operatore/admin
+        if (userStore.user && !userStore.isOperatore && !userStore.isAdmin) {
           const followPromises = filteredUsers
             .filter(user => user._id !== userStore.user?._id)
             .map(user => followStore.loadFollowStatus(user._id))
@@ -272,6 +272,12 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
     return
   }
   
+  // Controlla se l'utente è operatore o amministratore
+  if (userStore.isOperatore || userStore.isAdmin) {
+    console.log('Gli operatori e amministratori non possono seguire gli utenti')
+    return
+  }
+  
   try {
     if (followStore.isFollowing(userId)) {
       await followStore.unfollowUser(userId)
@@ -283,9 +289,12 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
   }
 }
 
-// Computed per verificare se l'utente può seguire (è loggato e non è se stesso)
+// Computed per verificare se l'utente può seguire (è loggato, non è se stesso, e non è operatore/admin)
 const canFollowUser = (userId: string) => {
-  return userStore.user && userStore.user._id !== userId
+  return userStore.user && 
+         userStore.user._id !== userId && 
+         !userStore.isOperatore && 
+         !userStore.isAdmin
 }
 
 // Funzione per gestire l'immagine del profilo utente
@@ -315,6 +324,12 @@ function processUserProfileImage(foto: any): string {
 // Funzione per caricare le proposte degli utenti seguiti
 const loadSeguiti = async () => {
   if (!userStore.user || !userStore.token) {
+    seguitiProposte.value = []
+    return
+  }
+
+  // Operatori e amministratori non possono avere seguiti
+  if (userStore.isOperatore || userStore.isAdmin) {
     seguitiProposte.value = []
     return
   }
@@ -354,6 +369,13 @@ watch(selected, (newValue) => {
 watch(() => userStore.user, (newUser) => {
   if (newUser && selected.value === 'seguiti') {
     loadSeguiti()
+  }
+})
+
+// Watcher per reindirizzare operatori/admin da "seguiti" a "esplora"
+watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.value], ([isOp, isAdmin, selectedValue]) => {
+  if ((isOp || isAdmin) && selectedValue === 'seguiti') {
+    selected.value = 'esplora'
   }
 })
 </script>
@@ -518,8 +540,9 @@ watch(() => userStore.user, (newUser) => {
       <div class="main-toggle-switch">
         <div class="main-toggle-background">
           <div class="main-toggle-slider" :class="{ 
-            'slide-center': selected === 'seguiti',
-            'slide-right': selected === 'classifica'
+            'slide-center': selected === 'seguiti' && !userStore.isOperatore && !userStore.isAdmin,
+            'slide-right': selected === 'classifica' && (!userStore.isOperatore && !userStore.isAdmin),
+            'slide-right-two': selected === 'classifica' && (userStore.isOperatore || userStore.isAdmin)
           }"></div>
         </div>
         <button
@@ -530,6 +553,7 @@ watch(() => userStore.user, (newUser) => {
           <span class="toggle-text">Esplora</span>
         </button>
         <button
+          v-if="!userStore.isOperatore && !userStore.isAdmin"
           class="main-toggle-option"
           :class="{ active: selected === 'seguiti' }"
           @click="selected = 'seguiti'"
@@ -631,6 +655,15 @@ watch(() => userStore.user, (newUser) => {
                 Registrati
               </button>
             </div>
+          </div>
+          
+          <div v-else-if="userStore.isOperatore || userStore.isAdmin" class="empty-state">
+            <div class="empty-icon">👮‍♀️</div>
+            <h3>Funzione non disponibile per operatori e amministratori</h3>
+            <p>Gli operatori e amministratori non possono seguire altri utenti</p>
+            <button @click="selected = 'esplora'" class="cta-button">
+              Torna a Esplora
+            </button>
           </div>
           
           <div v-else-if="loadingSeguiti" class="loading-container">
@@ -1176,6 +1209,11 @@ ul {
   box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
 }
 
+/* Slider per layout con 2 bottoni quando l'utente è operatore/admin */
+.main-toggle-switch:has(button:nth-child(2):last-child) .main-toggle-slider {
+  width: 50%;
+}
+
 .main-toggle-slider.slide-center {
   transform: translateX(100%);
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
@@ -1184,6 +1222,14 @@ ul {
 
 .main-toggle-slider.slide-right {
   transform: translateX(200%);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+/* Slider per layout con 2 bottoni (operatori/admin) */
+.main-toggle-slider.slide-right-two {
+  width: 50%;
+  transform: translateX(100%);
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
 }
@@ -2006,11 +2052,11 @@ ul {
 .toggle-wrapper {
   position: relative;
   display: flex;
-  background: var(--color-background-soft);
+  background: var(--color-background-soft, rgba(0, 0, 0, 0.05));
   border-radius: 1.5rem;
   padding: 0.2rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--color-border, rgba(0, 0, 0, 0.1));
 }
 
 .toggle-slider {
@@ -2039,7 +2085,7 @@ ul {
   padding: 0.6rem 1.5rem;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-secondary, #6b7280);
   font-size: 0.9rem;
   font-weight: 500;
   border-radius: 1.3rem;
@@ -2058,7 +2104,7 @@ ul {
 .search-type-btn.active {
   color: white;
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .search-type-btn.active .btn-icon {
@@ -2071,7 +2117,8 @@ ul {
 }
 
 .search-type-btn:not(.active):hover {
-  color: var(--color-primary);
+  color: var(--color-primary, #fe4654);
+  background: rgba(254, 70, 84, 0.1);
   transform: translateY(-1px);
 }
 
@@ -2226,7 +2273,7 @@ ul {
   right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-secondary);
+  background: #6b7280;
   color: white;
   border: none;
   border-radius: 50%;
@@ -2238,11 +2285,13 @@ ul {
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .clear-btn:hover {
-  background: var(--color-primary);
+  background: var(--color-primary, #fe4654);
   transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .search-controls {
@@ -2258,29 +2307,33 @@ ul {
   justify-content: center;
   gap: 0.4rem;
   padding: 0.6rem 1rem;
-  background: var(--color-background-mute);
-  border: none;
+  background: var(--color-background-mute, rgba(0, 0, 0, 0.05));
+  border: 2px solid var(--color-border, rgba(0, 0, 0, 0.1));
   border-radius: 1.5rem;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--color-text, #374151);
   transition: all 0.3s ease;
   white-space: nowrap;
   width: 100%;
   flex: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .filters-btn:hover {
-  background: var(--color-border-hover);
+  background: var(--color-border-hover, rgba(0, 0, 0, 0.1));
+  border-color: var(--color-primary, #fe4654);
   transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .filters-btn.active {
-  background: var(--color-primary);
+  background: var(--color-primary, #fe4654);
   color: white;
   font-weight: bold;
-  box-shadow: 0 4px 15px var(--color-primary-light);
+  border-color: var(--color-primary, #fe4654);
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
 }
 
 /* Filtro tipo utente */
@@ -2291,13 +2344,13 @@ ul {
 
 .user-type-select {
   padding: 0.6rem 1rem;
-  background: var(--color-background-mute);
-  border: 1px solid var(--color-border);
+  background: var(--color-background-mute, rgba(255, 255, 255, 0.9));
+  border: 2px solid var(--color-border, rgba(0, 0, 0, 0.1));
   border-radius: 1.5rem;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--color-text, #374151);
   transition: all 0.3s ease;
   appearance: none;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
@@ -2306,20 +2359,21 @@ ul {
   background-size: 1.2em 1.2em;
   padding-right: 2.5rem;
   min-width: 140px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .user-type-select:hover {
-  background: var(--color-border-hover);
-  border-color: var(--color-primary);
+  background: var(--color-border-hover, rgba(0, 0, 0, 0.05));
+  border-color: var(--color-primary, #fe4654);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px var(--color-shadow);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .user-type-select:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-  background: var(--color-background);
+  border-color: var(--color-primary, #fe4654);
+  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
+  background: var(--color-background, #ffffff);
 }
 
 .user-type-select option {
@@ -2383,20 +2437,21 @@ ul {
 
 .close-filters-btn {
   padding: 0.6rem 1.5rem;
-  background: var(--color-secondary);
+  background: #6b7280;
   color: white;
-  border: none;
+  border: 2px solid transparent;
   border-radius: 2rem;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .close-filters-btn:hover {
-  background: var(--color-primary);
+  background: var(--color-primary, #fe4654);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px var(--color-primary-light);
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
 }
 
 .active-filters {
@@ -2560,6 +2615,116 @@ ul {
   .user-type-select {
     min-width: 120px;
     font-size: 0.8rem;
+  }
+}
+
+/* Regole specifiche per modalità scura */
+@media (prefers-color-scheme: dark) {
+  .clear-btn {
+    background: #9ca3af;
+  }
+  
+  .clear-btn:hover {
+    background: #fe4654;
+  }
+  
+  .filters-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+  }
+  
+  .filters-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fe4654;
+  }
+  
+  .user-type-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+  }
+  
+  .user-type-select:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fe4654;
+  }
+  
+  .toggle-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .search-type-btn:not(.active) {
+    color: #9ca3af;
+  }
+  
+  .search-type-btn:not(.active):hover {
+    color: #fe4654;
+    background: rgba(254, 70, 84, 0.15);
+  }
+  
+  .close-filters-btn {
+    background: #9ca3af;
+  }
+  
+  .close-filters-btn:hover {
+    background: #fe4654;
+  }
+}
+
+/* Supporto per dark mode tramite classe */
+.dark {
+  .clear-btn {
+    background: #9ca3af;
+  }
+  
+  .clear-btn:hover {
+    background: #fe4654;
+  }
+  
+  .filters-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+  }
+  
+  .filters-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fe4654;
+  }
+  
+  .user-type-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+  }
+  
+  .user-type-select:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fe4654;
+  }
+  
+  .toggle-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .search-type-btn:not(.active) {
+    color: #9ca3af;
+  }
+  
+  .search-type-btn:not(.active):hover {
+    color: #fe4654;
+    background: rgba(254, 70, 84, 0.15);
+  }
+  
+  .close-filters-btn {
+    background: #9ca3af;
+  }
+  
+  .close-filters-btn:hover {
+    background: #fe4654;
   }
 }
 </style>
