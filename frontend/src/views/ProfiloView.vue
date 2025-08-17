@@ -1557,7 +1557,7 @@ const getUserTypeLabel = (): string => {
   width: 40px;
   height: 40px;
   border: 3px solid var(--color-border);
-  border-top: 3px solid var(--color-primary);
+  border-top: 3px solid var(--color-primary, #fe4654);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -1746,6 +1746,10 @@ const getUserTypeLabel = (): string => {
   font-size: 1.25rem;
   font-weight: 700;
   color: #fe4654;
+}
+
+.stat-number span {
+  font-weight: 700;
 }
 
 .stat-label {
@@ -3123,6 +3127,10 @@ const getUserTypeLabel = (): string => {
   margin-bottom: 0.2rem;
 }
 
+.stat-number span {
+  font-weight: bold;
+}
+
 .stat-label {
   color: var(--color-text-secondary);
   font-size: 0.7rem;
@@ -3191,8 +3199,8 @@ const getUserTypeLabel = (): string => {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #e2e8f0;
-  border-top: 3px solid #667eea;
+  border: 3px solid var(--color-border, #e2e8f0);
+  border-top: 3px solid var(--color-primary, #fe4654);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;

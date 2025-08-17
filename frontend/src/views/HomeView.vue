@@ -542,7 +542,8 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
           <div class="main-toggle-slider" :class="{ 
             'slide-center': selected === 'seguiti' && !userStore.isOperatore && !userStore.isAdmin,
             'slide-right': selected === 'classifica' && (!userStore.isOperatore && !userStore.isAdmin),
-            'slide-right-two': selected === 'classifica' && (userStore.isOperatore || userStore.isAdmin)
+            'slide-right-two': selected === 'classifica' && (userStore.isOperatore || userStore.isAdmin),
+            'slide-left-two': selected === 'esplora' && (userStore.isOperatore || userStore.isAdmin)
           }"></div>
         </div>
         <button
@@ -1230,6 +1231,14 @@ ul {
 .main-toggle-slider.slide-right-two {
   width: 50%;
   transform: translateX(100%);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+/* Slider per layout con 2 bottoni - posizione sinistra per Esplora (operatori/admin) */
+.main-toggle-slider.slide-left-two {
+  width: 50%;
+  transform: translateX(0);
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
 }
