@@ -176,3 +176,16 @@ export async function getPropostaById(id: string) {
   const body = await res.json();
   return body.data ?? body;
 }
+
+// Recupera le proposte approvate di un utente specifico
+export async function getUserProposte(userId: string) {
+  const res = await fetch(`${BASE_URL}/user/${userId}`);
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nel recupero proposte utente');
+  }
+
+  const body = await res.json();
+  return body.data ?? body;
+}

@@ -223,6 +223,11 @@ const unhypeProposta = async (proposta: IProposta) => {
   }
 };
 
+// Funzione per navigare al profilo di un utente
+const goToUserProfile = (userId: string) => {
+  router.push(`/users/${userId}`)
+}
+
 // Funzione per smettere di seguire un utente
 const smettereSeguitoUtente = async (utente: IUser) => {
   const result = await showConfirm(
@@ -960,41 +965,54 @@ const getUserTypeLabel = (): string => {
           </div>
 
           <!-- Lista utenti seguiti -->
-          <div v-else class="users-grid">
-            <div v-for="utente in utentiSeguiti" :key="utente._id" class="user-card">
-              <div class="user-avatar-container">
+          <div v-else class="following-users-grid">
+            <div v-for="utente in utentiSeguiti" :key="utente._id" class="following-user-card">
+              <div class="user-image-container">
                 <img 
                   v-if="utente.fotoProfilo?.data"
                   :src="`data:${utente.fotoProfilo.contentType};base64,${utente.fotoProfilo.data}`"
-                  class="user-avatar"
+                  class="user-image"
                   :alt="`Avatar di ${utente.nome}`"
                 />
-                <div v-else class="user-avatar-placeholder">
-                  <span>👤</span>
+                <div v-else class="user-image-placeholder">
+                  <span class="placeholder-icon">👤</span>
                 </div>
               </div>
               
-              <div class="user-info">
+              <div class="user-content">
                 <h4 class="user-name">
                   {{ utente.nome }}{{ utente.cognome ? ` ${utente.cognome}` : '' }}
                 </h4>
-                <p v-if="utente.biografia" class="user-bio">{{ utente.biografia }}</p>
+                <p v-if="utente.biografia" class="user-bio">
+                  {{ utente.biografia.substring(0, 80) }}{{ utente.biografia.length > 80 ? '...' : '' }}
+                </p>
                 <p v-else class="user-bio-placeholder">Nessuna biografia</p>
+                
+                <div class="user-stats" v-if="utente.followers !== undefined || utente.following !== undefined">
+                  <div class="stat-item">
+                    <span class="stat-number">{{ utente.followers || 0 }}</span>
+                    <span class="stat-label">Follower</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-number">{{ utente.following || 0 }}</span>
+                    <span class="stat-label">Following</span>
+                  </div>
+                </div>
                 
                 <div class="user-actions">
                   <button 
-                    class="action-button unfollow-button" 
+                    class="action-button primary-button" 
+                    @click="goToUserProfile(utente._id)"
+                    title="Visualizza profilo"
+                  >
+                    👁️ Mostra profilo
+                  </button>
+                  <button 
+                    class="action-button secondary-button" 
                     @click="smettereSeguitoUtente(utente)"
                     title="Smetti di seguire"
                   >
-                    👋 Non seguire più
-                  </button>
-                  <button 
-                    class="action-button view-profile-button" 
-                    @click="$router.push(`/utenti/${utente._id}`)"
-                    title="Visualizza profilo"
-                  >
-                    👁️ Vedi profilo
+                    ❌ Non seguire più
                   </button>
                 </div>
               </div>
@@ -2903,117 +2921,179 @@ const getUserTypeLabel = (): string => {
 }
 
 /* Stili per la sezione utenti seguiti */
-.users-grid {
+.following-users-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   padding: 1rem 0;
 }
 
-.user-card {
-  background: #fff;
-  border-radius: 1rem;
+.following-user-card {
+  background: var(--color-card-background);
+  border-radius: 1.2rem;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 16px var(--color-shadow);
+  border: 1px solid var(--color-border);
   transition: all 0.3s ease;
-  border: 2px solid transparent;
-}
-
-.user-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: #667eea;
-}
-
-.user-avatar-container {
+  position: relative;
+  overflow: hidden;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.following-user-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px var(--color-shadow-hover);
+  border-color: var(--color-primary);
+}
+
+.user-image-container {
+  position: relative;
   margin-bottom: 1rem;
 }
 
-.user-avatar {
+.user-image {
   width: 80px;
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
 }
 
-.user-avatar-placeholder {
+.following-user-card:hover .user-image {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-image-placeholder {
   width: 80px;
   height: 80px;
+  background: var(--color-background-mute);
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  color: var(--color-text-secondary);
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
 }
 
-.user-info {
-  text-align: center;
+.following-user-card:hover .user-image-placeholder {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-content {
+  width: 100%;
 }
 
 .user-name {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--color-heading);
   margin: 0 0 0.5rem 0;
   line-height: 1.3;
 }
 
 .user-bio {
-  color: #4a5568;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin: 0 0 1.5rem 0;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0 0 1rem 0;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .user-bio-placeholder {
-  color: #a0aec0;
-  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
   font-style: italic;
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 1rem 0;
+}
+
+.user-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--color-background-soft);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  margin-bottom: 0.2rem;
+}
+
+.stat-label {
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .user-actions {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
 }
 
-.unfollow-button {
-  background: linear-gradient(135deg, #fd746c 0%, #ff9068 100%);
-  color: #fff;
-  border: none;
+.action-button {
+  padding: 0.6rem 1rem;
+  border-radius: 2rem;
   font-weight: 600;
-}
-
-.unfollow-button:hover {
-  background: linear-gradient(135deg, #fc5c54 0%, #fe7f5c 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(253, 116, 108, 0.4);
-}
-
-.view-profile-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
   border: none;
-  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-.view-profile-button:hover {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+.primary-button {
+  background: var(--color-primary);
+  color: white;
+}
+
+.primary-button:hover {
+  background: var(--color-primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 15px var(--color-primary-light);
+}
+
+.secondary-button {
+  background: var(--color-background-soft);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.secondary-button:hover {
+  background: var(--color-background-mute);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
 }
 
 .loading-state {
@@ -3042,23 +3122,29 @@ const getUserTypeLabel = (): string => {
 
 /* Responsive per la griglia utenti */
 @media (max-width: 768px) {
-  .users-grid {
+  .following-users-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
   
-  .user-card {
+  .following-user-card {
     padding: 1rem;
   }
   
-  .user-avatar,
-  .user-avatar-placeholder {
-    width: 60px;
-    height: 60px;
+  .user-image,
+  .user-image-placeholder {
+    width: 70px;
+    height: 70px;
   }
   
-  .user-avatar-placeholder {
-    font-size: 1.5rem;
+  .user-actions {
+    flex-direction: row;
+  }
+  
+  .action-button {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 0.5rem;
   }
 }
 </style>

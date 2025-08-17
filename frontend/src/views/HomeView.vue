@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { IProposta } from "../types/Proposta"
 import type { IUser } from "../types/User"
 import { useUserStore } from '@/stores/userStore'
+import { useFollowStore } from '@/stores/followStore'
 import { 
   searchProposte, 
   type SearchFilters, 
   getAllProposte
 } from '@/api/propostaApi'
 import { searchUsers, type SearchUsersResponse } from '@/api/userApi'
+
+// Router per navigazione
+const router = useRouter()
+const followStore = useFollowStore()
 
 // Stato di caricamento
 const isLoading = ref(false)
@@ -194,6 +200,15 @@ const executeSearch = async () => {
         const response: SearchUsersResponse = await searchUsers(searchQuery.value, 1, 20)
         searchUsersResults.value = response.data.users
         searchResults.value = []
+
+        // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato
+        if (userStore.user) {
+          const followPromises = response.data.users
+            .filter(user => user._id !== userStore.user?._id)
+            .map(user => followStore.loadFollowStatus(user._id))
+          
+          await Promise.all(followPromises)
+        }
       }
     }
     searchExecuted.value = true
@@ -214,6 +229,38 @@ const onSearchTypeChange = () => {
   if (searchQuery.value) {
     executeSearch()
   }
+}
+
+// Funzione per navigare al profilo utente
+const goToUserProfile = (userId: string) => {
+  router.push(`/users/${userId}`)
+}
+
+// Funzione per gestire il follow/unfollow nelle card
+const toggleFollowInCard = async (userId: string, event: Event) => {
+  // Previeni la navigazione al profilo quando si clicca sul bottone
+  event.stopPropagation()
+  
+  if (!userStore.user) {
+    // Se non è loggato, reindirizza al login
+    router.push('/login')
+    return
+  }
+  
+  try {
+    if (followStore.isFollowing(userId)) {
+      await followStore.unfollowUser(userId)
+    } else {
+      await followStore.followUser(userId)
+    }
+  } catch (error) {
+    console.error('Errore nel follow/unfollow:', error)
+  }
+}
+
+// Computed per verificare se l'utente può seguire (è loggato e non è se stesso)
+const canFollowUser = (userId: string) => {
+  return userStore.user && userStore.user._id !== userId
 }
 
 // Funzione per gestire l'immagine del profilo utente
@@ -607,7 +654,7 @@ onMounted(async () => {
                   v-for="utente in searchUsersResults"
                   :key="utente._id"
                   class="utente-card"
-                  @click="$router.push(`/utenti/${utente._id}`)"
+                  @click="goToUserProfile(utente._id)"
                 >
                   <div class="utente-image-container">
                     <img
@@ -636,6 +683,18 @@ onMounted(async () => {
                         <span class="stat-icon">➡️</span>
                         {{ utente.following || 0 }} following
                       </span>
+                    </div>
+
+                    <!-- Bottone Follow nella card -->
+                    <div v-if="canFollowUser(utente._id)" class="card-follow-section">
+                      <button 
+                        @click="toggleFollowInCard(utente._id, $event)"
+                        :class="['card-follow-btn', { 
+                          'following': followStore.isFollowing(utente._id)
+                        }]"
+                      >
+                        {{ followStore.isFollowing(utente._id) ? '✓ Seguito' : '+ Segui' }}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1545,6 +1604,39 @@ ul {
 .empty-utenti p {
   color: var(--color-text-secondary);
   margin-bottom: 1.5rem;
+}
+
+.card-follow-section {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.card-follow-btn {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: 1.5rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 90px;
+}
+
+.card-follow-btn:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px var(--color-primary-light);
+}
+
+.card-follow-btn.following {
+  background: #22c55e;
+}
+
+.card-follow-btn.following:hover {
+  background: #dc2626;
 }
 
 /* Search styles */

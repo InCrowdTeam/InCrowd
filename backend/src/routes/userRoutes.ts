@@ -35,6 +35,9 @@ const upload = multer({
   }
 });
 
+
+
+
 // Rotta per ottenere tutti gli utenti - SOLO operatori e admin
 router.get("/", authMiddleware, requireRole('operatore', 'admin'), getAllUsers);
 

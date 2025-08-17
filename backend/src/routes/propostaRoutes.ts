@@ -1,6 +1,6 @@
 
 import express from "express";
-import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte, getMyProposte, getPropostaById, deleteCommento, getUltimiCommenti } from "../controllers/propostaController";
+import { getAllProposte, addProposta, hyperProposta, aggiungiCommento, getCommentiProposta, getPendingProposte, updateStatoProposta, deleteProposta, searchProposte, getMyProposte, getPropostaById, deleteCommento, getUltimiCommenti, getUserProposte } from "../controllers/propostaController";
 import multer from "multer";
 import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
@@ -34,6 +34,9 @@ router.get("/my", authMiddleware, getMyProposte as any);
 
 // Rotta per la ricerca delle proposte
 router.get("/search", searchProposte);
+
+// Rotta per ottenere le proposte approvate di un utente specifico
+router.get("/user/:userId", getUserProposte);
 
 // Proposte in attesa di revisione
 router.get("/pending", authMiddleware, requireRole("operatore"), getPendingProposte as any);

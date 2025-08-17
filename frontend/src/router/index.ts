@@ -81,6 +81,11 @@ const routes = [
     component: NotLoggedView
   },
   {
+    path: '/users/:id',
+    name: 'UserProfile',
+    component: () => import('../views/UserProfileView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'notFound',
     component: NotFoundView
@@ -89,7 +94,7 @@ const routes = [
     path: '/comments',
     name: 'UltimiCommenti',
     component: UltimiCommentiView
-  },
+  },  
 ]
 
 const router = createRouter({

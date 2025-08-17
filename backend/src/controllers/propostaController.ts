@@ -587,3 +587,42 @@ export const deleteCommento = async (req: AuthenticatedRequest, res: Response) =
     res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
   }
 };
+
+// Recupera le proposte pubbliche approvate di un utente specifico
+export const getUserProposte = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json(apiResponse({ message: "ID utente richiesto" }));
+    }
+
+    // Recupera solo le proposte APPROVATE dell'utente
+    const proposte = await Proposta.find({ 
+      proponenteID: userId,
+      "stato.stato": "approvata"
+    })
+      .sort({ createdAt: -1 }) // Ordina per data di creazione (più recenti prima)
+      .select('-stato -dataApprovazione -noteOperatore'); // Rimuovi campi sensibili
+    
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      // Se è ancora Buffer lo converto, altrimenti lascio la stringa
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    
+    res.json(apiResponse({ 
+      data: proposteProcessate, 
+      message: `Proposte approvate dell'utente` 
+    }));
+  } catch (error) {
+    console.error("Errore nel recupero proposte utente:", error);
+    res.status(500).json(apiResponse({ 
+      message: "Errore interno nel recupero delle proposte", 
+      error 
+    }));
+  }
+};
