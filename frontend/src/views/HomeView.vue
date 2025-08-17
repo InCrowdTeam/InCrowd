@@ -8,7 +8,8 @@ import { useFollowStore } from '@/stores/followStore'
 import { 
   searchProposte, 
   type SearchFilters, 
-  getAllProposte
+  getAllProposte,
+  getFollowedUsersProposte
 } from '@/api/propostaApi'
 import { searchUsers, type SearchUsersResponse } from '@/api/userApi'
 
@@ -55,7 +56,7 @@ function processImageUrl(foto: any): string {
 
 const categoriaSelezionata = ref<string | null>(null)
 const proposte = ref<IProposta[]>([])
-const selected = ref<'classifica' | 'esplora'>('esplora')
+const selected = ref<'classifica' | 'esplora' | 'seguiti'>('esplora')
 const userStore = useUserStore()
 
 // Stato per la ricerca
@@ -66,6 +67,9 @@ const isSearching = ref(false)
 const searchResults = ref<IProposta[]>([])
 const searchUsersResults = ref<IUser[]>([])
 const searchExecuted = ref(false)
+
+// Filtro per tipo utente (solo per ricerca utenti)
+const userTypeFilter = ref<'all' | 'user' | 'ente'>('all')
 
 const searchFilters = ref<SearchFilters>({
   categoria: '',
@@ -79,6 +83,10 @@ const searchFilters = ref<SearchFilters>({
 
 // Stato per controllare la visibilità del banner
 const showBanner = ref(true)
+
+// Stato per le proposte dei seguiti
+const seguitiProposte = ref<IProposta[]>([])
+const loadingSeguiti = ref(false)
 
 function closeBanner() {
   showBanner.value = false
@@ -103,13 +111,18 @@ const proposteVisualizzate = computed(() => {
     return classificaProposte.value
   }
   
+  if (selected.value === 'seguiti') {
+    return seguitiProposte.value
+  }
+  
   return proposteFiltrate.value
 })
 
 // Computed per verificare se ci sono filtri attivi
 const hasActiveFilters = computed(() => {
   return searchQuery.value || 
-         (searchType.value === 'proposte' && (searchFilters.value.categoria || searchFilters.value.citta))
+         (searchType.value === 'proposte' && (searchFilters.value.categoria || searchFilters.value.citta)) ||
+         (searchType.value === 'utenti' && userTypeFilter.value !== 'all')
 })
 
 // CLASSIFICA - proposte ordinate per numero di hyper
@@ -163,6 +176,7 @@ const toggleFilters = () => {
 
 const clearSearch = () => {
   searchQuery.value = ''
+  userTypeFilter.value = 'all'
   searchExecuted.value = false
   searchResults.value = []
   searchUsersResults.value = []
@@ -198,12 +212,19 @@ const executeSearch = async () => {
       // Ricerca utenti
       if (searchQuery.value) {
         const response: SearchUsersResponse = await searchUsers(searchQuery.value, 1, 20)
-        searchUsersResults.value = response.data.users
+        let filteredUsers = response.data.users
+        
+        // Applica il filtro per tipo utente
+        if (userTypeFilter.value !== 'all') {
+          filteredUsers = filteredUsers.filter(user => user.userType === userTypeFilter.value)
+        }
+        
+        searchUsersResults.value = filteredUsers
         searchResults.value = []
 
         // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato
         if (userStore.user) {
-          const followPromises = response.data.users
+          const followPromises = filteredUsers
             .filter(user => user._id !== userStore.user?._id)
             .map(user => followStore.loadFollowStatus(user._id))
           
@@ -225,6 +246,10 @@ const executeSearch = async () => {
 // Funzione per cambiare il tipo di ricerca
 const onSearchTypeChange = () => {
   clearSearch()
+  // Resetta anche i filtri specifici
+  if (searchType.value === 'utenti') {
+    userTypeFilter.value = 'all'
+  }
   // Se c'è già una query, riesegui la ricerca con il nuovo tipo
   if (searchQuery.value) {
     executeSearch()
@@ -287,6 +312,25 @@ function processUserProfileImage(foto: any): string {
   return '';
 }
 
+// Funzione per caricare le proposte degli utenti seguiti
+const loadSeguiti = async () => {
+  if (!userStore.user || !userStore.token) {
+    seguitiProposte.value = []
+    return
+  }
+
+  loadingSeguiti.value = true
+  try {
+    const data = await getFollowedUsersProposte(userStore.token)
+    seguitiProposte.value = data
+  } catch (error) {
+    console.error('Errore nel caricamento proposte seguiti:', error)
+    seguitiProposte.value = []
+  } finally {
+    loadingSeguiti.value = false
+  }
+}
+
 onMounted(async () => {
   isLoading.value = true
   try {
@@ -296,6 +340,20 @@ onMounted(async () => {
     console.error('Errore nel recupero proposte:', error)
   } finally {
     isLoading.value = false
+  }
+})
+
+// Watcher per caricare le proposte dei seguiti quando viene selezionata la tab
+watch(selected, (newValue) => {
+  if (newValue === 'seguiti') {
+    loadSeguiti()
+  }
+})
+
+// Watcher per caricare i seguiti quando l'utente si logga
+watch(() => userStore.user, (newUser) => {
+  if (newUser && selected.value === 'seguiti') {
+    loadSeguiti()
   }
 })
 </script>
@@ -321,20 +379,12 @@ onMounted(async () => {
 
     <!-- Barra di ricerca -->
     <div class="search-container">
-      <!-- Toggle tipo ricerca -->
-      <div class="search-type-toggle">
-        <button
-          @click="searchType = 'proposte'; onSearchTypeChange()"
-          :class="['search-type-btn', { active: searchType === 'proposte' }]"
-        >
-          📝 Proposte
-        </button>
-        <button
-          @click="searchType = 'utenti'; onSearchTypeChange()"
-          :class="['search-type-btn', { active: searchType === 'utenti' }]"
-        >
-          👥 Utenti
-        </button>
+      <!-- Titolo della sezione ricerca -->
+      <div class="search-header">
+        <h2 class="search-title">
+          Cerca
+        </h2>
+        <p class="search-subtitle">Trova proposte e utenti nella community</p>
       </div>
 
       <div class="search-bar">
@@ -358,15 +408,45 @@ onMounted(async () => {
           </button>
         </div>
         
-        <button 
-          v-if="searchType === 'proposte'"
-          @click="toggleFilters" 
-          class="filters-btn"
-          :class="{ active: showFilters }"
-        >
-          <span class="filter-icon">🔍</span>
-          Filtri
-        </button>
+        <!-- Toggle tipo ricerca spostato accanto alla barra -->
+        <div class="search-type-toggle" :data-active-type="searchType === 'proposte' ? 'Cerca Proposte' : 'Cerca Utenti'">
+          <div class="toggle-wrapper">
+            <div class="toggle-slider" :class="{ 'slide-right': searchType === 'utenti' }"></div>
+            <button
+              @click="searchType = 'proposte'; onSearchTypeChange()"
+              :class="['search-type-btn', { active: searchType === 'proposte' }]"
+            >
+              <span class="btn-text">Proposte</span>
+            </button>
+            <button
+              @click="searchType = 'utenti'; onSearchTypeChange()"
+              :class="['search-type-btn', { active: searchType === 'utenti' }]"
+            >
+              <span class="btn-text">Utenti</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Container fisso per controlli aggiuntivi -->
+        <div class="search-controls">
+          <button 
+            v-if="searchType === 'proposte'"
+            @click="toggleFilters" 
+            class="filters-btn"
+            :class="{ active: showFilters }"
+          >
+            Filtri
+          </button>
+          
+          <!-- Filtro tipo utente per ricerca utenti -->
+          <div v-if="searchType === 'utenti'" class="user-type-filter">
+            <select v-model="userTypeFilter" @change="onSearch" class="user-type-select">
+              <option value="all">Tutti</option>
+              <option value="user">Utenti Privati</option>
+              <option value="ente">Enti</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <!-- Pannello filtri avanzati -->
@@ -426,26 +506,43 @@ onMounted(async () => {
             Città: {{ searchFilters.citta }}
             <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
           </span>
+          <span v-if="searchType === 'utenti' && userTypeFilter !== 'all'" class="filter-tag">
+            Tipo: {{ userTypeFilter === 'user' ? '👤 Utenti Privati' : '🏢 Enti' }}
+            <button @click="userTypeFilter = 'all'; onSearch()" class="tag-remove">✕</button>
+          </span>
         </div>
       </div>
     </div>
 
-    <div class="toggle-container">
-      <div class="toggle-switch">
-        <div class="toggle-slider" :class="{ 'slide-right': selected === 'classifica' }"></div>
+    <div class="main-toggle-container">
+      <div class="main-toggle-switch">
+        <div class="main-toggle-background">
+          <div class="main-toggle-slider" :class="{ 
+            'slide-center': selected === 'seguiti',
+            'slide-right': selected === 'classifica'
+          }"></div>
+        </div>
         <button
-          class="toggle-option"
+          class="main-toggle-option"
           :class="{ active: selected === 'esplora' }"
           @click="selected = 'esplora'"
         >
-          Esplora
+          <span class="toggle-text">Esplora</span>
         </button>
         <button
-          class="toggle-option"
+          v-if="userStore.user"
+          class="main-toggle-option"
+          :class="{ active: selected === 'seguiti' }"
+          @click="selected = 'seguiti'"
+        >
+          <span class="toggle-text">Seguiti</span>
+        </button>
+        <button
+          class="main-toggle-option"
           :class="{ active: selected === 'classifica' }"
           @click="selected = 'classifica'"
         >
-          Classifica
+          <span class="toggle-text">Classifica</span>
         </button>
       </div>
     </div>
@@ -504,6 +601,92 @@ onMounted(async () => {
               <div class="classifica-hyper">
                 <span class="hyper-icon">⚡</span>
                 <span class="hyper-number">{{ proposta.listaHyper?.length || 0 }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="selected === 'seguiti'">
+        <!--SEZIONE SEGUITI-->
+        <div class="seguiti-section">
+          <div class="section-header">
+            <h2 class="section-title">👥 Proposte dei tuoi Seguiti</h2>
+            <p class="section-subtitle">
+              {{ !userStore.user ? 'Accedi per vedere le proposte dei tuoi seguiti' :
+                 loadingSeguiti ? 'Caricamento...' :
+                 seguitiProposte.length > 0 ? `${seguitiProposte.length} proposte dai tuoi seguiti` : 
+                 'Nessuna proposta dai tuoi seguiti' }}
+            </p>
+          </div>
+          
+          <div v-if="!userStore.user" class="empty-state">
+            <div class="empty-icon">👤</div>
+            <h3>Accedi per vedere i contenuti dei seguiti</h3>
+            <p>Effettua il login per seguire altri utenti e vedere le loro proposte qui</p>
+            <button @click="$router.push('/login')" class="cta-button">
+              Accedi ora
+            </button>
+          </div>
+          
+          <div v-else-if="loadingSeguiti" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Caricamento proposte dei seguiti...</p>
+          </div>
+          
+          <div v-else-if="seguitiProposte.length === 0" class="empty-state">
+            <div class="empty-icon">👥</div>
+            <h3>Nessuna proposta dai tuoi seguiti</h3>
+            <p>Inizia a seguire altri utenti per vedere le loro proposte qui</p>
+            <button @click="selected = 'esplora'" class="cta-button">
+              Scopri utenti da seguire
+            </button>
+          </div>
+          
+          <div v-else class="proposte-grid">
+            <div 
+              v-for="proposta in seguitiProposte" 
+              :key="proposta._id"
+              class="proposta-card"
+              @click="$router.push(`/proposte/${proposta._id}`)"
+            >
+              <div class="proposta-image-container">
+                <img
+                  v-if="proposta.foto"
+                  :src="processImageUrl(proposta.foto)"
+                  alt="Immagine proposta"
+                  class="proposta-img"
+                />
+                <div v-else class="proposta-img-placeholder">
+                  <span class="placeholder-icon">📸</span>
+                </div>
+                
+                <!-- Badge categoria -->
+                <div v-if="proposta.categoria" class="categoria-badge">
+                  {{ getCategoryLabel(proposta.categoria) }}
+                </div>
+                
+                <!-- Badge hyper count -->
+                <div class="hyper-badge">
+                  <span class="hyper-icon">⚡</span>
+                  <span class="hyper-count">{{ proposta.listaHyper?.length || 0 }}</span>
+                </div>
+              </div>
+              
+              <div class="proposta-content">
+                <h3 class="proposta-title">{{ proposta.titolo }}</h3>
+                <p class="proposta-description">
+                  {{ proposta.descrizione.substring(0, 80) }}{{ proposta.descrizione.length > 80 ? '...' : '' }}
+                </p>
+                
+                <div class="proposta-footer">
+                  <div class="proposta-meta">
+                    <span v-if="proposta.luogo?.citta" class="meta-item">
+                      <span class="meta-icon">📍</span>
+                      {{ proposta.luogo.citta }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -916,56 +1099,175 @@ ul {
   100% { transform: rotate(360deg); }
 }
 
-/* Toggle Container */
-.toggle-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2rem;
-}
-
-.toggle-switch {
-  position: relative;
-  display: flex;
-  background: var(--color-background-mute);
-  border-radius: 2rem;
-  padding: 0.25rem;
-  box-shadow: inset 0 2px 4px var(--color-shadow);
-}
-
-.toggle-slider {
-  position: absolute;
-  top: 0.25rem;
-  left: 0.25rem;
-  width: calc(50% - 0.25rem);
-  height: calc(100% - 0.5rem);
-  background: var(--color-primary);
-  border-radius: 1.75rem;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px var(--color-primary-light);
-}
-
-.toggle-slider.slide-right {
-  transform: translateX(100%);
-}
-
-.toggle-option {
-  position: relative;
-  z-index: 2;
-  padding: 0.5rem 2rem;
-  border: none;
-  background: transparent;
-  color: var(--color-text);
-  font-size: 1.1rem;
-  border-radius: 1.75rem;
-  cursor: pointer;
-  transition: color 0.3s ease;
-  min-width: 120px;
+/* Main Toggle Container - Design Compatto */
+.main-toggle-container {
+  margin: 1.5rem auto 2rem auto;
+  max-width: 500px;
   text-align: center;
 }
 
-.toggle-option.active {
-  color: #fff;
-  font-weight: bold;
+.main-toggle-header {
+  margin-bottom: 1.2rem;
+}
+
+.main-toggle-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.title-icon {
+  font-size: 1.6rem;
+  filter: drop-shadow(0 1px 2px rgba(254, 70, 84, 0.3));
+}
+
+.main-toggle-subtitle {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.main-toggle-switch {
+  position: relative;
+  display: flex;
+  background: var(--color-card-background);
+  border-radius: 3rem;
+  padding: 0.2rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.main-toggle-background {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  right: 0.2rem;
+  bottom: 0.2rem;
+  border-radius: 2.8rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.main-toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 33.333%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  border-radius: 2.8rem;
+  transition: all 0.3s ease;
+  transform: translateX(0);
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.main-toggle-slider.slide-center {
+  transform: translateX(100%);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.main-toggle-slider.slide-right {
+  transform: translateX(200%);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+}
+
+.main-toggle-option {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.8rem 2rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 2.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  text-align: center;
+}
+
+.toggle-text {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all 0.3s ease;
+}
+
+.toggle-description {
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.main-toggle-option.active {
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.main-toggle-option.active .toggle-text {
+  font-weight: 700;
+}
+
+.main-toggle-option.active .toggle-description {
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.main-toggle-option:not(.active):hover {
+  color: var(--color-text);
+}
+
+.main-toggle-option:not(.active):hover .toggle-text {
+  font-weight: 700;
+}
+
+/* Responsive per toggle principale */
+@media (max-width: 768px) {
+  .main-toggle-container {
+    max-width: 350px;
+  }
+  
+  .main-toggle-title {
+    font-size: 1.5rem;
+  }
+  
+  .title-icon {
+    font-size: 1.4rem;
+  }
+  
+  .main-toggle-subtitle {
+    font-size: 0.8rem;
+  }
+  
+  .main-toggle-option {
+    padding: 0.4rem 1.2rem;
+  }
+  
+  .toggle-text {
+    font-size: 0.75rem;
+  }
+  
+  .toggle-description {
+    font-size: 0.65rem;
+  }
 }
 
 /* Classifica Styles */
@@ -1631,79 +1933,238 @@ ul {
 
 /* Search styles */
 .search-container {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   background: var(--color-card-background);
-  border-radius: 1.5rem;
-  box-shadow: 0 4px 20px var(--color-shadow);
-  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px var(--color-shadow);
+  padding: 1.2rem;
   border: 1px solid var(--color-border);
 }
 
-/* Search type toggle */
-.search-type-toggle {
-  display: flex;
-  gap: 0.5rem;
+/* Titolo della sezione ricerca */
+.search-header {
+  text-align: center;
   margin-bottom: 1rem;
-  justify-content: center;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.search-type-btn {
-  padding: 0.5rem 1.5rem;
-  border: 2px solid var(--color-primary);
-  background: transparent;
-  color: var(--color-primary);
-  border-radius: 2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.search-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-heading);
+  margin: 0 0 0.3rem 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.search-subtitle {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin: 0;
   font-weight: 500;
-  font-size: 0.9rem;
 }
 
-.search-type-btn.active {
-  background: var(--color-primary);
-  color: white;
-}
-
-.search-type-btn:hover:not(.active) {
-  background: var(--color-primary-light);
-}
-
-/* Search type toggle */
+/* Search type toggle - Design migliorato */
 .search-type-toggle {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.toggle-wrapper {
+  position: relative;
+  display: flex;
+  background: var(--color-background-soft);
+  border-radius: 1.5rem;
+  padding: 0.2rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-border);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: calc(50% - 0.2rem);
+  height: calc(100% - 0.4rem);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  border-radius: 1.3rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(254, 70, 84, 0.3);
+  transform: translateX(0);
+}
+
+.toggle-slider.slide-right {
+  transform: translateX(100%);
 }
 
 .search-type-btn {
-  padding: 0.5rem 1.5rem;
-  border: 2px solid var(--color-border);
-  border-radius: 2rem;
-  background: var(--color-background);
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.5rem;
+  border: none;
+  background: transparent;
   color: var(--color-text-secondary);
   font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 1.3rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-weight: 500;
+  min-width: 100px;
+  text-align: center;
+}
+
+.search-type-btn .btn-text {
+  font-weight: 600;
+  transition: all 0.3s ease;
+  letter-spacing: 0.01em;
 }
 
 .search-type-btn.active {
-  background: var(--color-primary);
   color: white;
-  border-color: var(--color-primary);
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px var(--color-primary-light);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.search-type-btn:hover:not(.active) {
-  background: var(--color-background-mute);
-  border-color: var(--color-primary);
+.search-type-btn.active .btn-icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.search-type-btn.active .btn-text {
+  letter-spacing: 0.05em;
+}
+
+.search-type-btn:not(.active):hover {
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.search-type-btn:not(.active):hover .btn-icon {
+  transform: scale(1.05);
+}
+
+.search-type-btn:not(.active):hover .btn-text {
+  font-weight: 600;
+}
+
+/* Animazione di caricamento per il toggle */
+.toggle-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, 
+    var(--color-primary), 
+    var(--color-primary-hover), 
+    var(--color-primary),
+    var(--color-primary-light)
+  );
+  border-radius: 2rem;
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+  background-size: 300% 300%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.toggle-wrapper:hover::before {
+  opacity: 0.1;
+}
+
+/* Effetto glow per il toggle attivo */
+.toggle-wrapper:focus-within {
+  box-shadow: 
+    inset 0 2px 8px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    0 0 0 4px var(--color-primary-light);
+}
+
+/* Indicatore di stato per il tipo di ricerca selezionato */
+.search-type-toggle::after {
+  content: attr(data-active-type);
+  position: absolute;
+  top: -0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary);
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.search-type-toggle:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-0.2rem);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Animazione per il cambio di stato */
+@keyframes toggleSwitch {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(50%) scale(0.95);
+  }
+  100% {
+    transform: translateX(100%) scale(1);
+  }
+}
+
+.toggle-slider.slide-right {
+  animation: toggleSwitch 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Subtle pulse effect per i bottoni */
+@keyframes subtlePulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-primary);
+  }
+  70% {
+    box-shadow: 0 0 0 4px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.search-type-btn:active {
+  animation: subtlePulse 0.6s ease-out;
 }
 
 .search-bar {
   display: flex;
-  gap: 1rem;
+  gap: 0.8rem;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -1711,12 +2172,12 @@ ul {
 .search-input-container {
   flex: 1;
   position: relative;
-  min-width: 300px;
+  min-width: 250px;
 }
 
 .search-input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.8rem;
   border: 2px solid var(--color-input-border);
   border-radius: 2rem;
   font-size: 1rem;
@@ -1759,20 +2220,30 @@ ul {
   transform: translateY(-50%) scale(1.1);
 }
 
+.search-controls {
+  min-width: 180px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 .filters-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
   background: var(--color-background-mute);
   border: none;
-  border-radius: 2rem;
+  border-radius: 1.5rem;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
   color: var(--color-text);
   transition: all 0.3s ease;
   white-space: nowrap;
+  width: 100%;
+  flex: 1;
 }
 
 .filters-btn:hover {
@@ -1787,23 +2258,64 @@ ul {
   box-shadow: 0 4px 15px var(--color-primary-light);
 }
 
-.filter-icon {
-  font-size: 1.2rem;
+/* Filtro tipo utente */
+.user-type-filter {
+  display: flex;
+  align-items: center;
+}
+
+.user-type-select {
+  padding: 0.6rem 1rem;
+  background: var(--color-background-mute);
+  border: 1px solid var(--color-border);
+  border-radius: 1.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.6rem center;
+  background-repeat: no-repeat;
+  background-size: 1.2em 1.2em;
+  padding-right: 2.5rem;
+  min-width: 140px;
+}
+
+.user-type-select:hover {
+  background: var(--color-border-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px var(--color-shadow);
+}
+
+.user-type-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-background);
+}
+
+.user-type-select option {
+  background: var(--color-background);
+  color: var(--color-text);
+  padding: 0.5rem;
 }
 
 .filters-panel {
-  margin-top: 1.5rem;
-  padding: 1.5rem;
+  margin-top: 1rem;
+  padding: 1rem;
   background: var(--color-background-soft);
-  border-radius: 1rem;
+  border-radius: 0.8rem;
   border: 1px solid var(--color-border);
 }
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 0.8rem;
 }
 
 .filter-group {
@@ -1820,8 +2332,8 @@ ul {
 
 .filter-select,
 .filter-input {
-  padding: 0.6rem 1rem;
-  border: 2px solid var(--color-input-border);
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--color-input-border);
   border-radius: 0.8rem;
   background: var(--color-input-background);
   font-size: 0.9rem;
@@ -1933,15 +2445,96 @@ ul {
   .search-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.8rem;
   }
   
   .search-input-container {
     min-width: auto;
+    order: 1;
+  }
+  
+  .search-type-toggle {
+    order: 2;
+    justify-content: center;
+  }
+  
+  .search-controls {
+    order: 3;
+    min-width: auto;
+    justify-content: center;
   }
   
   .filters-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  /* Toggle responsivo per mobile */
+  .toggle-wrapper {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .search-type-btn {
+    padding: 0.6rem 1.2rem;
+    min-width: auto;
+    font-size: 0.85rem;
+  }
+
+  .search-type-btn .btn-text {
+    font-size: 0.9rem;
+  }
+
+  /* Header ricerca responsivo */
+  .search-title {
+    font-size: 1.5rem;
+  }
+
+  .search-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .search-container {
+    padding: 1rem;
+  }
+
+  /* Filtro tipo utente responsivo */
+  .user-type-select {
+    min-width: 140px;
+    padding: 0.6rem 1rem;
+    padding-right: 2.5rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .toggle-wrapper {
+    max-width: 280px;
+  }
+
+  .search-type-btn {
+    padding: 0.6rem 1.2rem;
+    gap: 0.4rem;
+  }
+
+  .search-type-btn .btn-text {
+    font-size: 0.85rem;
+  }
+
+  .search-title {
+    font-size: 1.3rem;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .search-icon {
+    font-size: 1.4rem;
+  }
+
+  .user-type-select {
+    min-width: 120px;
+    font-size: 0.8rem;
   }
 }
 </style>

@@ -45,6 +45,13 @@ const loading = ref(true);
 const loadingSeguiti = ref(false);
 const error = ref('');
 
+// Stats di follow per il profilo personale
+const followStats = ref({
+  followersCount: 0,
+  followingCount: 0
+});
+const loadingFollowStats = ref(false);
+
 // Computed per mostrare nome completo
 const nomeCompleto = computed(() => {
   if (isUser.value && userStore.user?.cognome) {
@@ -93,43 +100,56 @@ onMounted(async () => {
       fotoProfilo: null
     };
     
+    // Carica tutti i dati in parallelo per migliorare le performance
+    const promises = [];
+    
     // Carica le MIE proposte usando l'API dedicata
-    try {
-      const mieProposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
+    promises.push(
+      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
         headers: {
           Authorization: `Bearer ${userStore.token}`
         }
-      });
-      // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
-      mieProposte.value = mieProposteRes.data.data || mieProposteRes.data;
-    } catch (err) {
-      console.error("❌ Errore nel caricamento delle mie proposte:", err);
-    }
+      }).then(response => {
+        // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
+        mieProposte.value = response.data.data || response.data;
+      }).catch(err => {
+        console.error("❌ Errore nel caricamento delle mie proposte:", err);
+      })
+    );
     
     // Carica tutte le proposte approvate per i filtri degli hyped
-    try {
-      const proposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`);
-      // L'API delle proposte usa successResponse che wrappa i dati
-      const allProposte = proposteRes.data.data || proposteRes.data;
-      
-      hypedProposte.value = allProposte.filter(
-        (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
-      );
-    } catch (err) {
-      console.error("Errore nel caricamento proposte hyped:", err);
-    }
+    promises.push(
+      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`).then(response => {
+        // L'API delle proposte usa successResponse che wrappa i dati
+        const allProposte = response.data.data || response.data;
+        
+        hypedProposte.value = allProposte.filter(
+          (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
+        );
+      }).catch(err => {
+        console.error("Errore nel caricamento proposte hyped:", err);
+      })
+    );
+    
+    // Carica gli stats di follow (follower e following)
+    promises.push(caricaFollowStats());
     
     // Aggiorna dati utente se necessario
     const userId = userStore.user?._id;
     if (userId && !userStore.user?.biografia) {
-      try {
-        const userRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`);
-        const userData = userRes.data?.data || userRes.data;
-        userStore.setUser({ ...userStore.user, ...userData });
-      } catch (err) {
-        console.error("Errore nel caricamento dati utente:", err);
-      }
+      promises.push(
+        axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`).then(response => {
+          const userData = response.data?.data || response.data;
+          userStore.setUser({ ...userStore.user, ...userData });
+        }).catch(err => {
+          console.error("Errore nel caricamento dati utente:", err);
+        })
+      );
     }
+    
+    // Attende tutti i caricamenti
+    await Promise.all(promises);
+    
   } catch (err) {
     console.error("Errore nel caricamento profilo:", err);
     error.value = "Errore nel caricamento del profilo";
@@ -145,12 +165,33 @@ const caricaUtentiSeguiti = async () => {
   try {
     loadingSeguiti.value = true;
     utentiSeguiti.value = await followStore.loadFollowing(userStore.user._id);
+    
+    // Aggiorna anche il counter dei seguiti con il numero effettivo caricato
+    followStats.value.followingCount = utentiSeguiti.value.length;
+    
     console.log(`✅ Caricati ${utentiSeguiti.value.length} utenti seguiti`);
   } catch (err) {
     console.error("❌ Errore nel caricamento degli utenti seguiti:", err);
     await showError("Errore nel caricamento degli utenti seguiti", "Riprova più tardi");
   } finally {
     loadingSeguiti.value = false;
+  }
+};
+
+// Funzione per caricare gli stats di follow (follower e following)
+const caricaFollowStats = async () => {
+  if (!userStore.user?._id) return;
+  
+  try {
+    loadingFollowStats.value = true;
+    const stats = await followStore.loadMyFollowStats(userStore.user._id);
+    followStats.value = stats;
+    console.log(`✅ Stats di follow caricati: ${stats.followersCount} follower, ${stats.followingCount} following`);
+  } catch (err) {
+    console.error("❌ Errore nel caricamento degli stats di follow:", err);
+    // Non mostriamo errore all'utente per gli stats, li lasciamo a 0
+  } finally {
+    loadingFollowStats.value = false;
   }
 };
 
@@ -244,6 +285,9 @@ const smettereSeguitoUtente = async (utente: IUser) => {
     
     // Rimuovi l'utente dalla lista locale
     utentiSeguiti.value = utentiSeguiti.value.filter(u => u._id !== utente._id);
+    
+    // Aggiorna i propri stats di following (decrementa di 1)
+    followStats.value.followingCount = Math.max(0, followStats.value.followingCount - 1);
     
     await showSuccess(`Non segui più ${utente.nome}`);
   } catch (err: any) {
@@ -839,6 +883,20 @@ const getUserTypeLabel = (): string => {
               <span class="stat-number">{{ hypedProposte.length }}</span>
               <span class="stat-label">Hyped</span>
             </div>
+            <div class="stat">
+              <span class="stat-number">
+                <span v-if="loadingFollowStats" class="stat-loading">•</span>
+                <span v-else>{{ followStats.followersCount }}</span>
+              </span>
+              <span class="stat-label">Follower</span>
+            </div>
+            <div class="stat">
+              <span class="stat-number">
+                <span v-if="loadingFollowStats" class="stat-loading">•</span>
+                <span v-else>{{ followStats.followingCount }}</span>
+              </span>
+              <span class="stat-label">Seguiti</span>
+            </div>
           </div>
 
         </div>
@@ -966,7 +1024,12 @@ const getUserTypeLabel = (): string => {
 
           <!-- Lista utenti seguiti -->
           <div v-else class="following-users-grid">
-            <div v-for="utente in utentiSeguiti" :key="utente._id" class="following-user-card">
+            <div 
+              v-for="utente in utentiSeguiti" 
+              :key="utente._id" 
+              class="following-user-card"
+              @click="goToUserProfile(utente._id)"
+            >
               <div class="user-image-container">
                 <img 
                   v-if="utente.fotoProfilo?.data"
@@ -975,7 +1038,7 @@ const getUserTypeLabel = (): string => {
                   :alt="`Avatar di ${utente.nome}`"
                 />
                 <div v-else class="user-image-placeholder">
-                  <span class="placeholder-icon">👤</span>
+                  {{ utente.nome?.charAt(0)?.toUpperCase() || '?' }}
                 </div>
               </div>
               
@@ -988,28 +1051,10 @@ const getUserTypeLabel = (): string => {
                 </p>
                 <p v-else class="user-bio-placeholder">Nessuna biografia</p>
                 
-                <div class="user-stats" v-if="utente.followers !== undefined || utente.following !== undefined">
-                  <div class="stat-item">
-                    <span class="stat-number">{{ utente.followers || 0 }}</span>
-                    <span class="stat-label">Follower</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-number">{{ utente.following || 0 }}</span>
-                    <span class="stat-label">Following</span>
-                  </div>
-                </div>
-                
                 <div class="user-actions">
                   <button 
-                    class="action-button primary-button" 
-                    @click="goToUserProfile(utente._id)"
-                    title="Visualizza profilo"
-                  >
-                    👁️ Mostra profilo
-                  </button>
-                  <button 
                     class="action-button secondary-button" 
-                    @click="smettereSeguitoUtente(utente)"
+                    @click.stop="smettereSeguitoUtente(utente)"
                     title="Smetti di seguire"
                   >
                     ❌ Non seguire più
@@ -1621,6 +1666,21 @@ const getUserTypeLabel = (): string => {
   border: 1px solid #e1bee7;
 }
 
+/* Dark mode improvements */
+@media (prefers-color-scheme: dark) {
+  .user-type-badge.type-user {
+    background: rgba(33, 150, 243, 0.2);
+    color: #90caf9;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+  }
+  
+  .user-type-badge.type-ente {
+    background: rgba(156, 39, 176, 0.2);
+    color: #ce93d8;
+    border: 1px solid rgba(156, 39, 176, 0.3);
+  }
+}
+
 .settings-button {
   background: var(--color-card-background);
   color: var(--color-text);
@@ -1694,6 +1754,21 @@ const getUserTypeLabel = (): string => {
   margin-top: 0.2rem;
 }
 
+.stat-loading {
+  display: inline-block;
+  animation: pulse 1.5s ease-in-out infinite;
+  color: #fe4654;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* Tabs */
 .profile-tabs {
   background: var(--color-card-background);
@@ -1716,6 +1791,10 @@ const getUserTypeLabel = (): string => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .tab-button:hover {
@@ -2941,6 +3020,7 @@ const getUserTypeLabel = (): string => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  cursor: pointer;
 }
 
 .following-user-card:hover {
@@ -3056,6 +3136,7 @@ const getUserTypeLabel = (): string => {
   flex-direction: column;
   gap: 0.75rem;
   width: 100%;
+  align-items: center;
 }
 
 .action-button {
@@ -3070,6 +3151,8 @@ const getUserTypeLabel = (): string => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  width: fit-content;
+  min-width: 120px;
 }
 
 .primary-button {

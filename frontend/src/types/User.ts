@@ -4,16 +4,17 @@ import type { ICredenziali } from "./Credenziali";
 export interface IUser {
   _id: string
   nome: string;
-  cognome: string;
+  cognome?: string;  // Opzionale per gli enti
   codiceFiscale: string;
   biografia?: string;
   fotoProfilo: IAllegato;
   credenziali: ICredenziali;
   createdAt: Date;
   updatedAt: Date;
-  followers: number;
-  following: number;
+  followers?: number;
+  following?: number;
   isFollowedByCurrentUser?: boolean;
+  userType?: 'user' | 'ente';  // Campo per distinguere tra utente privato ed ente
 }
 
 // Tipi per le API di autenticazione

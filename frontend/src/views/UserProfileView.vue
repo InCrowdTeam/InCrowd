@@ -9,7 +9,7 @@
     <!-- Error state -->
     <div v-else-if="error" class="error-container">
       <h2>Errore</h2>
-      <p>{{ error }}</p>
+      <p class="error-message">{{ error }}</p>
       <button @click="$router.push('/')" class="btn-primary">Torna alla home</button>
     </div>
 
@@ -25,43 +25,14 @@
             class="avatar"
           />
           <div v-else class="avatar-placeholder">
-            <i class="fas fa-user"></i>
+            {{ nomeCompleto.charAt(0).toUpperCase() }}
           </div>
         </div>
         
         <div class="profile-info">
-          <h1 class="nome-utente">{{ nomeCompleto }}</h1>
-          <p v-if="userProfile.biografia" class="biografia">{{ userProfile.biografia }}</p>
-          <p v-else class="biografia placeholder">Nessuna biografia disponibile</p>
-          
-          <!-- Stats follower/following -->
-          <div class="follow-stats">
-            <div class="stat" @click="showFollowers = true">
-              <span class="stat-number">{{ followStats.followersCount }}</span>
-              <span class="stat-label">Follower</span>
-            </div>
-            <div class="stat" @click="showFollowing = true">
-              <span class="stat-number">{{ followStats.followingCount }}</span>
-              <span class="stat-label">Seguiti</span>
-            </div>
-          </div>
-          
-          <!-- Pulsante follow/unfollow (solo se non è il proprio profilo) -->
-          <div v-if="!isOwnProfile && isLoggedIn" class="follow-actions">
-            <button 
-              @click="toggleFollow" 
-              :disabled="loadingFollow"
-              :class="[
-                'btn-follow',
-                followStatus.isFollowing ? 'following' : 'not-following'
-              ]"
-            >
-              <i v-if="loadingFollow" class="fas fa-spinner fa-spin"></i>
-              <template v-else>
-                <i :class="followStatus.isFollowing ? 'fas fa-user-minus' : 'fas fa-user-plus'"></i>
-                {{ followStatus.isFollowing ? 'Non seguire' : 'Segui' }}
-              </template>
-            </button>
+          <div class="profile-name-section">
+            <h1 class="nome-utente">{{ nomeCompleto }}</h1>
+            <span class="user-type-badge" :class="getUserTypeClass()">{{ getUserTypeLabel() }}</span>
           </div>
           
           <!-- Messaggio se è il proprio profilo -->
@@ -69,6 +40,48 @@
             <i class="fas fa-info-circle"></i>
             Questo è il tuo profilo pubblico
             <router-link to="/profilo" class="edit-profile-link">Modifica profilo</router-link>
+          </div>
+          
+          <p v-if="userProfile.biografia" class="profile-bio">{{ userProfile.biografia }}</p>
+          <p v-else class="profile-bio placeholder">Nessuna biografia disponibile</p>
+          
+          <!-- Stats follower/following con pulsante follow -->
+          <div class="profile-stats-section">
+            <div class="profile-stats">
+              <div class="stat">
+                <span class="stat-number">{{ proposteUtente.length }}</span>
+                <span class="stat-label">Proposte</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">{{ proposteHyped.length }}</span>
+                <span class="stat-label">Hyped</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">{{ followStats.followersCount }}</span>
+                <span class="stat-label">Follower</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">{{ followStats.followingCount }}</span>
+                <span class="stat-label">Seguiti</span>
+              </div>
+            </div>
+            
+            <!-- Pulsante follow/unfollow (solo se non è il proprio profilo) -->
+            <div v-if="!isOwnProfile && isLoggedIn" class="follow-actions">
+              <button 
+                @click="toggleFollow" 
+                :disabled="loadingFollow"
+                :class="[
+                  'btn-follow',
+                  followStatus.isFollowing ? 'following' : 'not-following'
+                ]"
+              >
+                <i v-if="loadingFollow" class="fas fa-spinner fa-spin"></i>
+                <template v-else>
+                  {{ followStatus.isFollowing ? 'Non seguire' : 'Segui' }}
+                </template>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -82,7 +95,6 @@
           :class="['tab-btn', { active: selectedTab === tab.value }]"
         >
           {{ tab.label }}
-          <span v-if="getTabCount(tab.value)" class="tab-count">{{ getTabCount(tab.value) }}</span>
         </button>
       </div>
 
@@ -101,32 +113,41 @@
             <p>{{ nomeCompleto }} non ha ancora pubblicato proposte approvate</p>
           </div>
           
-          <div v-else class="proposte-grid">
+          <div v-else class="proposals-grid">
             <div 
               v-for="proposta in proposteUtente" 
               :key="proposta._id"
-              class="proposta-card"
+              class="proposal-card"
               @click="$router.push(`/proposte/${proposta._id}`)"
             >
-              <div v-if="proposta.foto?.data" class="proposta-image">
+              <div class="proposal-image-container">
                 <img 
-                  :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`" 
+                  v-if="proposta.foto?.data"
+                  :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
+                  class="proposal-image"
                   :alt="proposta.titolo"
                 />
-              </div>
-              <div class="proposta-content">
-                <h4 class="proposta-title">{{ proposta.titolo }}</h4>
-                <p class="proposta-description">{{ truncateText(proposta.descrizione, 100) }}</p>
-                <div class="proposta-meta">
-                  <span v-if="proposta.categoria" class="categoria">{{ proposta.categoria }}</span>
-                  <span v-if="proposta.luogo?.citta" class="citta">{{ proposta.luogo.citta }}</span>
+                <div v-else class="proposal-image-placeholder">
+                  <span>📸</span>
                 </div>
-                <div class="proposta-stats">
-                  <span class="hype-count">
-                    <i class="fas fa-fire"></i>
+              </div>
+              <div class="proposal-content">
+                <div class="proposal-header">
+                  <span class="proposal-hype">
+                    <span class="hype-icon">⚡</span>
                     {{ proposta.listaHyper?.length || 0 }}
                   </span>
-                  <span class="date">{{ formatDate(proposta.createdAt.toString()) }}</span>
+                  <span class="proposal-category">{{ proposta.categoria || 'Generale' }}</span>
+                </div>
+                <h3 class="proposal-title">{{ proposta.titolo }}</h3>
+                <p class="proposal-description">{{ truncateText(proposta.descrizione, 100) }}</p>
+                <div class="proposal-footer">
+                  <span class="proposal-date">
+                    {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                  </span>
+                  <span v-if="proposta.luogo?.citta" class="proposal-location">
+                    📍 {{ proposta.luogo.citta }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -146,71 +167,42 @@
             <p>{{ nomeCompleto }} non ha ancora fatto hype a nessuna proposta</p>
           </div>
           
-          <div v-else class="proposte-grid">
+          <div v-else class="proposals-grid">
             <div 
               v-for="proposta in proposteHyped" 
               :key="proposta._id"
-              class="proposta-card"
+              class="proposal-card"
               @click="$router.push(`/proposte/${proposta._id}`)"
             >
-              <div v-if="proposta.foto?.data" class="proposta-image">
+              <div class="proposal-image-container">
                 <img 
-                  :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`" 
+                  v-if="proposta.foto?.data"
+                  :src="`data:${proposta.foto.contentType};base64,${proposta.foto.data}`"
+                  class="proposal-image"
                   :alt="proposta.titolo"
                 />
-              </div>
-              <div class="proposta-content">
-                <h4 class="proposta-title">{{ proposta.titolo }}</h4>
-                <p class="proposta-description">{{ truncateText(proposta.descrizione, 100) }}</p>
-                <div class="proposta-meta">
-                  <span v-if="proposta.categoria" class="categoria">{{ proposta.categoria }}</span>
-                  <span v-if="proposta.luogo?.citta" class="citta">{{ proposta.luogo.citta }}</span>
+                <div v-else class="proposal-image-placeholder">
+                  <span>📸</span>
                 </div>
-                <div class="proposta-stats">
-                  <span class="hype-count">
-                    <i class="fas fa-fire"></i>
+              </div>
+              <div class="proposal-content">
+                <div class="proposal-header">
+                  <span class="proposal-hype">
+                    <span class="hype-icon">⚡</span>
                     {{ proposta.listaHyper?.length || 0 }}
                   </span>
-                  <span class="date">{{ formatDate(proposta.createdAt.toString()) }}</span>
+                  <span class="proposal-category">{{ proposta.categoria || 'Generale' }}</span>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab Follower -->
-        <div v-if="selectedTab === 'follower'" class="follower-tab">
-          <div v-if="loadingFollowers" class="loading-section">
-            <div class="loading-spinner small"></div>
-            <p>Caricamento follower...</p>
-          </div>
-          
-          <div v-else-if="followersList.length === 0" class="empty-state">
-            <i class="fas fa-users"></i>
-            <h3>Nessun follower</h3>
-            <p>{{ nomeCompleto }} non ha ancora follower</p>
-          </div>
-          
-          <div v-else class="users-grid">
-            <div 
-              v-for="user in followersList" 
-              :key="user._id"
-              class="user-card"
-              @click="navigateToUser(user._id)"
-            >
-              <div class="user-avatar">
-                <img 
-                  v-if="user.fotoProfilo?.data" 
-                  :src="`data:${user.fotoProfilo.contentType};base64,${user.fotoProfilo.data}`"
-                  :alt="`Foto profilo di ${user.nome}`"
-                />
-                <div v-else class="avatar-placeholder small">
-                  <i class="fas fa-user"></i>
+                <h3 class="proposal-title">{{ proposta.titolo }}</h3>
+                <p class="proposal-description">{{ truncateText(proposta.descrizione, 100) }}</p>
+                <div class="proposal-footer">
+                  <span class="proposal-date">
+                    {{ new Date(proposta.createdAt).toLocaleDateString('it-IT') }}
+                  </span>
+                  <span v-if="proposta.luogo?.citta" class="proposal-location">
+                    📍 {{ proposta.luogo.citta }}
+                  </span>
                 </div>
-              </div>
-              <div class="user-info">
-                <h4 class="user-name">{{ `${user.nome} ${user.cognome}`.trim() }}</h4>
-                <p v-if="user.biografia" class="user-bio">{{ truncateText(user.biografia, 60) }}</p>
               </div>
             </div>
           </div>
@@ -229,26 +221,28 @@
             <p>{{ nomeCompleto }} non segue ancora nessuno</p>
           </div>
           
-          <div v-else class="users-grid">
+          <div v-else class="following-users-grid">
             <div 
               v-for="user in followingList" 
               :key="user._id"
-              class="user-card"
+              class="following-user-card"
               @click="navigateToUser(user._id)"
             >
-              <div class="user-avatar">
+              <div class="user-image-container">
                 <img 
                   v-if="user.fotoProfilo?.data" 
                   :src="`data:${user.fotoProfilo.contentType};base64,${user.fotoProfilo.data}`"
+                  class="user-image"
                   :alt="`Foto profilo di ${user.nome}`"
                 />
-                <div v-else class="avatar-placeholder small">
-                  <i class="fas fa-user"></i>
+                <div v-else class="user-image-placeholder">
+                  {{ user.nome?.charAt(0)?.toUpperCase() || '?' }}
                 </div>
               </div>
-              <div class="user-info">
-                <h4 class="user-name">{{ `${user.nome} ${user.cognome}`.trim() }}</h4>
-                <p v-if="user.biografia" class="user-bio">{{ truncateText(user.biografia, 60) }}</p>
+              <div class="user-content">
+                <h4 class="user-name">{{ `${user.nome} ${user.cognome || ''}`.trim() }}</h4>
+                <p v-if="user.biografia" class="user-bio">{{ truncateText(user.biografia, 80) }}</p>
+                <p v-else class="user-bio-placeholder">Nessuna biografia</p>
               </div>
             </div>
           </div>
@@ -256,11 +250,11 @@
       </div>
     </div>
 
-    <!-- Modal per mostrare lista follower/following -->
-    <div v-if="showFollowers || showFollowing" class="modal-overlay" @click="closeModal">
+    <!-- Modal per mostrare lista following -->
+    <div v-if="showFollowing" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ showFollowers ? 'Follower' : 'Seguiti' }}</h3>
+          <h3>Seguiti</h3>
           <button @click="closeModal" class="close-btn">
             <i class="fas fa-times"></i>
           </button>
@@ -284,11 +278,11 @@
                   :alt="`Foto profilo di ${user.nome}`"
                 />
                 <div v-else class="avatar-placeholder small">
-                  <i class="fas fa-user"></i>
+                  {{ user.nome?.charAt(0)?.toUpperCase() || '?' }}
                 </div>
               </div>
               <div class="user-info">
-                <h4 class="user-name">{{ `${user.nome} ${user.cognome}`.trim() }}</h4>
+                <h4 class="user-name">{{ `${user.nome} ${user.cognome || ''}`.trim() }}</h4>
                 <p v-if="user.biografia" class="user-bio">{{ truncateText(user.biografia, 40) }}</p>
               </div>
             </div>
@@ -328,7 +322,6 @@ const selectedTab = ref('proposte');
 const tabs = [
   { label: 'Proposte', value: 'proposte' },
   { label: 'Hyped', value: 'hyped' },
-  { label: 'Follower', value: 'follower' },
   { label: 'Seguiti', value: 'following' }
 ];
 
@@ -348,14 +341,11 @@ const followStats = ref({
   followersCount: 0,
   followingCount: 0
 });
-const followersList = ref<IUser[]>([]);
 const followingList = ref<IUser[]>([]);
 const loadingFollow = ref(false);
-const loadingFollowers = ref(false);
 const loadingFollowing = ref(false);
 
-// Modal per lista follower/following
-const showFollowers = ref(false);
+// Modal per lista following
 const showFollowing = ref(false);
 const modalLoading = ref(false);
 const modalUsersList = ref<IUser[]>([]);
@@ -379,17 +369,22 @@ const fotoProfiloUrl = computed(() => {
   return null;
 });
 
-// Metodi helper
-const getTabCount = (tabValue: string) => {
-  switch (tabValue) {
-    case 'proposte': return proposteUtente.value.length;
-    case 'hyped': return proposteHyped.value.length;
-    case 'follower': return followStats.value.followersCount;
-    case 'following': return followStats.value.followingCount;
-    default: return 0;
+// Badge per il tipo di utente
+const getUserTypeClass = () => {
+  if (!userProfile.value?.userType) {
+    return 'type-user'; // fallback per utenti privati
   }
+  return userProfile.value.userType === 'ente' ? 'type-ente' : 'type-user';
 };
 
+const getUserTypeLabel = () => {
+  if (!userProfile.value?.userType) {
+    return 'UTENTE PRIVATO'; // fallback
+  }
+  return userProfile.value.userType === 'ente' ? 'ENTE' : 'UTENTE PRIVATO';
+};
+
+// Metodi helper
 const truncateText = (text: string, maxLength: number) => {
   if (!text) return '';
   if (text.length <= maxLength) return text;
@@ -491,32 +486,6 @@ const loadProposteHyped = async () => {
   }
 };
 
-// Caricamento followers
-const loadFollowers = async () => {
-  try {
-    loadingFollowers.value = true;
-    followersList.value = await followStore.loadFollowers(userId.value);
-    
-    // Debug: verifica se l'utente stesso è nella lista
-    const currentUserId = userStore.user?._id;
-    const hasSelfInList = followersList.value.some(user => user._id === currentUserId);
-    if (hasSelfInList) {
-      console.warn('⚠️ L\'utente stesso è presente nella lista dei followers!', { currentUserId, userId: userId.value });
-    }
-    
-    // Aggiorna anche il count dei followers con il numero reale caricato
-    followStats.value.followersCount = followersList.value.length;
-    
-    console.log(`✅ Caricati ${followersList.value.length} followers (Lista reale aggiornata)`);
-  } catch (err: any) {
-    console.error('❌ Errore nel caricamento dei followers:', err);
-    followersList.value = [];
-    await showError('Errore nel caricamento dei followers', err.message);
-  } finally {
-    loadingFollowers.value = false;
-  }
-};
-
 // Caricamento following
 const loadFollowing = async () => {
   try {
@@ -525,7 +494,7 @@ const loadFollowing = async () => {
     
     // Debug: verifica se l'utente stesso è nella lista
     const currentUserId = userStore.user?._id;
-    const hasSelfInList = followingList.value.some(user => user._id === currentUserId);
+    const hasSelfInList = followingList.value.some((user: IUser) => user._id === currentUserId);
     if (hasSelfInList) {
       console.warn('⚠️ L\'utente stesso è presente nella lista dei seguiti!', { currentUserId, userId: userId.value });
     }
@@ -584,19 +553,6 @@ const navigateToUserAndCloseModal = (targetUserId: string) => {
 };
 
 // Gestione modal
-const openFollowersModal = async () => {
-  showFollowers.value = true;
-  modalLoading.value = true;
-  try {
-    modalUsersList.value = await followStore.loadFollowers(userId.value);
-  } catch (err) {
-    console.error('❌ Errore nel caricamento followers per modal:', err);
-    modalUsersList.value = [];
-  } finally {
-    modalLoading.value = false;
-  }
-};
-
 const openFollowingModal = async () => {
   showFollowing.value = true;
   modalLoading.value = true;
@@ -611,7 +567,6 @@ const openFollowingModal = async () => {
 };
 
 const closeModal = () => {
-  showFollowers.value = false;
   showFollowing.value = false;
   modalUsersList.value = [];
 };
@@ -625,14 +580,7 @@ watch(selectedTab, async (newTab) => {
       }
       break;
     case 'hyped':
-      if (proposteHyped.value.length === 0) {
-        await loadProposteHyped();
-      }
-      break;
-    case 'follower':
-      if (followersList.value.length === 0) {
-        await loadFollowers();
-      }
+      // Gli hyped vengono già caricati all'inizio, non serve ricaricarli
       break;
     case 'following':
       if (followingList.value.length === 0) {
@@ -650,55 +598,55 @@ watch(() => route.params.id, (newId) => {
     userProfile.value = null;
     proposteUtente.value = [];
     proposteHyped.value = [];
-    followersList.value = [];
     followingList.value = [];
     selectedTab.value = 'proposte';
     // Ricarica il profilo
     loadUserProfile();
+    // Ricarica anche proposte e hyped
+    loadProposteUtente();
+    loadProposteHyped();
   }
 });
 
 // Caricamento iniziale
 onMounted(() => {
   loadUserProfile();
-  // Carica subito le proposte (prima tab)
+  // Carica subito le proposte (prima tab) e gli hyped
   loadProposteUtente();
+  loadProposteHyped();
 });
 </script>
 
 <style scoped>
 .user-profile-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
   min-height: 100vh;
+  background: var(--color-background-soft);
+  padding-bottom: 80px;
 }
 
-/* Loading e Error states */
-.loading-container,
-.error-container {
+/* Loading e Error States */
+.loading-container, .error-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  padding: 3rem 1.5rem;
   text-align: center;
 }
 
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid var(--color-background-mute);
-  border-top: 4px solid var(--color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
+.loading-container p, .error-container p {
+  color: var(--color-text);
+  margin: 0;
 }
 
-.loading-spinner.small {
-  width: 30px;
-  height: 30px;
-  border-width: 3px;
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
 }
 
 @keyframes spin {
@@ -706,15 +654,21 @@ onMounted(() => {
   100% { transform: rotate(360deg); }
 }
 
-/* Profile Header */
+.error-message {
+  color: #fe4654;
+  font-weight: 500;
+}
+
+/* Header del profilo */
 .profile-header {
-  display: flex;
-  gap: 30px;
-  margin-bottom: 40px;
-  padding: 30px;
   background: var(--color-card-background);
-  border-radius: 15px;
+  margin: 1rem 1.5rem 0.8rem 1.5rem;
+  border-radius: 1rem;
+  padding: 1.5rem;
   box-shadow: 0 2px 16px var(--color-shadow);
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
 }
 
 .avatar-section {
@@ -722,103 +676,159 @@ onMounted(() => {
 }
 
 .avatar {
-  width: 150px;
-  height: 150px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid var(--color-primary);
+  border: 3px solid #fe4654;
 }
 
 .avatar-placeholder {
-  width: 150px;
-  height: 150px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
+  background: #fe4654;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 60px;
-}
-
-.avatar-placeholder.small {
-  width: 50px;
-  height: 50px;
-  font-size: 20px;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
 }
 
 .profile-info {
-  flex-grow: 1;
+  flex: 1;
+}
+
+.profile-name-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .nome-utente {
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--color-heading);
-  margin-bottom: 10px;
+  margin: 0 0 0.5rem 0;
 }
 
-.biografia {
-  font-size: 1.1rem;
+.user-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  animation: badgeAppear 0.5s ease-out;
+}
+
+@keyframes badgeAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.user-type-badge.type-user {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+.user-type-badge.type-ente {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #e1bee7;
+}
+
+.profile-bio {
   color: var(--color-text-secondary);
-  margin-bottom: 20px;
-  line-height: 1.6;
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
 }
 
-.biografia.placeholder {
+.profile-bio.placeholder {
   font-style: italic;
   color: var(--color-text-secondary);
   opacity: 0.8;
 }
 
-.follow-stats {
+.profile-stats-section {
   display: flex;
-  gap: 30px;
-  margin-bottom: 20px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 2rem;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  cursor: pointer;
-  padding: 10px;
-  border-radius: 8px;
-  transition: background-color 0.3s;
-}
-
-.stat:hover {
-  background-color: var(--color-background-soft);
 }
 
 .stat-number {
-  font-size: 1.8rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  color: var(--color-primary);
+  color: #fe4654;
 }
 
 .stat-label {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-top: 0.2rem;
+}
+
+.stat-loading {
+  display: inline-block;
+  animation: pulse 1.5s ease-in-out infinite;
+  color: #fe4654;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .follow-actions {
-  margin-top: 20px;
+  flex-shrink: 0;
 }
 
 .btn-follow {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 25px;
-  font-weight: 600;
-  font-size: 1rem;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 2px solid var(--color-border);
+  border-radius: 1.5rem;
+  padding: 0.85rem 1.5rem;
   cursor: pointer;
-  transition: all 0.3s;
-  display: inline-flex;
+  transition: all 0.3s ease;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .btn-follow:disabled {
@@ -827,35 +837,78 @@ onMounted(() => {
 }
 
 .btn-follow.not-following {
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
-  color: white;
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
 }
 
 .btn-follow.not-following:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px var(--color-primary-light);
+  box-shadow: 0 6px 20px var(--color-primary-light);
 }
 
 .btn-follow.following {
   background: var(--color-secondary);
-  color: white;
+  color: #fff;
+  border-color: var(--color-secondary);
 }
 
 .btn-follow.following:hover:not(:disabled) {
-  background: var(--color-primary);
+  background: #dc3545;
+  border-color: #dc3545;
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 53, 69, 0.3);
+}
+
+/* Dark mode improvements */
+@media (prefers-color-scheme: dark) {
+  .btn-follow {
+    background: var(--color-background-soft);
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+  
+  .btn-follow.not-following {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  
+  .btn-follow.following {
+    background: var(--color-background-soft);
+    color: var(--color-text);
+    border-color: var(--color-border);
+  }
+  
+  .btn-follow.following:hover:not(:disabled) {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+  }
+  
+  .user-type-badge.type-user {
+    background: rgba(33, 150, 243, 0.2);
+    color: #90caf9;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+  }
+  
+  .user-type-badge.type-ente {
+    background: rgba(156, 39, 176, 0.2);
+    color: #ce93d8;
+    border: 1px solid rgba(156, 39, 176, 0.3);
+  }
 }
 
 .own-profile-notice {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 20px;
+  padding: 1rem;
   background: var(--color-primary-light);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   color: var(--color-primary);
   font-weight: 500;
-  margin-top: 20px;
+  margin-top: 1rem;
 }
 
 .edit-profile-link {
@@ -871,222 +924,349 @@ onMounted(() => {
 
 /* Tabs */
 .profile-tabs {
-  display: flex;
   background: var(--color-card-background);
-  border-radius: 10px;
-  padding: 5px;
-  margin-bottom: 30px;
+  border-radius: 1rem;
+  margin: 0 1.5rem 1rem 1.5rem;
+  padding: 0.4rem;
+  display: flex;
+  gap: 0.4rem;
   box-shadow: 0 2px 16px var(--color-shadow);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 15px 20px;
-  border: none;
-  background: transparent;
+  background: none;
   color: var(--color-text-secondary);
+  border: none;
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
   font-weight: 600;
-  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .tab-btn:hover {
-  background: var(--color-background-soft);
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .tab-btn.active {
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
-  color: white;
+  background: var(--color-primary);
+  color: #fff;
 }
 
-.tab-count {
-  background: rgba(255,255,255,0.3);
-  color: inherit;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-}
-
-.tab-btn.active .tab-count {
-  background: rgba(255,255,255,0.3);
-}
-
-/* Tab Content */
+/* Contenuto */
 .tab-content {
-  min-height: 400px;
+  padding: 0 1.5rem 1.5rem 1.5rem;
 }
 
 .loading-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
   text-align: center;
-  color: var(--color-text-secondary);
-}
-
-.empty-state i {
-  font-size: 4rem;
-  color: var(--color-border);
-  margin-bottom: 20px;
-}
-
-.empty-state h3 {
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-  color: var(--color-heading);
-}
-
-/* Proposte Grid */
-.proposte-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
-
-.proposta-card {
+  padding: 3rem 1.5rem;
   background: var(--color-card-background);
-  border-radius: 15px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s;
+  border-radius: 1.2rem;
   box-shadow: 0 2px 16px var(--color-shadow);
 }
 
-.proposta-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 30px var(--color-shadow);
+.loading-spinner.small {
+  width: 30px;
+  height: 30px;
+  border-width: 3px;
+  margin-bottom: 1rem;
 }
 
-.proposta-image {
-  height: 200px;
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: var(--color-card-background);
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 16px var(--color-shadow);
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.empty-state h3 {
+  color: #404149;
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Grids */
+.proposals-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+/* Card proposte */
+.proposal-card {
+  background: var(--color-card-background);
+  border-radius: 1.2rem;
   overflow: hidden;
+  box-shadow: 0 2px 16px var(--color-shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
 }
 
-.proposta-image img {
+.proposal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px var(--color-shadow);
+}
+
+.proposal-image-container {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+  background: #f8f7f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.proposal-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.proposta-content {
-  padding: 20px;
-}
-
-.proposta-title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--color-heading);
-  margin-bottom: 10px;
-}
-
-.proposta-description {
+.proposal-image-placeholder {
   color: var(--color-text-secondary);
-  margin-bottom: 15px;
-  line-height: 1.5;
+  font-size: 2rem;
 }
 
-.proposta-meta {
+.proposal-content {
+  padding: 1.5rem;
+  flex: 1;
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  flex-direction: column;
 }
 
-.categoria,
-.citta {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.proposta-stats {
+.proposal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 1rem;
 }
 
-.hype-count {
+.proposal-hype {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.3rem;
+  background: var(--color-card-background);
   color: var(--color-primary);
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
   font-weight: 600;
+  font-size: 0.875rem;
+  border: 1px solid var(--color-primary-light);
+}
+
+.hype-icon {
+  font-size: 1rem;
+}
+
+.proposal-category {
+  background: var(--color-background-mute);
+  color: var(--color-text);
+  padding: 0.3rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.proposal-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.75rem 0;
+  line-height: 1.3;
+}
+
+.proposal-description {
+  color: var(--color-text);
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.proposal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-top: auto;
+}
+
+/* Pulsanti azione */
+.action-button {
+  background: none;
+  border: 1px solid;
+  border-radius: 1rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.delete-button {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.delete-button:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.unhype-button {
+  color: #fe4654;
+  border-color: #fe4654;
+}
+
+.unhype-button:hover {
+  background: #fe4654;
+  color: #fff;
+}
+
+.proposal-author {
+  font-style: italic;
+}
+
+.proposal-date {
+  font-weight: 500;
+}
+
+.proposal-location {
+  font-style: italic;
+  color: var(--color-text-secondary);
 }
 
 .date {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-weight: 500;
 }
 
-/* Users Grid */
-.users-grid {
+/* Following User Cards - Vertical Layout */
+.following-users-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
 }
 
-.user-card {
+.following-user-card {
   background: var(--color-card-background);
-  border-radius: 15px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.3s;
+  border-radius: 1.2rem;
+  padding: 1.5rem;
   box-shadow: 0 2px 16px var(--color-shadow);
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 15px;
+  text-align: center;
+  cursor: pointer;
 }
 
-.user-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px var(--color-shadow);
+.following-user-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px var(--color-shadow-hover);
+  border-color: var(--color-primary);
 }
 
-.user-avatar {
-  flex-shrink: 0;
+.user-image-container {
+  position: relative;
+  margin-bottom: 1rem;
 }
 
-.user-avatar img {
-  width: 60px;
-  height: 60px;
+.user-image {
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
 }
 
-.user-info {
-  flex-grow: 1;
-  min-width: 0;
+.following-user-card:hover .user-image {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-image-placeholder {
+  width: 80px;
+  height: 80px;
+  background: var(--color-background-mute);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--color-text-secondary);
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+
+.following-user-card:hover .user-image-placeholder {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-content {
+  width: 100%;
 }
 
 .user-name {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-heading);
-  margin-bottom: 5px;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
 }
 
 .user-bio {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  color: var(--color-text);
+  font-size: 0.85rem;
   line-height: 1.4;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.user-bio-placeholder {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: 0 0 1rem 0;
 }
 
 /* Modal */
@@ -1094,57 +1274,68 @@ onMounted(() => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
 }
 
 .modal-content {
-  background: var(--color-card-background);
-  border-radius: 15px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
   overflow: hidden;
+  animation: slideUp 0.3s ease;
 }
 
 .modal-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.3rem;
-  color: var(--color-heading);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #404149;
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 1.2rem;
-  color: var(--color-text-secondary);
+  color: #999;
+  font-size: 1.5rem;
   cursor: pointer;
-  padding: 5px;
-  border-radius: 5px;
-  transition: background-color 0.3s;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
-  background: var(--color-background-soft);
+  background: #f0f0f0;
+  color: #666;
 }
 
 .modal-body {
-  padding: 20px;
-  max-height: 60vh;
+  padding: 2rem;
   overflow-y: auto;
+  max-height: calc(90vh - 100px);
 }
 
 .users-list {
@@ -1157,8 +1348,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 15px;
-  padding: 10px;
-  border-radius: 8px;
+  padding: 1rem;
+  border-radius: 1rem;
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -1172,67 +1363,144 @@ onMounted(() => {
   height: 50px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid #fe4654;
 }
 
 /* Buttons */
 .btn-primary {
-  background: linear-gradient(135deg, #fe4654 0%, #404149 100%);
+  background: var(--color-primary);
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 25px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 1.5rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px var(--color-primary-light);
+  box-shadow: 0 6px 20px var(--color-primary-light);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stili per immagini placeholder delle proposte */
+.proposal-image-placeholder {
+  color: var(--color-text-secondary);
+  font-size: 2rem;
+}
+
+.hype-icon {
+  font-size: 1rem;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-  .user-profile-container {
-    padding: 10px;
+@media (min-width: 768px) {
+  .proposals-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
   
   .profile-header {
-    flex-direction: column;
-    text-align: center;
-    gap: 20px;
-    padding: 20px;
-  }
-  
-  .nome-utente {
-    font-size: 2rem;
-  }
-  
-  .follow-stats {
-    justify-content: center;
+    margin: 1rem 2rem 1rem 2rem;
+    padding: 2rem;
   }
   
   .profile-tabs {
+    margin: 0 2rem 1rem 2rem;
+  }
+  
+  .tab-content {
+    padding: 0 2rem 1.5rem 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .proposals-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .profile-name-section {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  
+  .profile-stats {
+    justify-content: center;
+    gap: 3rem;
+  }
+  
+  .profile-stats-section {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  
+  .follow-actions {
+    width: 100%;
+  }
+  
+  .btn-follow {
+    width: 100%;
+  }
+  
+  .profile-tabs {
+    margin: 0 1rem 1rem 1rem;
     flex-wrap: wrap;
   }
   
-  .tab-btn {
-    min-width: 120px;
-  }
-  
-  .proposte-grid,
-  .users-grid {
-    grid-template-columns: 1fr;
+  .tab-content {
+    padding: 0 1rem 1.5rem 1rem;
   }
   
   .modal-content {
     width: 95%;
     margin: 10px;
   }
+}
+
+/* Responsive per la griglia utenti */
+@media (max-width: 768px) {
+  .following-users-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
   
-  .user-card {
-    flex-direction: column;
-    text-align: center;
+  .following-user-card {
+    padding: 1rem;
+  }
+  
+  .user-image,
+  .user-image-placeholder {
+    width: 70px;
+    height: 70px;
   }
 }
 </style>
