@@ -28,7 +28,7 @@ export const followApi = {
 
   // Smettere di seguire un utente
   unfollowUser: async (userId: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/api/unfollow/${userId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/follow/unfollow/${userId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ export const followApi = {
       limit: limit.toString()
     });
 
-    const res = await fetch(`${API_BASE_URL}/api/followers/${userId}?${params}`);
+    const res = await fetch(`${API_BASE_URL}/api/follow/followers/${userId}?${params}`);
 
     if (!res.ok) {
       const error = await res.json();
@@ -67,7 +67,7 @@ export const followApi = {
       limit: limit.toString()
     });
 
-    const res = await fetch(`${API_BASE_URL}/api/following/${userId}?${params}`);
+    const res = await fetch(`${API_BASE_URL}/api/follow/following/${userId}?${params}`);
 
     if (!res.ok) {
       const error = await res.json();
@@ -80,7 +80,7 @@ export const followApi = {
 
   // Verificare lo status di follow
   getFollowStatus: async (userId: string): Promise<FollowStatus> => {
-    const res = await fetch(`${API_BASE_URL}/api/status/${userId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/follow/status/${userId}`, {
       headers: getAuthHeaders()
     });
 

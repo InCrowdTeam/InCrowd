@@ -674,16 +674,6 @@ onMounted(async () => {
                     </h3>
                     <p v-if="utente.credenziali?.email" class="utente-email">{{ utente.credenziali.email }}</p>
                     <p v-if="utente.biografia" class="utente-bio">{{ utente.biografia.substring(0, 100) }}{{ utente.biografia.length > 100 ? '...' : '' }}</p>
-                    <div class="utente-stats">
-                      <span class="stat-item">
-                        <span class="stat-icon">�</span>
-                        {{ utente.followers || 0 }} follower
-                      </span>
-                      <span class="stat-item">
-                        <span class="stat-icon">➡️</span>
-                        {{ utente.following || 0 }} following
-                      </span>
-                    </div>
 
                     <!-- Bottone Follow nella card -->
                     <div v-if="canFollowUser(utente._id)" class="card-follow-section">

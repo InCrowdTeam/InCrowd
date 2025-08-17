@@ -171,6 +171,86 @@ export const useFollowStore = defineStore('follow', {
       this.error = null;
     },
 
+    // Caricare i propri stats di follow (per il profilo personale)
+    async loadMyFollowStats(userId: string): Promise<{ followersCount: number; followingCount: number }> {
+      try {
+        // Per il proprio profilo, usa anche il metodo più accurato che conta le liste reali
+        console.log('🔄 Caricamento stats per il proprio profilo...');
+        const [followersCount, followingCount] = await Promise.all([
+          this.getFollowersCount(userId),
+          this.getFollowingCount(userId)
+        ]);
+        
+        console.log(`📊 Stats propri caricati: ${followersCount} follower, ${followingCount} following`);
+        
+        return {
+          followersCount,
+          followingCount
+        };
+      } catch (error: any) {
+        console.error('❌ Errore nel caricamento degli stats di follow propri:', error);
+        // Ritorna valori di default in caso di errore
+        return { followersCount: 0, followingCount: 0 };
+      }
+    },
+
+    // Caricare gli stats di follow per qualsiasi utente (per profili pubblici)
+    async loadUserFollowStats(userId: string): Promise<{ followersCount: number; followingCount: number }> {
+      try {
+        // Carica direttamente le liste per avere i count accurati
+        const [followers, following] = await Promise.all([
+          this.loadFollowers(userId, 1, 1), // Carica solo 1 elemento per ottenere il count
+          this.loadFollowing(userId, 1, 1)
+        ]);
+        
+        // Ottieni i count reali dalle API
+        const followersCount = await this.getFollowersCount(userId);
+        const followingCount = await this.getFollowingCount(userId);
+        
+        return {
+          followersCount,
+          followingCount
+        };
+      } catch (error: any) {
+        console.error('❌ Errore nel caricamento degli stats di follow per utente:', error);
+        // Fallback: prova a ottenere i dati dalle liste già caricate
+        try {
+          const [followers, following] = await Promise.all([
+            this.loadFollowers(userId),
+            this.loadFollowing(userId)
+          ]);
+          return {
+            followersCount: followers.length,
+            followingCount: following.length
+          };
+        } catch (fallbackError) {
+          console.error('❌ Fallback fallito:', fallbackError);
+          return { followersCount: 0, followingCount: 0 };
+        }
+      }
+    },
+
+    // Metodi helper per ottenere solo i count (più efficienti)
+    async getFollowersCount(userId: string): Promise<number> {
+      try {
+        const followers = await this.loadFollowers(userId);
+        return followers.length;
+      } catch (error) {
+        console.error('❌ Errore nel conteggio followers:', error);
+        return 0;
+      }
+    },
+
+    async getFollowingCount(userId: string): Promise<number> {
+      try {
+        const following = await this.loadFollowing(userId);
+        return following.length;
+      } catch (error) {
+        console.error('❌ Errore nel conteggio following:', error);
+        return 0;
+      }
+    },
+
     // Pulire la cache (utile per logout)
     clearCache() {
       this.followedUsers.clear();

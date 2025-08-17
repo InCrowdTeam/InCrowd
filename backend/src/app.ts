@@ -47,7 +47,7 @@ app.use("/api/enti", enteRoutes);
 app.use("/api/operatori", operatoreRoutes);
 app.use("/api/admin/operatori", adminOperatoreRoutes);
 app.use("/api/auth", authRoutes);
-app.use('/api', followRoutes);
+app.use('/api/follow', followRoutes);
 
 // Base route
 app.get("/", (req, res) => {

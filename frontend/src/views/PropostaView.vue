@@ -39,7 +39,7 @@
           
           <!-- Creator Badge and Hyper Counter Row -->
           <div class="creator-hyper-row">
-            <div class="creator-badge">
+            <div class="creator-badge" @click="goToCreatorProfile" :class="{ clickable: true }">
               <div class="creator-avatar">
                 <img 
                   v-if="proponenteAvatar"
@@ -228,7 +228,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
 import { PropostaService } from '@/services/PropostaService';
 import { UserService } from '@/services/UserService';
@@ -238,6 +238,7 @@ import type { IProposta } from '@/types/Proposta';
 import type { IUser } from '@/types/User';
 
 const route = useRoute();
+const router = useRouter();
 const userStore = useUserStore();
 const { showError, showConfirm } = useModal();
 const proposta = ref<IProposta | null>(null);
@@ -343,6 +344,13 @@ function getInitials(nome?: string, cognome?: string): string {
 // Funzione per ottenere il nome completo dell'utente (spostata dal service)
 function getFullName(user?: any): string {
   return UserService.getFullName(user);
+}
+
+// Funzione per navigare al profilo del creatore
+function goToCreatorProfile() {
+  if (proponente.value?._id) {
+    router.push(`/users/${proponente.value._id}`);
+  }
 }
 
 // Funzione per processare l'avatar dell'utente (deprecata - ora usa endpoint dedicato)
@@ -701,6 +709,15 @@ watch(proposta, (newProposta) => {
 .creator-badge:hover {
   background: rgba(254, 70, 84, 0.15);
   transform: translateY(-1px);
+}
+
+.creator-badge.clickable {
+  cursor: pointer;
+}
+
+.creator-badge.clickable:hover {
+  background: rgba(254, 70, 84, 0.2);
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.3);
 }
 
 .creator-avatar {

@@ -11,7 +11,7 @@ import {
 const router = express.Router();
 
 // Route per seguire un utente (richiede autenticazione)
-router.post('/follow/:userId', authMiddleware, followUser);
+router.post('/:userId', authMiddleware, followUser);
 
 // Route per smettere di seguire un utente (richiede autenticazione)
 router.delete('/unfollow/:userId', authMiddleware, unfollowUser);
