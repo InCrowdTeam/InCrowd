@@ -530,7 +530,6 @@ watch(() => userStore.user, (newUser) => {
           <span class="toggle-text">Esplora</span>
         </button>
         <button
-          v-if="userStore.user"
           class="main-toggle-option"
           :class="{ active: selected === 'seguiti' }"
           @click="selected = 'seguiti'"
@@ -622,11 +621,16 @@ watch(() => userStore.user, (newUser) => {
           
           <div v-if="!userStore.user" class="empty-state">
             <div class="empty-icon">👤</div>
-            <h3>Accedi per vedere i contenuti dei seguiti</h3>
-            <p>Effettua il login per seguire altri utenti e vedere le loro proposte qui</p>
-            <button @click="$router.push('/login')" class="cta-button">
-              Accedi ora
-            </button>
+            <h3>Per visualizzare i contenuti dei seguiti devi effettuare il login</h3>
+            <p>Accedi o registrati per seguire altri utenti e vedere le loro proposte qui</p>
+            <div class="auth-buttons">
+              <button @click="$router.push('/login')" class="cta-button primary">
+                Accedi
+              </button>
+              <button @click="$router.push('/addUser')" class="cta-button secondary">
+                Registrati
+              </button>
+            </div>
           </div>
           
           <div v-else-if="loadingSeguiti" class="loading-container">
@@ -1598,6 +1602,27 @@ ul {
   transform: translateY(-2px);
   box-shadow: 0 6px 25px var(--color-primary-light);
   background: linear-gradient(135deg, var(--color-primary-hover), var(--color-primary));
+}
+
+.auth-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-button.primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+}
+
+.cta-button.secondary {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+}
+
+.cta-button.secondary:hover {
+  background: linear-gradient(135deg, #4b5563, #374151);
+  box-shadow: 0 6px 25px rgba(107, 114, 128, 0.4);
 }
 
 .proposte-grid {
