@@ -5,6 +5,47 @@ import Ente from '../models/Ente';
 import { apiResponse } from '../utils/responseFormatter';
 import { AppError } from '../utils/error';
 
+/**
+ * Trova un utente/ente per ID e determina il tipo
+ * @param id - ID dell'utente/ente da cercare
+ * @returns Oggetto con user/ente e tipo, o null se non trovato
+ */
+const findUserOrEnte = async (id: string): Promise<{ entity: any; type: 'user' | 'ente' } | null> => {
+  // Prima cerca negli utenti
+  let entity = await User.findById(id);
+  if (entity) {
+    return { entity, type: 'user' };
+  }
+  
+  // Se non trovato negli utenti, cerca negli enti
+  entity = await Ente.findById(id);
+  if (entity) {
+    return { entity, type: 'ente' };
+  }
+  
+  return null;
+};
+
+/**
+ * Aggiorna i contatori di followers/following per un utente o ente
+ * @param id - ID dell'utente/ente
+ * @param type - Tipo ('user' o 'ente')
+ * @param field - Campo da aggiornare ('followers' o 'following')
+ * @param increment - Valore da aggiungere (+1 o -1)
+ */
+const updateCounters = async (id: string, type: 'user' | 'ente', field: 'followers' | 'following', increment: number) => {
+  if (type === 'user') {
+    await User.findByIdAndUpdate(id, { $inc: { [field]: increment } });
+  } else {
+    await Ente.findByIdAndUpdate(id, { $inc: { [field]: increment } });
+  }
+};
+
+/**
+ * Permette ad un utente autenticato di seguire un altro utente o ente
+ * @param req - Richiesta HTTP autenticata con userId nel parametro
+ * @param res - Risposta HTTP con conferma del follow
+ */
 export const followUser = async (req: Request, res: Response) => {
   try {
     const followerId = (req as any).user?.userId;
@@ -54,6 +95,11 @@ export const followUser = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Permette ad un utente autenticato di smettere di seguire un altro utente o ente
+ * @param req - Richiesta HTTP autenticata con userId nel parametro
+ * @param res - Risposta HTTP con conferma dell'unfollow
+ */
 export const unfollowUser = async (req: Request, res: Response) => {
   try {
     const followerId = (req as any).user?.userId;
@@ -93,6 +139,11 @@ export const unfollowUser = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Recupera la lista dei followers di un utente o ente con paginazione
+ * @param req - Richiesta HTTP con userId nel parametro e page/limit opzionali
+ * @param res - Risposta HTTP con lista dei followers
+ */
 export const getFollowers = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
@@ -100,12 +151,10 @@ export const getFollowers = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
 
     const follows = await Follow.find({ followingId: userId })
-      .populate('followerId', 'nome cognome fotoProfilo')
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ createdAt: -1 });
 
-    const followers = follows.map(follow => follow.followerId);
     // Popola manualmente i followers
     const followers = [];
     for (const follow of follows) {
@@ -129,6 +178,11 @@ export const getFollowers = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Recupera la lista degli utenti/enti seguiti da un utente o ente con paginazione
+ * @param req - Richiesta HTTP con userId nel parametro e page/limit opzionali
+ * @param res - Risposta HTTP con lista degli utenti seguiti
+ */
 export const getFollowing = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
@@ -163,6 +217,11 @@ export const getFollowing = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Verifica lo stato di follow tra l'utente autenticato e un altro utente o ente
+ * @param req - Richiesta HTTP autenticata con userId nel parametro
+ * @param res - Risposta HTTP con stato del follow e contatori
+ */
 export const getFollowStatus = async (req: Request, res: Response) => {
   try {
     const followerId = (req as any).user?.userId;

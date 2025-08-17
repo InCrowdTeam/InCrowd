@@ -1,4 +1,9 @@
-// Restituisce gli ultimi commenti globali (tutte le proposte)
+
+/**
+ * Recupera gli ultimi commenti globali da tutte le proposte
+ * @param req - Richiesta HTTP con limit opzionale per numero di commenti
+ * @param res - Risposta HTTP con lista degli ultimi commenti
+ */
 export const getUltimiCommenti = async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
@@ -21,9 +26,14 @@ import User from "../models/User";
 import Ente from "../models/Ente";
 import Operatore from "../models/Operatore";
 import Commento from "../models/Commento";
+import Follow from "../models/Follow";
 import { apiResponse } from "../utils/responseFormatter";
 
-// Helper per recuperare dati utente da modelli diversi
+/**
+ * Helper per recuperare dati utente da modelli diversi in base al tipo
+ * @param userId - ID dell'utente da cercare
+ * @param userType - Tipo utente opzionale per ottimizzare la ricerca (user, ente, operatore)
+ */
 const getUserData = async (userId: string, userType?: string) => {
   try {
     let userData = null;
@@ -49,6 +59,11 @@ const getUserData = async (userId: string, userType?: string) => {
   }
 };
 
+/**
+ * Recupera tutte le proposte approvate pubblicamente
+ * @param req - Richiesta HTTP
+ * @param res - Risposta HTTP con lista delle proposte approvate
+ */
 export const getAllProposte = async (req: Request, res: Response) => {
   try {
     const proposte = await Proposta.find({"stato.stato": "approvata"})
@@ -68,6 +83,11 @@ export const getAllProposte = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Recupera tutte le proposte dell'utente autenticato indipendentemente dallo stato
+ * @param req - Richiesta HTTP autenticata
+ * @param res - Risposta HTTP con le proposte dell'utente
+ */
 export const getMyProposte = async (req: AuthenticatedRequest, res: Response) => {
   try {
     
@@ -98,6 +118,11 @@ export const getMyProposte = async (req: AuthenticatedRequest, res: Response) =>
   }
 };
 
+/**
+ * Ricerca proposte con filtri avanzati e paginazione
+ * @param req - Richiesta HTTP con parametri di ricerca (q, categoria, citta, sortBy, etc.)
+ * @param res - Risposta HTTP con risultati della ricerca
+ */
 export const searchProposte = async (req: Request, res: Response) => {
   try {
     const { 
@@ -240,6 +265,11 @@ export const searchProposte = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Crea una nuova proposta con gestione dell'upload di immagini
+ * @param req - Richiesta HTTP con dati della proposta e file immagine opzionale
+ * @param res - Risposta HTTP con la proposta creata
+ */
 export const addProposta = async (req: Request, res: Response): Promise<void> => {
   try {
     // Gestione errori multer per file troppo grandi o tipo non supportato
@@ -307,6 +337,11 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+/**
+ * Recupera le proposte in attesa di approvazione per gli operatori
+ * @param _req - Richiesta HTTP (parametri non utilizzati)
+ * @param res - Risposta HTTP con lista delle proposte in attesa
+ */
 export const getPendingProposte = async (_req: Request, res: Response) => {
   try {
     const proposte = await Proposta.find({ "stato.stato": "in_approvazione" })
@@ -325,6 +360,11 @@ export const getPendingProposte = async (_req: Request, res: Response) => {
   }
 };
 
+/**
+ * Aggiorna lo stato di una proposta (approvazione/rifiuto)
+ * @param req - Richiesta HTTP con id proposta e nuovo stato nel body
+ * @param res - Risposta HTTP con proposta aggiornata
+ */
 export const updateStatoProposta = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { stato, commento } = req.body;
@@ -349,6 +389,11 @@ export const updateStatoProposta = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Gestisce l'aggiunta/rimozione dell'hype su una proposta da parte dell'utente autenticato
+ * @param req - Richiesta HTTP autenticata con id proposta
+ * @param res - Risposta HTTP con proposta aggiornata
+ */
 export const hyperProposta = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
@@ -391,6 +436,11 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
   }
 };
 
+/**
+ * Aggiunge un nuovo commento ad una proposta (esclusi gli operatori)
+ * @param req - Richiesta HTTP autenticata con id proposta e contenuto commento
+ * @param res - Risposta HTTP con lista aggiornata dei commenti
+ */
 export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id: propostaId } = req.params;
@@ -432,6 +482,11 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
   }
 };
 
+/**
+ * Recupera tutti i commenti di una specifica proposta
+ * @param req - Richiesta HTTP con id proposta
+ * @param res - Risposta HTTP con lista dei commenti
+ */
 export const getCommentiProposta = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
@@ -466,6 +521,11 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Recupera una singola proposta tramite il suo ID
+ * @param req - Richiesta HTTP con id proposta nel parametro
+ * @param res - Risposta HTTP con i dettagli della proposta
+ */
 export const getPropostaById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -484,6 +544,11 @@ export const getPropostaById = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Crea una nuova proposta (metodo alternativo ad addProposta)
+ * @param req - Richiesta HTTP con dati della proposta
+ * @param res - Risposta HTTP con proposta creata
+ */
 export const createProposta = async (req: Request, res: Response) => {
   try {
     // Ricostruisci l'indirizzo dall'input
@@ -524,6 +589,11 @@ export const createProposta = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Elimina una proposta e tutti i suoi commenti associati
+ * @param req - Richiesta HTTP autenticata con id proposta
+ * @param res - Risposta HTTP di conferma eliminazione
+ */
 export const deleteProposta = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
@@ -562,7 +632,11 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
   }
 };
 
-// Elimina un commento specifico
+/**
+ * Elimina un commento specifico (solo autore del commento o operatori)
+ * @param req - Richiesta HTTP autenticata con commentoId nel parametro
+ * @param res - Risposta HTTP di conferma eliminazione
+ */
 export const deleteCommento = async (req: AuthenticatedRequest, res: Response) => {
   const { commentoId } = req.params;
   const userId = req.user?.userId;
@@ -588,7 +662,11 @@ export const deleteCommento = async (req: AuthenticatedRequest, res: Response) =
   }
 };
 
-// Recupera le proposte pubbliche approvate di un utente specifico
+/**
+ * Recupera le proposte pubbliche approvate di un utente specifico
+ * @param req - Richiesta HTTP con userId nel parametro
+ * @param res - Risposta HTTP con lista delle proposte approvate dell'utente
+ */
 export const getUserProposte = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -622,6 +700,61 @@ export const getUserProposte = async (req: Request, res: Response) => {
     console.error("Errore nel recupero proposte utente:", error);
     res.status(500).json(apiResponse({ 
       message: "Errore interno nel recupero delle proposte", 
+      error 
+    }));
+  }
+};
+
+/**
+ * Recupera tutte le proposte approvate degli utenti seguiti dall'utente autenticato
+ * @param req - Richiesta HTTP autenticata
+ * @param res - Risposta HTTP con le proposte degli utenti seguiti
+ */
+export const getFollowedUsersProposte = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Verifica che l'utente sia autenticato
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
+    }
+    
+    // Trova tutti gli utenti seguiti dall'utente autenticato
+    const follows = await Follow.find({ followerId: req.user.userId });
+    
+    if (follows.length === 0) {
+      return res.json(apiResponse({ 
+        data: [], 
+        message: "Nessun utente seguito" 
+      }));
+    }
+    
+    // Estrai gli ID degli utenti seguiti
+    const followingIds = follows.map((follow: any) => follow.followingId);
+    
+    // Trova tutte le proposte approvate degli utenti seguiti
+    const proposte = await Proposta.find({
+      proponenteID: { $in: followingIds },
+      "stato.stato": "approvata"
+    })
+      .sort({ createdAt: -1 }) // Ordina per data di creazione (più recenti prima)
+      .select('-stato -dataApprovazione -noteOperatore'); // Rimuovi campi sensibili
+    
+    const proposteProcessate = proposte.map(p => {
+      const obj = p.toObject();
+      // Se è ancora Buffer lo converto, altrimenti lascio la stringa
+      if (obj.foto?.data && Buffer.isBuffer(obj.foto.data)) {
+        obj.foto.data = obj.foto.data.toString('base64');
+      }
+      return obj;
+    });
+    
+    res.json(apiResponse({ 
+      data: proposteProcessate, 
+      message: `Proposte degli utenti seguiti` 
+    }));
+  } catch (error) {
+    console.error("Errore nel recupero proposte utenti seguiti:", error);
+    res.status(500).json(apiResponse({ 
+      message: "Errore interno nel recupero delle proposte degli utenti seguiti", 
       error 
     }));
   }

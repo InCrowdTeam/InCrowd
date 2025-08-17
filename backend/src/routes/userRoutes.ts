@@ -56,16 +56,13 @@ router.patch("/password", authMiddleware, updatePassword);
 // Rotta per eliminare l'account dell'utente corrente e tutti i suoi dati
 router.delete("/me", authMiddleware, deleteAccount);
 
-// Route per ricerca utenti (DEVE essere prima di /:id)
+// Route per ricerca utenti
 router.get('/search', searchUsers);
 
-// Endpoint pubblico per ottenere solo l'avatar di un utente (DEVE essere prima di /:id)
+// Endpoint pubblico per ottenere solo l'avatar di un utente
 router.get("/:id/avatar", getUserAvatar);
 
 // Rotta per ottenere un utente specifico - con autenticazione opzionale per più dati
 router.get("/:id", optionalAuth, getUserById);
-
-// Manteniamo questo endpoint per compatibilità (deprecated)
-router.get("/:id/legacy", getUtente as any);
 
 export default router;

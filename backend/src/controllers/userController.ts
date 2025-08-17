@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import User from "../models/User";
+import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
@@ -14,26 +15,32 @@ interface AuthenticatedRequest extends Request {
 /**
  * Crea dati utente pubblici (limitati) per la visualizzazione pubblica
  * @param user - Oggetto utente completo dal database
+ * @param userType - Tipo di utente ('user' o 'ente')
  * @returns Oggetto con solo i dati pubblici dell'utente
  */
-const createPublicUser = (user: any) => {
+const createPublicUser = (user: any, userType: 'user' | 'ente' = 'user') => {
   return {
     _id: user._id,
     nome: user.nome,
     cognome: user.cognome,
     biografia: user.biografia,
     fotoProfilo: user.fotoProfilo,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    userType: userType
   };
 };
 
+/**
+ * Verifica se l'utente autenticato ha permessi per visualizzare dati completi degli utenti
+ * @param requestUser - Oggetto utente dalla richiesta autenticata
+ */
 // Verifica se l'utente ha permessi per vedere tutti i dati
 const canViewFullUserData = (requestUser: any) => {
   return requestUser && (requestUser.userType === 'operatore' || requestUser.userType === 'admin');
 };
 
 /**
- * Recupera tutti gli utenti (solo per operatori e amministratori)
+ * Recupera tutti gli utenti (solo per operatori)
  * @param req - Richiesta HTTP
  * @param res - Risposta HTTP
  */
@@ -203,27 +210,39 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
- * Recupera un utente specifico per ID (solo per operatori e amministratori)
+ * Recupera un utente specifico per ID (solo per operatori)
  * @param req - Richiesta HTTP con ID utente
  * @param res - Risposta HTTP
  */
 export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId);
+    
+    // Prima cerca nell'collection utenti
+    let user = await User.findById(userId);
+    let isEnte = false;
+    
+    // Se non trovato negli utenti, cerca negli enti
+    if (!user) {
+      user = await Ente.findById(userId);
+      isEnte = true;
+    }
     
     if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     // Se l'utente è autenticato ed è operatore/admin, restituisce dati completi
     if (canViewFullUserData(req.user)) {
       const safeUser = createSafeCredentials(user);
+      // Aggiungi il campo userType per distinguere utenti ed enti
+      safeUser.userType = isEnte ? 'ente' : 'user';
       return res.json(apiResponse({ data: safeUser, message: "Utente trovato" }));
     }
 
     // Altrimenti restituisce solo dati pubblici
-    const publicUser = createPublicUser(user);
+    const userTypeForPublic = isEnte ? 'ente' : 'user';
+    const publicUser = createPublicUser(user, userTypeForPublic);
     res.json(apiResponse({ data: publicUser, message: "Dati pubblici utente" }));
   } catch (error) {
     console.error("Errore nel recupero utente:", error);
@@ -232,17 +251,24 @@ export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 /**
- * Recupera l'avatar di un utente specifico
+ * Recupera l'avatar di un utente specifico (utenti privati o enti)
  * @param req - Richiesta HTTP con ID utente
  * @param res - Risposta HTTP con dati avatar
  */
 export const getUserAvatar = async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId).select("fotoProfilo nome");
+    
+    // Prima cerca nell'collection utenti
+    let user = await User.findById(userId).select("fotoProfilo nome");
+    
+    // Se non trovato negli utenti, cerca negli enti
+    if (!user) {
+      user = await Ente.findById(userId).select("fotoProfilo nome");
+    }
     
     if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     if (!user.fotoProfilo || !user.fotoProfilo.data) {
@@ -516,6 +542,11 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
   }
 };
 
+/**
+ * Ricerca utenti (privati ed enti) per nome, cognome o biografia con paginazione
+ * @param req - Richiesta HTTP con query di ricerca e parametri di paginazione
+ * @param res - Risposta HTTP con risultati della ricerca e metadati di paginazione
+ */
 export const searchUsers = async (req: Request, res: Response) => {
   try {
     const { query, page = 1, limit = 10 } = req.query;
@@ -541,26 +572,42 @@ export const searchUsers = async (req: Request, res: Response) => {
       ]
     };
 
-    // Esegui ricerca con paginazione
-    const [users, total] = await Promise.all([
+    // Esegui ricerca parallela in entrambe le collections
+    const [users, enti, totalUsers, totalEnti] = await Promise.all([
       User.find(searchQuery)
         .select('nome cognome biografia fotoProfilo createdAt')
         .sort({ nome: 1 })
-        .skip(skip)
-        .limit(limitNum)
         .lean(),
-      User.countDocuments(searchQuery)
+      Ente.find(searchQuery)
+        .select('nome biografia fotoProfilo createdAt')
+        .sort({ nome: 1 })
+        .lean(),
+      User.countDocuments(searchQuery),
+      Ente.countDocuments(searchQuery)
     ]);
+
+    // Combina i risultati e aggiungi campo userType per distinguere utenti ed enti
+    const combinedResults = [
+      ...users.map((user: any) => ({ ...user, userType: 'user' })),
+      ...enti.map((ente: any) => ({ ...ente, userType: 'ente', cognome: undefined }))
+    ];
+
+    // Ordina i risultati combinati per nome
+    combinedResults.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    // Applica paginazione ai risultati combinati
+    const totalCombined = totalUsers + totalEnti;
+    const paginatedResults = combinedResults.slice(skip, skip + limitNum);
 
     res.json({
       success: true,
       data: {
-        users,
+        users: paginatedResults,
         pagination: {
           currentPage: pageNum,
-          totalPages: Math.ceil(total / limitNum),
-          totalUsers: total,
-          hasNextPage: skip + limitNum < total,
+          totalPages: Math.ceil(totalCombined / limitNum),
+          totalUsers: totalCombined,
+          hasNextPage: skip + limitNum < totalCombined,
           hasPrevPage: pageNum > 1
         }
       }
