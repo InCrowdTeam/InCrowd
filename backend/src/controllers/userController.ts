@@ -7,6 +7,7 @@ import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 import { apiResponse } from "../utils/responseFormatter";
+import { FollowCountService } from "../utils/followCountService";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -16,10 +17,15 @@ interface AuthenticatedRequest extends Request {
  * Crea dati utente pubblici (limitati) per la visualizzazione pubblica
  * @param user - Oggetto utente completo dal database
  * @param userType - Tipo di utente ('user' o 'ente')
+ * @param followCounts - Contatori dinamici di follow (opzionale)
  * @returns Oggetto con solo i dati pubblici dell'utente
  */
-const createPublicUser = (user: any, userType: 'user' | 'ente' = 'user') => {
-  return {
+const createPublicUser = (
+  user: any, 
+  userType: 'user' | 'ente' = 'user',
+  followCounts?: { followersCount: number; followingCount: number }
+) => {
+  const publicData = {
     _id: user._id,
     nome: user.nome,
     cognome: user.cognome,
@@ -28,6 +34,17 @@ const createPublicUser = (user: any, userType: 'user' | 'ente' = 'user') => {
     createdAt: user.createdAt,
     userType: userType
   };
+
+  // Aggiungi i contatori se disponibili
+  if (followCounts) {
+    return {
+      ...publicData,
+      followersCount: followCounts.followersCount,
+      followingCount: followCounts.followingCount
+    };
+  }
+
+  return publicData;
 };
 
 /**
@@ -217,6 +234,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.params.id;
+    const currentUserId = req.user?.userId;
     
     // Prima cerca nell'collection utenti
     let user = await User.findById(userId);
@@ -232,17 +250,32 @@ export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
+    // Ottieni i contatori dinamici e lo stato di follow
+    const followInfo = await FollowCountService.getFullFollowInfo(userId, currentUserId);
+
     // Se l'utente è autenticato ed è operatore/admin, restituisce dati completi
     if (canViewFullUserData(req.user)) {
       const safeUser = createSafeCredentials(user);
       // Aggiungi il campo userType per distinguere utenti ed enti
       safeUser.userType = isEnte ? 'ente' : 'user';
+      safeUser.followersCount = followInfo.followersCount;
+      safeUser.followingCount = followInfo.followingCount;
+      safeUser.isFollowedByCurrentUser = followInfo.isFollowedByCurrentUser;
       return res.json(apiResponse({ data: safeUser, message: "Utente trovato" }));
     }
 
-    // Altrimenti restituisce solo dati pubblici
+    // Altrimenti restituisce solo dati pubblici con contatori
     const userTypeForPublic = isEnte ? 'ente' : 'user';
-    const publicUser = createPublicUser(user, userTypeForPublic);
+    const publicUser = createPublicUser(user, userTypeForPublic, {
+      followersCount: followInfo.followersCount,
+      followingCount: followInfo.followingCount
+    });
+    
+    // Aggiungi lo stato di follow se l'utente è autenticato
+    if (followInfo.isFollowedByCurrentUser !== undefined) {
+      (publicUser as any).isFollowedByCurrentUser = followInfo.isFollowedByCurrentUser;
+    }
+    
     res.json(apiResponse({ data: publicUser, message: "Dati pubblici utente" }));
   } catch (error) {
     console.error("Errore nel recupero utente:", error);

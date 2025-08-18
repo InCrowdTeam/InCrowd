@@ -4,6 +4,7 @@ import User from '../models/User';
 import Ente from '../models/Ente';
 import { apiResponse } from '../utils/responseFormatter';
 import { AppError } from '../utils/error';
+import { FollowCountService } from '../utils/followCountService';
 
 /**
  * Trova un utente/ente per ID e determina il tipo
@@ -24,21 +25,6 @@ const findUserOrEnte = async (id: string): Promise<{ entity: any; type: 'user' |
   }
   
   return null;
-};
-
-/**
- * Aggiorna i contatori di followers/following per un utente o ente
- * @param id - ID dell'utente/ente
- * @param type - Tipo ('user' o 'ente')
- * @param field - Campo da aggiornare ('followers' o 'following')
- * @param increment - Valore da aggiungere (+1 o -1)
- */
-const updateCounters = async (id: string, type: 'user' | 'ente', field: 'followers' | 'following', increment: number) => {
-  if (type === 'user') {
-    await User.findByIdAndUpdate(id, { $inc: { [field]: increment } });
-  } else {
-    await Ente.findByIdAndUpdate(id, { $inc: { [field]: increment } });
-  }
 };
 
 /**
@@ -85,10 +71,6 @@ export const followUser = async (req: Request, res: Response) => {
       followingType: followingInfo.type
     });
 
-    // Aggiorna i contatori
-    await updateCounters(followerId, followerInfo.type, 'following', 1);
-    await updateCounters(followingId, followingInfo.type, 'followers', 1);
-
     res.json(apiResponse({ message: 'Utente seguito con successo' }));
   } catch (error: any) {
     res.status(error.status || 500).json(apiResponse({ message: error.message, error }));
@@ -113,25 +95,6 @@ export const unfollowUser = async (req: Request, res: Response) => {
     if (!follow) {
       throw new AppError('Non stai seguendo questo utente', 400);
     }
-
-    // Determina i tipi dal documento follow (se disponibili) o cerca nelle collections
-    let followerType = (follow as any).followerType || 'user';
-    let followingType = (follow as any).followingType || 'user';
-
-    // Se i tipi non sono disponibili nel documento, determinali cercando nelle collections
-    if (!(follow as any).followerType) {
-      const followerInfo = await findUserOrEnte(followerId);
-      followerType = followerInfo?.type || 'user';
-    }
-    
-    if (!(follow as any).followingType) {
-      const followingInfo = await findUserOrEnte(followingId);
-      followingType = followingInfo?.type || 'user';
-    }
-
-    // Aggiorna i contatori
-    await updateCounters(followerId, followerType, 'following', -1);
-    await updateCounters(followingId, followingType, 'followers', -1);
 
     res.json(apiResponse({ message: 'Hai smesso di seguire l\'utente' }));
   } catch (error: any) {
@@ -160,13 +123,18 @@ export const getFollowers = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followerInfo = await findUserOrEnte(follow.followerId.toString());
       if (followerInfo) {
+        // Ottieni i contatori dinamicamente per ogni follower
+        const followCounts = await FollowCountService.getBothCounts(followerInfo.entity._id.toString());
+        
         const followerData = {
           _id: followerInfo.entity._id,
           nome: followerInfo.entity.nome,
           cognome: followerInfo.entity.cognome,
           biografia: followerInfo.entity.biografia,
           fotoProfilo: followerInfo.entity.fotoProfilo,
-          userType: followerInfo.type
+          userType: followerInfo.type,
+          followersCount: followCounts.followersCount,
+          followingCount: followCounts.followingCount
         };
         followers.push(followerData);
       }
@@ -199,13 +167,18 @@ export const getFollowing = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followingInfo = await findUserOrEnte(follow.followingId.toString());
       if (followingInfo) {
+        // Ottieni i contatori dinamicamente per ogni following
+        const followCounts = await FollowCountService.getBothCounts(followingInfo.entity._id.toString());
+        
         const followingData = {
           _id: followingInfo.entity._id,
           nome: followingInfo.entity.nome,
           cognome: followingInfo.entity.cognome,
           biografia: followingInfo.entity.biografia,
           fotoProfilo: followingInfo.entity.fotoProfilo,
-          userType: followingInfo.type
+          userType: followingInfo.type,
+          followersCount: followCounts.followersCount,
+          followingCount: followCounts.followingCount
         };
         following.push(followingData);
       }
@@ -231,16 +204,20 @@ export const getFollowStatus = async (req: Request, res: Response) => {
       throw new AppError('Utente non autenticato', 401);
     }
 
-    const isFollowing = await Follow.exists({ followerId, followingId });
-    
-    // Trova l'utente o ente per ottenere i contatori
+    // Verifica che l'utente/ente esista
     const userInfo = await findUserOrEnte(followingId);
+    if (!userInfo) {
+      throw new AppError('Utente non trovato', 404);
+    }
+
+    // Ottieni informazioni complete sui follow
+    const followInfo = await FollowCountService.getFullFollowInfo(followingId, followerId);
     
     res.json(apiResponse({ 
       data: {
-        isFollowing: !!isFollowing,
-        followersCount: userInfo?.entity.followers || 0,
-        followingCount: userInfo?.entity.following || 0
+        isFollowing: followInfo.isFollowedByCurrentUser || false,
+        followersCount: followInfo.followersCount,
+        followingCount: followInfo.followingCount
       }, 
       message: 'Status recuperato' 
     }));

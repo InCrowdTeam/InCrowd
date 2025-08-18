@@ -11,8 +11,8 @@ export interface IUser {
   credenziali: ICredenziali;
   createdAt: Date;
   updatedAt: Date;
-  followers?: number;
-  following?: number;
+  followersCount?: number;  // Contatore dinamico
+  followingCount?: number;  // Contatore dinamico
   isFollowedByCurrentUser?: boolean;
   userType?: 'user' | 'ente';  // Campo per distinguere tra utente privato ed ente
 }

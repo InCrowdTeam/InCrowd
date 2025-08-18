@@ -10,7 +10,5 @@ export interface IUser {
   credenziali: ICredenziali;
   createdAt: Date;
   updatedAt: Date;
-  followers: number;
-  following: number;
   isFollowedByCurrentUser?: boolean; // per la response API
 };
