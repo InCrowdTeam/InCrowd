@@ -133,6 +133,33 @@ export class DateService {
   }
 
   /**
+   * Formatta una data per eventi in formato esteso italiano
+   * @param dateString - Stringa data da formattare
+   * @returns string - Data formattata per evento (es: "Sabato 15 gennaio 2024")
+   */
+  static formatEventDate(dateString: string): string {
+    if (!dateString) return 'Data da definire';
+    
+    try {
+      const date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        return 'Data non valida';
+      }
+      
+      return date.toLocaleDateString('it-IT', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Errore nella formattazione della data evento:', error);
+      return 'Data non disponibile';
+    }
+  }
+
+  /**
    * Calcola se una data è nel passato
    * @param dateString - Stringa data da verificare
    * @returns boolean - True se la data è nel passato

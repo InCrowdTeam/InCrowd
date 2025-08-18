@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
 import User from "../models/User";
+import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 import { apiResponse } from "../utils/responseFormatter";
+import { FollowCountService } from "../utils/followCountService";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -14,26 +16,48 @@ interface AuthenticatedRequest extends Request {
 /**
  * Crea dati utente pubblici (limitati) per la visualizzazione pubblica
  * @param user - Oggetto utente completo dal database
+ * @param userType - Tipo di utente ('user' o 'ente')
+ * @param followCounts - Contatori dinamici di follow (opzionale)
  * @returns Oggetto con solo i dati pubblici dell'utente
  */
-const createPublicUser = (user: any) => {
-  return {
+const createPublicUser = (
+  user: any, 
+  userType: 'user' | 'ente' = 'user',
+  followCounts?: { followersCount: number; followingCount: number }
+) => {
+  const publicData = {
     _id: user._id,
     nome: user.nome,
     cognome: user.cognome,
     biografia: user.biografia,
     fotoProfilo: user.fotoProfilo,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    userType: userType
   };
+
+  // Aggiungi i contatori se disponibili
+  if (followCounts) {
+    return {
+      ...publicData,
+      followersCount: followCounts.followersCount,
+      followingCount: followCounts.followingCount
+    };
+  }
+
+  return publicData;
 };
 
+/**
+ * Verifica se l'utente autenticato ha permessi per visualizzare dati completi degli utenti
+ * @param requestUser - Oggetto utente dalla richiesta autenticata
+ */
 // Verifica se l'utente ha permessi per vedere tutti i dati
 const canViewFullUserData = (requestUser: any) => {
   return requestUser && (requestUser.userType === 'operatore' || requestUser.userType === 'admin');
 };
 
 /**
- * Recupera tutti gli utenti (solo per operatori e amministratori)
+ * Recupera tutti gli utenti (solo per operatori)
  * @param req - Richiesta HTTP
  * @param res - Risposta HTTP
  */
@@ -203,27 +227,55 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
- * Recupera un utente specifico per ID (solo per operatori e amministratori)
+ * Recupera un utente specifico per ID (solo per operatori)
  * @param req - Richiesta HTTP con ID utente
  * @param res - Risposta HTTP
  */
 export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId);
+    const currentUserId = req.user?.userId;
+    
+    // Prima cerca nell'collection utenti
+    let user = await User.findById(userId);
+    let isEnte = false;
+    
+    // Se non trovato negli utenti, cerca negli enti
+    if (!user) {
+      user = await Ente.findById(userId);
+      isEnte = true;
+    }
     
     if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
+
+    // Ottieni i contatori dinamici e lo stato di follow
+    const followInfo = await FollowCountService.getFullFollowInfo(userId, currentUserId);
 
     // Se l'utente è autenticato ed è operatore/admin, restituisce dati completi
     if (canViewFullUserData(req.user)) {
       const safeUser = createSafeCredentials(user);
+      // Aggiungi il campo userType per distinguere utenti ed enti
+      safeUser.userType = isEnte ? 'ente' : 'user';
+      safeUser.followersCount = followInfo.followersCount;
+      safeUser.followingCount = followInfo.followingCount;
+      safeUser.isFollowedByCurrentUser = followInfo.isFollowedByCurrentUser;
       return res.json(apiResponse({ data: safeUser, message: "Utente trovato" }));
     }
 
-    // Altrimenti restituisce solo dati pubblici
-    const publicUser = createPublicUser(user);
+    // Altrimenti restituisce solo dati pubblici con contatori
+    const userTypeForPublic = isEnte ? 'ente' : 'user';
+    const publicUser = createPublicUser(user, userTypeForPublic, {
+      followersCount: followInfo.followersCount,
+      followingCount: followInfo.followingCount
+    });
+    
+    // Aggiungi lo stato di follow se l'utente è autenticato
+    if (followInfo.isFollowedByCurrentUser !== undefined) {
+      (publicUser as any).isFollowedByCurrentUser = followInfo.isFollowedByCurrentUser;
+    }
+    
     res.json(apiResponse({ data: publicUser, message: "Dati pubblici utente" }));
   } catch (error) {
     console.error("Errore nel recupero utente:", error);
@@ -232,17 +284,24 @@ export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 /**
- * Recupera l'avatar di un utente specifico
+ * Recupera l'avatar di un utente specifico (utenti privati o enti)
  * @param req - Richiesta HTTP con ID utente
  * @param res - Risposta HTTP con dati avatar
  */
 export const getUserAvatar = async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId).select("fotoProfilo nome");
+    
+    // Prima cerca nell'collection utenti
+    let user = await User.findById(userId).select("fotoProfilo nome");
+    
+    // Se non trovato negli utenti, cerca negli enti
+    if (!user) {
+      user = await Ente.findById(userId).select("fotoProfilo nome");
+    }
     
     if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
     }
 
     if (!user.fotoProfilo || !user.fotoProfilo.data) {
@@ -513,5 +572,85 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
   } catch (error) {
     console.error("Errore eliminazione account:", error);
     res.status(500).json(apiResponse({ message: "Errore eliminazione account", error }));
+  }
+};
+
+/**
+ * Ricerca utenti (privati ed enti) per nome, cognome o biografia con paginazione
+ * @param req - Richiesta HTTP con query di ricerca e parametri di paginazione
+ * @param res - Risposta HTTP con risultati della ricerca e metadati di paginazione
+ */
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    const { query, page = 1, limit = 10 } = req.query;
+    
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Query di ricerca richiesta'
+      });
+    }
+
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Ricerca per nome, cognome o biografia
+    const searchRegex = new RegExp(query, 'i');
+    const searchQuery = {
+      $or: [
+        { nome: { $regex: searchRegex } },
+        { cognome: { $regex: searchRegex } },
+        { biografia: { $regex: searchRegex } }
+      ]
+    };
+
+    // Esegui ricerca parallela in entrambe le collections
+    const [users, enti, totalUsers, totalEnti] = await Promise.all([
+      User.find(searchQuery)
+        .select('nome cognome biografia fotoProfilo createdAt')
+        .sort({ nome: 1 })
+        .lean(),
+      Ente.find(searchQuery)
+        .select('nome biografia fotoProfilo createdAt')
+        .sort({ nome: 1 })
+        .lean(),
+      User.countDocuments(searchQuery),
+      Ente.countDocuments(searchQuery)
+    ]);
+
+    // Combina i risultati e aggiungi campo userType per distinguere utenti ed enti
+    const combinedResults = [
+      ...users.map((user: any) => ({ ...user, userType: 'user' })),
+      ...enti.map((ente: any) => ({ ...ente, userType: 'ente', cognome: undefined }))
+    ];
+
+    // Ordina i risultati combinati per nome
+    combinedResults.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    // Applica paginazione ai risultati combinati
+    const totalCombined = totalUsers + totalEnti;
+    const paginatedResults = combinedResults.slice(skip, skip + limitNum);
+
+    res.json({
+      success: true,
+      data: {
+        users: paginatedResults,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalCombined / limitNum),
+          totalUsers: totalCombined,
+          hasNextPage: skip + limitNum < totalCombined,
+          hasPrevPage: pageNum > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Errore nella ricerca utenti:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Errore interno del server'
+    });
   }
 };

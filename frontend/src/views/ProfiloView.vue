@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from "vue";
+import { ref, onMounted, computed, nextTick, watch } from "vue";
 import { useRouter } from "vue-router";
 import type { IProposta } from "../types/Proposta";
+import type { IUser } from "../types/User";
 import { useUserStore } from "@/stores/userStore";
+import { useFollowStore } from "@/stores/followStore";
 import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import { useModal } from '@/composables/useModal';
@@ -18,6 +20,7 @@ declare global {
 }
 
 const userStore = useUserStore();
+const followStore = useFollowStore();
 const router = useRouter();
 const { showConfirm, showSuccess, showError } = useModal();
 
@@ -37,8 +40,17 @@ const selectedTab = ref("mie");
 
 const mieProposte = ref<IProposta[]>([]);
 const hypedProposte = ref<IProposta[]>([]);
+const utentiSeguiti = ref<IUser[]>([]);
 const loading = ref(true);
+const loadingSeguiti = ref(false);
 const error = ref('');
+
+// Stats di follow per il profilo personale
+const followStats = ref({
+  followersCount: 0,
+  followingCount: 0
+});
+const loadingFollowStats = ref(false);
 
 // Computed per mostrare nome completo
 const nomeCompleto = computed(() => {
@@ -88,48 +100,105 @@ onMounted(async () => {
       fotoProfilo: null
     };
     
+    // Carica tutti i dati in parallelo per migliorare le performance
+    const promises = [];
+    
     // Carica le MIE proposte usando l'API dedicata
-    try {
-      const mieProposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
+    promises.push(
+      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte/my`, {
         headers: {
           Authorization: `Bearer ${userStore.token}`
         }
-      });
-      // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
-      mieProposte.value = mieProposteRes.data.data || mieProposteRes.data;
-    } catch (err) {
-      console.error("❌ Errore nel caricamento delle mie proposte:", err);
-    }
+      }).then(response => {
+        // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
+        mieProposte.value = response.data.data || response.data;
+      }).catch(err => {
+        console.error("❌ Errore nel caricamento delle mie proposte:", err);
+      })
+    );
     
     // Carica tutte le proposte approvate per i filtri degli hyped
-    try {
-      const proposteRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`);
-      // L'API delle proposte usa successResponse che wrappa i dati
-      const allProposte = proposteRes.data.data || proposteRes.data;
-      
-      hypedProposte.value = allProposte.filter(
-        (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
-      );
-    } catch (err) {
-      console.error("Errore nel caricamento proposte hyped:", err);
-    }
+    promises.push(
+      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/proposte`).then(response => {
+        // L'API delle proposte usa successResponse che wrappa i dati
+        const allProposte = response.data.data || response.data;
+        
+        hypedProposte.value = allProposte.filter(
+          (p: IProposta) => p.listaHyper?.includes(userStore.user?._id)
+        );
+      }).catch(err => {
+        console.error("Errore nel caricamento proposte hyped:", err);
+      })
+    );
+    
+    // Carica gli stats di follow (follower e following)
+    promises.push(caricaFollowStats());
     
     // Aggiorna dati utente se necessario
     const userId = userStore.user?._id;
     if (userId && !userStore.user?.biografia) {
-      try {
-        const userRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`);
-        const userData = userRes.data?.data || userRes.data;
-        userStore.setUser({ ...userStore.user, ...userData });
-      } catch (err) {
-        console.error("Errore nel caricamento dati utente:", err);
-      }
+      promises.push(
+        axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`).then(response => {
+          const userData = response.data?.data || response.data;
+          userStore.setUser({ ...userStore.user, ...userData });
+        }).catch(err => {
+          console.error("Errore nel caricamento dati utente:", err);
+        })
+      );
     }
+    
+    // Attende tutti i caricamenti
+    await Promise.all(promises);
+    
   } catch (err) {
     console.error("Errore nel caricamento profilo:", err);
     error.value = "Errore nel caricamento del profilo";
   } finally {
     loading.value = false;
+  }
+});
+
+// Funzione per caricare gli utenti seguiti
+const caricaUtentiSeguiti = async () => {
+  if (!userStore.user?._id) return;
+  
+  try {
+    loadingSeguiti.value = true;
+    utentiSeguiti.value = await followStore.loadFollowing(userStore.user._id);
+    
+    // Aggiorna anche il counter dei seguiti con il numero effettivo caricato
+    followStats.value.followingCount = utentiSeguiti.value.length;
+    
+    console.log(`✅ Caricati ${utentiSeguiti.value.length} utenti seguiti`);
+  } catch (err) {
+    console.error("❌ Errore nel caricamento degli utenti seguiti:", err);
+    await showError("Errore nel caricamento degli utenti seguiti", "Riprova più tardi");
+  } finally {
+    loadingSeguiti.value = false;
+  }
+};
+
+// Funzione per caricare gli stats di follow (follower e following)
+const caricaFollowStats = async () => {
+  if (!userStore.user?._id) return;
+  
+  try {
+    loadingFollowStats.value = true;
+    const stats = await followStore.loadMyFollowStats(userStore.user._id);
+    followStats.value = stats;
+    console.log(`✅ Stats di follow caricati: ${stats.followersCount} follower, ${stats.followingCount} following`);
+  } catch (err) {
+    console.error("❌ Errore nel caricamento degli stats di follow:", err);
+    // Non mostriamo errore all'utente per gli stats, li lasciamo a 0
+  } finally {
+    loadingFollowStats.value = false;
+  }
+};
+
+// Watcher per caricare i dati quando si cambia tab
+watch(selectedTab, async (newTab) => {
+  if (newTab === 'seguiti' && utentiSeguiti.value.length === 0) {
+    await caricaUtentiSeguiti();
   }
 });
 
@@ -192,6 +261,39 @@ const unhypeProposta = async (proposta: IProposta) => {
     console.error("Errore nell'unhype:", err);
     const errorMessage = err.response?.data?.message || "Errore nell'unhype della proposta";
     showError("Errore nell'unhype della proposta", errorMessage);
+  }
+};
+
+// Funzione per navigare al profilo di un utente
+const goToUserProfile = (userId: string) => {
+  router.push(`/users/${userId}`)
+}
+
+// Funzione per smettere di seguire un utente
+const smettereSeguitoUtente = async (utente: IUser) => {
+  const result = await showConfirm(
+    `Sei sicuro di voler smettere di seguire ${utente.nome}?`,
+    'Conferma unfollow',
+    '👋 Smetti di seguire',
+    'Annulla'
+  );
+  
+  if (!result || !utente._id) return;
+  
+  try {
+    await followStore.unfollowUser(utente._id);
+    
+    // Rimuovi l'utente dalla lista locale
+    utentiSeguiti.value = utentiSeguiti.value.filter(u => u._id !== utente._id);
+    
+    // Aggiorna i propri stats di following (decrementa di 1)
+    followStats.value.followingCount = Math.max(0, followStats.value.followingCount - 1);
+    
+    await showSuccess(`Non segui più ${utente.nome}`);
+  } catch (err: any) {
+    console.error("❌ Errore nell'unfollow:", err);
+    const errorMessage = err.response?.data?.message || "Errore nello smettere di seguire l'utente";
+    await showError("Errore unfollow", errorMessage);
   }
 };
 
@@ -781,6 +883,20 @@ const getUserTypeLabel = (): string => {
               <span class="stat-number">{{ hypedProposte.length }}</span>
               <span class="stat-label">Hyped</span>
             </div>
+            <div class="stat">
+              <span class="stat-number">
+                <span v-if="loadingFollowStats" class="stat-loading">•</span>
+                <span v-else>{{ followStats.followersCount }}</span>
+              </span>
+              <span class="stat-label">Follower</span>
+            </div>
+            <div class="stat">
+              <span class="stat-number">
+                <span v-if="loadingFollowStats" class="stat-loading">•</span>
+                <span v-else>{{ followStats.followingCount }}</span>
+              </span>
+              <span class="stat-label">Seguiti</span>
+            </div>
           </div>
 
         </div>
@@ -893,10 +1009,59 @@ const getUserTypeLabel = (): string => {
 
         <!-- Seguiti -->
         <div v-else-if="selectedTab === 'seguiti'" class="proposals-section">
-          <div class="empty-state">
+          <!-- Loading state -->
+          <div v-if="loadingSeguiti" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Caricamento utenti seguiti...</p>
+          </div>
+
+          <!-- Empty state -->
+          <div v-else-if="utentiSeguiti.length === 0" class="empty-state">
             <div class="empty-icon">👥</div>
             <h3>Nessun utente seguito</h3>
             <p>Gli utenti che seguirai appariranno qui</p>
+          </div>
+
+          <!-- Lista utenti seguiti -->
+          <div v-else class="following-users-grid">
+            <div 
+              v-for="utente in utentiSeguiti" 
+              :key="utente._id" 
+              class="following-user-card"
+              @click="goToUserProfile(utente._id)"
+            >
+              <div class="user-image-container">
+                <img 
+                  v-if="utente.fotoProfilo?.data"
+                  :src="`data:${utente.fotoProfilo.contentType};base64,${utente.fotoProfilo.data}`"
+                  class="user-image"
+                  :alt="`Avatar di ${utente.nome}`"
+                />
+                <div v-else class="user-image-placeholder">
+                  {{ utente.nome?.charAt(0)?.toUpperCase() || '?' }}
+                </div>
+              </div>
+              
+              <div class="user-content">
+                <h4 class="user-name">
+                  {{ utente.nome }}{{ utente.cognome ? ` ${utente.cognome}` : '' }}
+                </h4>
+                <p v-if="utente.biografia" class="user-bio">
+                  {{ utente.biografia.substring(0, 80) }}{{ utente.biografia.length > 80 ? '...' : '' }}
+                </p>
+                <p v-else class="user-bio-placeholder">Nessuna biografia</p>
+                
+                <div class="user-actions">
+                  <button 
+                    class="action-button secondary-button" 
+                    @click.stop="smettereSeguitoUtente(utente)"
+                    title="Smetti di seguire"
+                  >
+                    ❌ Non seguire più
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1392,7 +1557,7 @@ const getUserTypeLabel = (): string => {
   width: 40px;
   height: 40px;
   border: 3px solid var(--color-border);
-  border-top: 3px solid var(--color-primary);
+  border-top: 3px solid var(--color-primary, #fe4654);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -1501,6 +1666,21 @@ const getUserTypeLabel = (): string => {
   border: 1px solid #e1bee7;
 }
 
+/* Dark mode improvements */
+@media (prefers-color-scheme: dark) {
+  .user-type-badge.type-user {
+    background: rgba(33, 150, 243, 0.2);
+    color: #90caf9;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+  }
+  
+  .user-type-badge.type-ente {
+    background: rgba(156, 39, 176, 0.2);
+    color: #ce93d8;
+    border: 1px solid rgba(156, 39, 176, 0.3);
+  }
+}
+
 .settings-button {
   background: var(--color-card-background);
   color: var(--color-text);
@@ -1568,10 +1748,29 @@ const getUserTypeLabel = (): string => {
   color: #fe4654;
 }
 
+.stat-number span {
+  font-weight: 700;
+}
+
 .stat-label {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   margin-top: 0.2rem;
+}
+
+.stat-loading {
+  display: inline-block;
+  animation: pulse 1.5s ease-in-out infinite;
+  color: #fe4654;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Tabs */
@@ -1596,6 +1795,10 @@ const getUserTypeLabel = (): string => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .tab-button:hover {
@@ -2798,5 +3001,241 @@ const getUserTypeLabel = (): string => {
 
 .delete-text {
   font-weight: 700;
+}
+
+/* Stili per la sezione utenti seguiti */
+.following-users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.following-user-card {
+  background: var(--color-card-background);
+  border-radius: 1.2rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 16px var(--color-shadow);
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+}
+
+.following-user-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px var(--color-shadow-hover);
+  border-color: var(--color-primary);
+}
+
+.user-image-container {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.user-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+
+.following-user-card:hover .user-image {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-image-placeholder {
+  width: 80px;
+  height: 80px;
+  background: var(--color-background-mute);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--color-text-secondary);
+  border: 3px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+
+.following-user-card:hover .user-image-placeholder {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-content {
+  width: 100%;
+}
+
+.user-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.user-bio {
+  color: var(--color-text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.user-bio-placeholder {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: 0 0 1rem 0;
+}
+
+.user-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--color-background-soft);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  margin-bottom: 0.2rem;
+}
+
+.stat-number span {
+  font-weight: bold;
+}
+
+.stat-label {
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  align-items: center;
+}
+
+.action-button {
+  padding: 0.6rem 1rem;
+  border-radius: 2rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: fit-content;
+  min-width: 120px;
+}
+
+.primary-button {
+  background: var(--color-primary);
+  color: white;
+}
+
+.primary-button:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px var(--color-primary-light);
+}
+
+.secondary-button {
+  background: var(--color-background-soft);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.secondary-button:hover {
+  background: var(--color-background-mute);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #4a5568;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border, #e2e8f0);
+  border-top: 3px solid var(--color-primary, #fe4654);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive per la griglia utenti */
+@media (max-width: 768px) {
+  .following-users-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .following-user-card {
+    padding: 1rem;
+  }
+  
+  .user-image,
+  .user-image-placeholder {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .user-actions {
+    flex-direction: row;
+  }
+  
+  .action-button {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
 }
 </style>

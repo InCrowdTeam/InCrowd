@@ -122,7 +122,7 @@ function getUserRole(): string {
               <div class="user-name">Admin Sistema</div>
             </div>
             <button @click="handleLogout" class="logout-btn-new" title="Logout">
-              <span class="logout-icon">🚪</span>
+              <img src="@/assets/logout.png" alt="Logout" class="logout-icon-img" />
             </button>
           </div>
         </div>
@@ -170,7 +170,7 @@ function getUserRole(): string {
               <div class="user-name">{{ getUserDisplayName() }}</div>
             </div>
             <button @click="handleLogout" class="logout-btn-new" title="Logout">
-              <span class="logout-icon">🚪</span>
+              <img src="@/assets/logout.png" alt="Logout" class="logout-icon-img" />
             </button>
           </div>
         </div>
@@ -221,7 +221,7 @@ function getUserRole(): string {
               <div class="user-name">{{ getUserDisplayName() }}</div>
             </div>
             <button @click="handleLogout" class="logout-btn-new" title="Logout">
-              <span class="logout-icon">🚪</span>
+              <img src="@/assets/logout.png" alt="Logout" class="logout-icon-img" />
             </button>
           </div>
         </div>
@@ -523,6 +523,12 @@ function getUserRole(): string {
 .logout-btn-new:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: scale(1.1);
+}
+
+.logout-icon-img {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
 }
 
 /* ==== CONTENUTO PRINCIPALE ==== */

@@ -1,4 +1,7 @@
+import type { IUser } from '@/types/User';
+
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api/users`
+
 
 export async function createUser(userData: any) {
   const res = await fetch(BASE_URL, {
@@ -122,3 +125,48 @@ export async function deleteAccount(token: string): Promise<{ message: string }>
 }
 
 
+// Aggiungiamo il tipo per la risposta di ricerca
+export interface SearchUsersResponse {
+  success: boolean;
+  data: {
+    users: IUser[];
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalUsers: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  };
+}
+
+// Modifichiamo la funzione searchUsers per usare fetch invece di axios
+export const searchUsers = async (
+  query: string, 
+  page: number = 1, 
+  limit: number = 10
+): Promise<SearchUsersResponse> => {
+  try {
+    const url = new URL(`${BASE_URL}/search`);
+    url.searchParams.append('query', query);
+    url.searchParams.append('page', page.toString());
+    url.searchParams.append('limit', limit.toString());
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Errore nella ricerca utenti');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Errore nella ricerca utenti:', error);
+    throw error;
+  }
+};
