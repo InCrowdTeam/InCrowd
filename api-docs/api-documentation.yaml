@@ -21,10 +21,13 @@ info:
     - **in_approvazione**: In attesa di moderazione
     - **approvata**: Approvata e visibile pubblicamente
     - **rifiutata**: Rifiutata durante la moderazione
-    
-    ## Rate Limiting
-    Alcune API hanno limitazioni di frequenza per prevenire abusi.
-    
+
+    ## Attributi automatici
+    - _id: ID unico generato da MongoDB
+    - _createdAt: Data di creazione (Gestito da MongoDB)
+    - _updatedAt: Data di ultimo aggiornamento (Gestito da MongoDB)
+    Tutti gli attributi automatici sono gestiti da MongoDB e non devono essere forniti durante la creazione o l'aggiornamento di un documento.
+
   contact:
     name: InCrowd Team
     email: support@incrowd.com
@@ -52,9 +55,9 @@ tags:
   - name: Enti
     description: Gestione enti e organizzazioni
   - name: Operatori
-    description: Gestione operatori di moderazione
-  - name: Admin - Operatori
-    description: Gestione operatori (solo admin)
+    description: Gestione operatori e moderazione
+  - name: Admin
+    description: Gestione operatori
 
 paths:
   # =============================================================================
@@ -104,7 +107,13 @@ paths:
                   example: "user@example.com"
                 password:
                   type: string
-                  example: "password123"
+                  format: password
+                  minLength: 8
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
                 oauthCode:
                   type: string
                   description: "Codice OAuth per login tramite provider esterno"
@@ -126,7 +135,7 @@ paths:
                         type: string
                         description: "JWT token per autenticazione"
                       user:
-                        $ref: '#/components/schemas/SafeUser'
+                        $ref: '#/components/schemas/User'
                       userType:
                         type: string
                         enum: [user, ente, operatore, admin]
@@ -169,7 +178,7 @@ paths:
                       token:
                         type: string
                       user:
-                        $ref: '#/components/schemas/SafeUser'
+                        $ref: '#/components/schemas/User'
                       userType:
                         type: string
                         enum: [user, ente]
@@ -244,8 +253,13 @@ paths:
                   example: "mario.rossi@example.com"
                 password:
                   type: string
+                  format: password
                   minLength: 8
-                  example: "SecurePass123!"
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
                 oauthCode:
                   type: string
                   description: "Codice OAuth per registrazione tramite provider esterno"
@@ -270,7 +284,7 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/SafeUser'
+                        $ref: '#/components/schemas/User'
                       token:
                         type: string
                       userType:
@@ -303,7 +317,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeUser'
+                    $ref: '#/components/schemas/User'
                   message:
                     type: string
         '401':
@@ -376,7 +390,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeUser'
+                    $ref: '#/components/schemas/User'
                   message:
                     type: string
         '400':
@@ -406,8 +420,13 @@ paths:
               properties:
                 newPassword:
                   type: string
+                  format: password
                   minLength: 8
-                  example: "NewSecurePass123!"
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
       responses:
         '200':
           description: Password aggiornata con successo
@@ -419,7 +438,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeUser'
+                    $ref: '#/components/schemas/User'
                   message:
                     type: string
         '400':
@@ -475,7 +494,7 @@ paths:
                       users:
                         type: array
                         items:
-                          $ref: '#/components/schemas/PublicUser'
+                          $ref: '#/components/schemas/User'
                       pagination:
                         $ref: '#/components/schemas/PaginationInfo'
         '400':
@@ -515,8 +534,7 @@ paths:
                     type: boolean
                   data:
                     oneOf:
-                      - $ref: '#/components/schemas/PublicUser'
-                      - $ref: '#/components/schemas/SafeUser'
+                      - $ref: '#/components/schemas/User'
                   message:
                     type: string
         '404':
@@ -1555,8 +1573,13 @@ paths:
                   example: "info@comune.roma.it"
                 password:
                   type: string
+                  format: password
                   minLength: 8
-                  example: "SecurePass123!"
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
                 oauthCode:
                   type: string
                   description: "Codice OAuth per registrazione tramite provider esterno"
@@ -1581,7 +1604,7 @@ paths:
                     type: object
                     properties:
                       ente:
-                        $ref: '#/components/schemas/SafeEnte'
+                        $ref: '#/components/schemas/Ente'
                       token:
                         type: string
                       userType:
@@ -1636,7 +1659,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeEnte'
+                    $ref: '#/components/schemas/Ente'
                   message:
                     type: string
         '400':
@@ -1668,12 +1691,17 @@ paths:
               properties:
                 currentPassword:
                   type: string
-                  example: "CurrentPass123!"
+                  example: "PasswordCorrente123!"
                   description: "Password attuale (richiesta per sicurezza)"
                 newPassword:
                   type: string
+                  format: password
                   minLength: 8
-                  example: "NewSecurePass123!"
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
       responses:
         '200':
           description: Password aggiornata con successo
@@ -1685,7 +1713,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeEnte'
+                    $ref: '#/components/schemas/Ente'
                   message:
                     type: string
         '400':
@@ -1733,8 +1761,13 @@ paths:
                   example: "mario.rossi@admin.com"
                 password:
                   type: string
+                  format: password
                   minLength: 8
-                  example: "SecureOperatorPass123!"
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
       responses:
         '201':
           description: Operatore creato con successo
@@ -1746,7 +1779,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeOperatore'
+                    $ref: '#/components/schemas/Operatore'
                   message:
                     type: string
         '400':
@@ -1801,6 +1834,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
+          $ref: '#/components/responses/InternalError'
   # ADMIN OPERATORI ENDPOINTS
   # =============================================================================
   /api/admin/operatori:
@@ -1847,7 +1881,7 @@ paths:
                       operatori:
                         type: array
                         items:
-                          $ref: '#/components/schemas/SafeOperatore'
+                          $ref: '#/components/schemas/Operatore'
                       pagination:
                         $ref: '#/components/schemas/PaginationInfo'
                   message:
@@ -1891,8 +1925,13 @@ paths:
                   example: "mario.rossi@operatore.com"
                 password:
                   type: string
+                  format: password
                   minLength: 8
-                  example: "SecureOperatorPass123!"
+                  pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*(),.?\\\":{}|<>]).{8,}$"
+                  description: >
+                    Password per il nuovo account: minimo 8 caratteri, almeno una lettera maiuscola,
+                    una lettera minuscola e un carattere speciale.
+                  example: "PasswordSicura123!"
       responses:
         '201':
           description: Operatore creato con successo
@@ -1904,7 +1943,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/SafeOperatore'
+                    $ref: '#/components/schemas/Operatore'
                   message:
                     type: string
         '400':
@@ -2020,39 +2059,236 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/BadRequestError'
     Unauthorized:
       description: "Non autorizzato - token mancante o non valido"
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/UnauthorizedError'
     Forbidden:
       description: "Accesso negato - privilegi insufficienti"
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ForbiddenError'
     NotFound:
       description: "Risorsa non trovata"
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/NotFoundError'
     Conflict:
       description: "Conflitto - risorsa già esistente"
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ConflictError'
     InternalError:
       description: "Errore interno del server"
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/InternalServerError'
 
   schemas:
+    # =============================================================================
+    # ERROR RESPONSE SCHEMAS
+    # =============================================================================
+    BadRequestError:
+      type: object
+      required:
+        - success
+        - error
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          example: "I dati forniti non sono validi"
+        details:
+          type: object
+          description: "Dettagli specifici dell'errore (opzionale)"
+          properties:
+            field:
+              type: string
+              example: "email"
+            reason:
+              type: string
+              example: "Formato email non valido"
+            validationErrors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+              example:
+                - field: "password"
+                  message: "La password deve contenere almeno 8 caratteri"
+                - field: "email"
+                  message: "Email già registrata"
+
+    UnauthorizedError:
+      type: object
+      required:
+        - success
+        - error
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "UNAUTHORIZED"
+        message:
+          type: string
+          example: "Token di autenticazione mancante o non valido"
+        details:
+          type: object
+          properties:
+            reason:
+              type: string
+              enum: ["TOKEN_MISSING", "TOKEN_INVALID", "TOKEN_EXPIRED", "INVALID_CREDENTIALS"]
+              example: "TOKEN_EXPIRED"
+            expiredAt:
+              type: string
+              format: date-time
+              example: "2024-08-18T10:30:00Z"
+
+    ForbiddenError:
+      type: object
+      required:
+        - success
+        - error
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "FORBIDDEN"
+        message:
+          type: string
+          example: "Accesso negato - privilegi insufficienti"
+        details:
+          type: object
+          properties:
+            requiredRole:
+              type: string
+              enum: ["operatore", "admin", "ente", "user"]
+              example: "operatore"
+            currentRole:
+              type: string
+              enum: ["operatore", "admin", "ente", "user"]
+              example: "user"
+            action:
+              type: string
+              example: "moderate_proposal"
+
+    NotFoundError:
+      type: object
+      required:
+        - success
+        - error
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "NOT_FOUND"
+        message:
+          type: string
+          example: "Risorsa non trovata"
+        details:
+          type: object
+          properties:
+            resource:
+              type: string
+              enum: ["user", "proposta", "commento", "ente", "operatore", "follow"]
+              example: "proposta"
+            resourceId:
+              type: string
+              example: "60d0fe4f5311236168a109cb"
+            suggestion:
+              type: string
+              example: "Verifica che l'ID sia corretto e che la risorsa esista"
+
+    ConflictError:
+      type: object
+      required:
+        - success
+        - error
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "CONFLICT"
+        message:
+          type: string
+          example: "Risorsa già esistente o conflitto nei dati"
+        details:
+          type: object
+          properties:
+            conflictType:
+              type: string
+              enum: ["DUPLICATE_EMAIL", "DUPLICATE_CODICE_FISCALE", "ALREADY_FOLLOWING", "ALREADY_HYPED"]
+              example: "DUPLICATE_EMAIL"
+            conflictField:
+              type: string
+              example: "email"
+            conflictValue:
+              type: string
+              example: "user@example.com"
+            existingResourceId:
+              type: string
+              example: "60d0fe4f5311236168a109ca"
+
+    InternalServerError:
+      type: object
+      required:
+        - success
+        - error
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "INTERNAL_SERVER_ERROR"
+        message:
+          type: string
+          example: "Errore interno del server. Riprova più tardi"
+        details:
+          type: object
+          properties:
+            errorId:
+              type: string
+              example: "ERR_2024081810301234"
+              description: "ID univoco dell'errore per il debugging"
+            timestamp:
+              type: string
+              format: date-time
+              example: "2024-08-18T10:30:12Z"
+            supportMessage:
+              type: string
+              example: "Se il problema persiste, contatta il supporto con l'ID errore"
+
     # =============================================================================
     # RESPONSE SCHEMAS
     # =============================================================================
@@ -2157,70 +2393,6 @@ components:
           format: date-time
           description: "Data ultimo aggiornamento"
 
-    SafeUser:
-      type: object
-      description: "Versione sicura dell'utente senza dati sensibili"
-      properties:
-        _id:
-          type: string
-          example: "60d0fe4f5311236168a109ca"
-        nome:
-          type: string
-          example: "Mario"
-        cognome:
-          type: string
-          example: "Rossi"
-        biografia:
-          type: string
-          example: "Appassionato di tecnologia"
-        fotoProfilo:
-          $ref: '#/components/schemas/Allegato'
-        email:
-          type: string
-          format: email
-          description: "Email (solo per utente corrente)"
-          example: "mario.rossi@example.com"
-        followersCount:
-          type: integer
-          example: 150
-        followingCount:
-          type: integer
-          example: 75
-        proposteCount:
-          type: integer
-          example: 12
-        createdAt:
-          type: string
-          format: date-time
-
-    PublicUser:
-      type: object
-      description: "Versione pubblica dell'utente per visualizzazioni esterne"
-      properties:
-        _id:
-          type: string
-          example: "60d0fe4f5311236168a109ca"
-        nome:
-          type: string
-          example: "Mario"
-        cognome:
-          type: string
-          example: "Rossi"
-        biografia:
-          type: string
-          example: "Appassionato di tecnologia"
-        fotoProfilo:
-          $ref: '#/components/schemas/Allegato'
-        followersCount:
-          type: integer
-          example: 150
-        followingCount:
-          type: integer
-          example: 75
-        proposteCount:
-          type: integer
-          example: 12
-
     FollowUser:
       type: object
       description: "Utente nel contesto di follow/follower"
@@ -2283,8 +2455,7 @@ components:
           example: "60d0fe4f5311236168a109ca"
         proponente:
           oneOf:
-            - $ref: '#/components/schemas/PublicUser'
-            - $ref: '#/components/schemas/SafeEnte'
+            - $ref: '#/components/schemas/User'
           description: "Dati del proponente (popolato automaticamente)"
         stato:
           type: object
@@ -2376,32 +2547,17 @@ components:
       type: object
       required:
         - email
-        - passwordHash
+        - oauthCode
+        - password
       properties:
         email:
           type: string
           format: email
           description: "Email per l'accesso"
           example: "user@example.com"
-        passwordHash:
+        oauthCode:
           type: string
-          description: "Hash della password (non visibile nelle API)"
-        isVerified:
-          type: boolean
-          description: "Se l'email è verificata"
-          example: false
-        lastLogin:
-          type: string
-          format: date-time
-          description: "Ultimo accesso"
-        loginAttempts:
-          type: integer
-          description: "Tentativi di login falliti"
-          example: 0
-        lockUntil:
-          type: string
-          format: date-time
-          description: "Data fino a cui l'account è bloccato"
+          description: "Codice OAuth per autenticazione con Google"
 
     Indirizzo:
       type: object
@@ -2427,49 +2583,21 @@ components:
           type: string
           description: "Numero civico"
           example: "123"
-        provincia:
-          type: string
-          description: "Provincia"
-          example: "RM"
-        regione:
-          type: string
-          description: "Regione"
-          example: "Lazio"
 
     Allegato:
       type: object
+      required:
+        - data
+        - contentType
       properties:
-        _id:
-          type: string
-          example: "60d0fe4f5311236168a109d0"
-        filename:
-          type: string
-          description: "Nome del file"
-          example: "foto_evento.jpg"
-        originalName:
-          type: string
-          description: "Nome originale del file"
-          example: "IMG_20240101_120000.jpg"
-        mimetype:
-          type: string
-          description: "Tipo MIME del file"
-          example: "image/jpeg"
-        size:
-          type: integer
-          description: "Dimensione in byte"
-          example: 1048576
         data:
           type: string
-          format: byte
-          description: "Dati del file in base64"
-        url:
+          format: binary
+          description: "File allegato (immagine, documento, etc.) in BASE64"
+        contentType:
           type: string
-          format: uri
-          description: "URL pubblico del file"
-          example: "/api/files/60d0fe4f5311236168a109d0"
-        createdAt:
-          type: string
-          format: date-time
+          description: "Tipo di contenuto del file"
+          example: "image/jpeg"
 
     # =============================================================================
     # ENTE SCHEMAS
@@ -2488,7 +2616,7 @@ components:
         nome:
           type: string
           description: "Nome dell'ente"
-          example: "Comune di Roma"
+          example: "Comune di Trento"
         codiceFiscale:
           type: string
           description: "Codice fiscale o partita IVA dell'ente"
@@ -2497,23 +2625,11 @@ components:
           type: string
           maxLength: 500
           description: "Descrizione dell'ente"
-          example: "Amministrazione comunale della città di Roma"
+          example: "Amministrazione comunale della città di Trento"
         fotoProfilo:
           $ref: '#/components/schemas/Allegato'
         credenziali:
           $ref: '#/components/schemas/Credenziali'
-        followersCount:
-          type: integer
-          description: "Numero di follower"
-          example: 500
-        followingCount:
-          type: integer
-          description: "Numero di utenti seguiti"
-          example: 50
-        proposteCount:
-          type: integer
-          description: "Numero di proposte create"
-          example: 15
         createdAt:
           type: string
           format: date-time
@@ -2522,39 +2638,6 @@ components:
           type: string
           format: date-time
           description: "Data ultimo aggiornamento"
-
-    SafeEnte:
-      type: object
-      description: "Versione sicura dell'ente senza dati sensibili"
-      properties:
-        _id:
-          type: string
-          example: "60d0fe4f5311236168a109ce"
-        nome:
-          type: string
-          example: "Comune di Roma"
-        biografia:
-          type: string
-          example: "Amministrazione comunale della città di Roma"
-        fotoProfilo:
-          $ref: '#/components/schemas/Allegato'
-        email:
-          type: string
-          format: email
-          description: "Email (solo per ente corrente)"
-          example: "info@comune.roma.it"
-        followersCount:
-          type: integer
-          example: 500
-        followingCount:
-          type: integer
-          example: 50
-        proposteCount:
-          type: integer
-          example: 15
-        createdAt:
-          type: string
-          format: date-time
 
     # =============================================================================
     # OPERATORE SCHEMAS
@@ -2589,28 +2672,6 @@ components:
           format: date-time
           description: "Data ultimo aggiornamento"
 
-    SafeOperatore:
-      type: object
-      description: "Versione sicura dell'operatore senza dati sensibili"
-      properties:
-        _id:
-          type: string
-          example: "60d0fe4f5311236168a109cf"
-        nome:
-          type: string
-          example: "Mario"
-        cognome:
-          type: string
-          example: "Rossi"
-        email:
-          type: string
-          format: email
-          description: "Email (solo per operatore corrente)"
-          example: "mario.rossi@operatore.com"
-        createdAt:
-          type: string
-          format: date-time
-
     # =============================================================================
     # COMMENTO SCHEMAS
     # =============================================================================
@@ -2632,12 +2693,6 @@ components:
             _id:
               type: string
               example: "60d0fe4f5311236168a109ca"
-            nome:
-              type: string
-              example: "Mario"
-            cognome:
-              type: string
-              example: "Rossi"
         proposta:
           type: object
           description: "Proposta commentata"
@@ -2645,9 +2700,6 @@ components:
             _id:
               type: string
               example: "60d0fe4f5311236168a109cb"
-            titolo:
-              type: string
-              example: "Concerto al parco"
         contenuto:
           type: string
           description: "Contenuto del commento"
