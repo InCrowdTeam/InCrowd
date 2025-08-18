@@ -79,14 +79,12 @@ onMounted(async () => {
     
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
-      console.error("❌ Utente non autenticato");
       loading.value = false;
       return;
     }
     
     // Protezione aggiuntiva: gli operatori non possono accedere al profilo
     if (userStore.isOperatore) {
-      console.log("🔧 Operatore reindirizzato al pannello operatore");
       router.push('/pannello-operatore');
       return;
     }
@@ -113,7 +111,6 @@ onMounted(async () => {
         // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
         mieProposte.value = response.data.data || response.data;
       }).catch(err => {
-        console.error("❌ Errore nel caricamento delle mie proposte:", err);
       })
     );
     
@@ -169,9 +166,7 @@ const caricaUtentiSeguiti = async () => {
     // Aggiorna anche il counter dei seguiti con il numero effettivo caricato
     followStats.value.followingCount = utentiSeguiti.value.length;
     
-    console.log(`✅ Caricati ${utentiSeguiti.value.length} utenti seguiti`);
   } catch (err) {
-    console.error("❌ Errore nel caricamento degli utenti seguiti:", err);
     await showError("Errore nel caricamento degli utenti seguiti", "Riprova più tardi");
   } finally {
     loadingSeguiti.value = false;
@@ -186,9 +181,7 @@ const caricaFollowStats = async () => {
     loadingFollowStats.value = true;
     const stats = await followStore.loadMyFollowStats(userStore.user._id);
     followStats.value = stats;
-    console.log(`✅ Stats di follow caricati: ${stats.followersCount} follower, ${stats.followingCount} following`);
   } catch (err) {
-    console.error("❌ Errore nel caricamento degli stats di follow:", err);
     // Non mostriamo errore all'utente per gli stats, li lasciamo a 0
   } finally {
     loadingFollowStats.value = false;
@@ -291,7 +284,6 @@ const smettereSeguitoUtente = async (utente: IUser) => {
     
     await showSuccess(`Non segui più ${utente.nome}`);
   } catch (err: any) {
-    console.error("❌ Errore nell'unfollow:", err);
     const errorMessage = err.response?.data?.message || "Errore nello smettere di seguire l'utente";
     await showError("Errore unfollow", errorMessage);
   }

@@ -433,10 +433,8 @@ const loadUsers = async () => {
     }
     
     users.value = allUsers
-  } catch (error) {
-    console.error('Errore nel caricamento degli utenti:', error)
-    
-    // Gestisci l'errore più elegantemente
+  } catch (error) {    
+    // Gestisci l'errore
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
         showError('Timeout nel caricamento degli utenti', 'Il server potrebbe essere lento. Riprova.');

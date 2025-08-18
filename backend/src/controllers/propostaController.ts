@@ -610,9 +610,7 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
     // Converti entrambi i valori a stringa per il confronto
     const proponenteIdStr = proposta.proponenteID?.toString();
     const userIdStr = userId?.toString();
-    
-    console.log("Debug delete - proponenteID:", proponenteIdStr, "userId:", userIdStr, "userType:", userType);
-    
+      
     if (proponenteIdStr !== userIdStr && userType !== "operatore") {
       return res.status(403).json(apiResponse({ 
         message: "Non hai i permessi per eliminare questa proposta"

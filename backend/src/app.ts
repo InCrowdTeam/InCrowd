@@ -33,10 +33,6 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-app.get("/debug", (req, res) => {
-  res.json({ debug: true });
-});
 app.get("/ping", (req, res) => {
   res.json({ pong: true });
 });
@@ -51,7 +47,7 @@ app.use('/api/follow', followRoutes);
 
 // Base route
 app.get("/", (req, res) => {
-  res.send("Welcome to InCrowd API!");
+  res.send("Connesso alle API di InCrowd!");
 });
 
 // 404 handler for unmatched routes (only for API routes)
@@ -65,12 +61,12 @@ async function start() {
   mongoose
     .connect(mongoUri as string)
     .then(() => {
-      console.log("Connected to MongoDB");
+      console.log("Connesso a MongoDB");
       app.listen(process.env.PORT || 3000, () => {
-        console.log("Server running");
+        console.log("Server in esecuzione");
       });
     })
-    .catch((err) => console.error("MongoDB connection error:", err));
+    .catch((err) => console.error("Errore di connessione a MongoDB:", err));
 }
 
 start();

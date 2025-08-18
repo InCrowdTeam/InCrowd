@@ -485,7 +485,6 @@ export default {
         );
         this.resetForm();
       } catch (error) {
-        console.error("Error creating proposta:", error);
         await this.showError(
           "Errore nella creazione della proposta",
           error.message || "Errore generico",

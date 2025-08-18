@@ -137,23 +137,6 @@ const isOperatore = computed(() => userStore.isOperatore)
 const isAmministratore = computed(() => userStore.isAdmin)
 const canHype = computed(() => userStore.canHype)
 
-// LOGICA PER I COMMENTI - RIMOSSA
-
-// PROPOSTA DA APRIRE SULLA DESTRA - RIMOSSA
-
-// LOGICA PER IL BOTTONE HYPE - RIMOSSA
-
-// Funzione per ottenere il badge dell'utente (disabilitata)
-function getUserBadge(commento: any) {
-  return ''; // Nessun badge per tutti gli utenti
-}
-
-// Funzione per ottenere il nome dell'utente
-function getUserName(commento: any) {
-  if (!commento.utente) return 'Utente';
-  return `${commento.utente.nome || ''} ${commento.utente.cognome || ''}`.trim() || 'Utente';
-}
-
 // Funzione per ottenere l'etichetta della categoria
 function getCategoryLabel(categoria: string) {
   const categories: Record<string, string> = {
@@ -274,7 +257,6 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
   
   // Controlla se l'utente è operatore o amministratore
   if (userStore.isOperatore || userStore.isAdmin) {
-    console.log('Gli operatori e amministratori non possono seguire gli utenti')
     return
   }
   
@@ -382,32 +364,9 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
 
 <template>
   <div class="home-container">
-    <!-- Banner per utenti non loggati -->
-    <div v-if="!userStore.user && showBanner" class="welcome-banner">
-      <button class="banner-close-btn" @click="closeBanner">×</button>
-      <div class="banner-content" @click="$router.push('/not-logged')">
-        <div class="banner-icon">🎪</div>
-        <div class="banner-text">
-          <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
-          <div class="banner-bottom-row">
-            <p>Registrati gratis e unisciti alla community</p>
-            <div class="banner-cta">
-              <span class="cta-text">Scopri di più →</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Barra di ricerca -->
     <div class="search-container">
-      <!-- Titolo della sezione ricerca -->
-      <div class="search-header">
-        <h2 class="search-title">
-          Cerca
-        </h2>
-        <p class="search-subtitle">Trova proposte e utenti nella community</p>
-      </div>
 
       <div class="search-bar">
         <div class="search-input-container">
@@ -734,26 +693,6 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
       </div>
 
       <div v-else>
-        <!--SEZIONE ESPLORA-->
-        <!--sezione categorie-->
-        <!-- <div class="categorie-section">
-          <h2 class="categorie-title">Categorie</h2>
-          <div class="categorie-list">
-            <button
-              :class="['categoria-btn', { selected: categoriaSelezionata === null }]"
-              @click="categoriaSelezionata = null"
-            >Tutte
-            </button>
-            <button
-              v-for="cat in categorie"
-              :key="cat.value"
-              :class="['categoria-btn', { selected: categoriaSelezionata === cat.value }]"
-              @click="categoriaSelezionata = cat.value"
-            >
-              {{ cat.label }}
-            </button>
-          </div>
-        </div> -->
 
         <!--sezione risultati ricerca o proposte--> 
         <div class="risultati-section">
@@ -837,6 +776,27 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
                 </div>
               </div>
             </div>
+
+            <br />
+
+            <!-- Banner per utenti non loggati -->
+            <div v-if="!userStore.user && showBanner" class="welcome-banner">
+              <button class="banner-close-btn" @click="closeBanner">×</button>
+              <div class="banner-content" @click="$router.push('/not-logged')">
+                <div class="banner-icon">🎪</div>
+                <div class="banner-text">
+                  <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
+                  <div class="banner-bottom-row">
+                    <p>Registrati gratis e unisciti alla community</p>
+                    <div class="banner-cta">
+                      <span class="cta-text">Scopri di più →</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
           </div>
 
           <!-- Sezione utenti -->
