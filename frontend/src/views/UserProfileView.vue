@@ -66,7 +66,7 @@
               </div>
             </div>
             
-            <!-- Pulsante follow/unfollow (solo se non è il proprio profilo e non è operatore/admin) -->
+            <!-- Pulsante follow/unfollow (solo se non è il proprio profilo, è loggato e non è operatore/admin) -->
             <div v-if="!isOwnProfile && isLoggedIn && !userStore.isOperatore && !userStore.isAdmin" class="follow-actions">
               <button 
                 @click="toggleFollow" 
@@ -322,13 +322,9 @@ const selectedTab = ref('proposte');
 const tabs = computed(() => {
   const baseTabs = [
     { label: 'Proposte', value: 'proposte' },
-    { label: 'Hyped', value: 'hyped' }
+    { label: 'Hyped', value: 'hyped' },
+    { label: 'Seguiti', value: 'following' }
   ];
-  
-  // Aggiungi la tab "Seguiti" solo se l'utente non è operatore o amministratore
-  if (!userStore.isOperatore && !userStore.isAdmin) {
-    baseTabs.push({ label: 'Seguiti', value: 'following' });
-  }
   
   return baseTabs;
 });
@@ -613,13 +609,6 @@ watch(() => route.params.id, (newId) => {
     // Ricarica anche proposte e hyped
     loadProposteUtente();
     loadProposteHyped();
-  }
-});
-
-// Watch per reindirizzare operatori/admin dalla tab "following" a "proposte"
-watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selectedTab.value], ([isOp, isAdmin, currentTab]) => {
-  if ((isOp || isAdmin) && currentTab === 'following') {
-    selectedTab.value = 'proposte';
   }
 });
 

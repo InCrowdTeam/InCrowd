@@ -88,21 +88,49 @@
           
           <p class="proposal-description">{{ proposta.descrizione }}</p>
           
-          <!-- Compact Meta Info -->
-          <div class="proposal-meta-compact">
-            <div v-if="proposta.luogo" class="meta-item">
-              <span class="meta-icon">📍</span>
-              <span class="meta-text">{{ proposta.luogo.citta }}</span>
-            </div>
+          <!-- Dettagli della Proposta -->
+          <div class="proposal-details-section">
+            <h3 class="details-title">📋 Informazioni</h3>
             
-            <div class="meta-item">
-              <span class="meta-icon">📅</span>
-              <span class="meta-text">
-                {{ proposta.dataIpotetica ? DateService.formatCompactDate(proposta.dataIpotetica.toString()) : 'Data da definire' }}
-              </span>
+            <div class="details-compact">
+              <!-- Indirizzo completo -->
+              <div v-if="proposta.luogo" class="detail-item">
+                <div class="detail-header">
+                  <span class="detail-icon">📍</span>
+                  <span class="detail-label">Dove</span>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-primary">{{ proposta.luogo.citta }}</div>
+                  <div v-if="proposta.luogo.via || proposta.luogo.civico" class="detail-secondary">
+                    {{ formatFullAddress(proposta.luogo) }}
+                  </div>
+                  <div v-if="proposta.luogo.cap" class="detail-badge">
+                    CAP {{ proposta.luogo.cap }}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Data dell'evento -->
+              <div class="detail-item">
+                <div class="detail-header">
+                  <span class="detail-icon">📅</span>
+                  <span class="detail-label">Quando</span>
+                </div>
+                <div class="detail-content">
+                  <div v-if="proposta.dataIpotetica" class="detail-primary">
+                    {{ DateService.formatEventDate(proposta.dataIpotetica.toString()) }}
+                  </div>
+                  <div v-else class="detail-primary detail-tbd">
+                    Data da definire
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div class="meta-item">
+          </div>
+          
+          <!-- Meta Info - Solo data di creazione -->
+          <div class="proposal-meta-simple">
+            <div class="creation-badge">
               <span class="meta-icon">🗓️</span>
               <span class="meta-text">Creata {{ formatDate(proposta.createdAt.toString()) }}</span>
             </div>
@@ -324,6 +352,30 @@ function onUserAvatarError(event: Event) {
   const img = event.target as HTMLImageElement;
   img.style.display = 'none';
   // Il getUserAvatar fallirà al prossimo render e mostrerà il placeholder
+}
+
+// Funzione per formattare l'indirizzo completo
+function formatAddress(indirizzo: any): string {
+  const parts = [];
+  if (indirizzo.via) {
+    parts.push(`${indirizzo.via}`);
+  }
+  if (indirizzo.civico) {
+    parts.push(`${indirizzo.civico}`);
+  }
+  return parts.join(', ');
+}
+
+// Funzione per formattare l'indirizzo completo con più dettagli
+function formatFullAddress(indirizzo: any): string {
+  const parts = [];
+  if (indirizzo.via) {
+    parts.push(`${indirizzo.via}`);
+  }
+  if (indirizzo.civico) {
+    parts.push(`n. ${indirizzo.civico}`);
+  }
+  return parts.join(', ');
 }
 
 // Funzione per processare le immagini (spostata dal service)
@@ -889,11 +941,139 @@ watch(proposta, (newProposta) => {
   font-size: 1.3rem;
   line-height: 1.8;
   color: var(--color-text);
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
   font-weight: 400;
 }
 
-/* Compact Meta Info */
+/* Proposal Details Section */
+.proposal-details-section {
+  margin-bottom: 2rem;
+}
+
+.details-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-heading);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.details-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.detail-item {
+  background: var(--color-background-soft);
+  border-radius: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+  min-width: 200px;
+  flex: 1;
+}
+
+.detail-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border-color: rgba(254, 70, 84, 0.3);
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.detail-icon {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.detail-primary {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-heading);
+  line-height: 1.3;
+  word-wrap: break-word;
+}
+
+.detail-primary.detail-tbd {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.detail-secondary {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  opacity: 0.9;
+}
+
+.detail-badge {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: rgba(254, 70, 84, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.8rem;
+  align-self: flex-start;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+/* Simplified Meta Info */
+.proposal-meta-simple {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.creation-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-card-background);
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.creation-badge:hover {
+  background: var(--color-background-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.creation-badge .meta-icon {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.creation-badge .meta-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+/* Compact Meta Info - Kept for backwards compatibility but now unused */
 .proposal-meta-compact {
   display: flex;
   flex-wrap: wrap;
@@ -916,6 +1096,39 @@ watch(proposta, (newProposta) => {
   background: var(--color-background-soft);
   transform: translateY(-1px);
   box-shadow: 0 2px 10px var(--color-shadow);
+}
+
+.meta-item.location-item {
+  align-items: flex-start;
+  padding: 0.8rem 1.2rem;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.location-primary {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.location-secondary {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.location-cap {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: rgba(254, 70, 84, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.8rem;
+  align-self: flex-start;
+  font-weight: 500;
 }
 
 .meta-icon {
@@ -1313,10 +1526,6 @@ watch(proposta, (newProposta) => {
     font-size: 2rem;
   }
   
-  .proposal-description {
-    font-size: 1.1rem;
-  }
-  
   .creator-hyper-row {
     flex-direction: column;
     gap: 1.5rem;
@@ -1342,15 +1551,61 @@ watch(proposta, (newProposta) => {
     font-size: 0.85rem;
   }
   
-  .proposal-meta-compact {
+  .proposal-description {
+    font-size: 1.1rem;
+  }
+  
+  .details-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .details-compact {
+    flex-direction: column;
     gap: 1rem;
   }
   
-  .meta-item {
-    padding: 0.4rem 0.8rem;
+  .detail-item {
+    padding: 0.8rem;
+    min-width: auto;
   }
   
-  .meta-text {
+  .detail-header {
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .detail-icon {
+    font-size: 1rem;
+  }
+  
+  .detail-label {
+    font-size: 0.8rem;
+  }
+  
+  .detail-primary {
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+  
+  .detail-secondary {
+    font-size: 0.85rem;
+  }
+  
+  .detail-badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+  }
+  
+  .proposal-meta-simple {
+    justify-content: center;
+  }
+  
+  .creation-badge {
+    padding: 0.5rem 1rem;
+  }
+  
+  .creation-badge .meta-text {
     font-size: 0.8rem;
   }
   
@@ -1417,6 +1672,54 @@ watch(proposta, (newProposta) => {
     font-size: 0.8rem;
   }
   
+  .details-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.7rem;
+  }
+  
+  .detail-item {
+    padding: 0.7rem;
+  }
+  
+  .detail-header {
+    gap: 0.3rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .detail-icon {
+    font-size: 0.9rem;
+  }
+  
+  .detail-label {
+    font-size: 0.75rem;
+  }
+  
+  .detail-primary {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  
+  .detail-secondary {
+    font-size: 0.8rem;
+  }
+  
+  .detail-badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
+  
+  .creation-badge {
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .creation-badge .meta-icon {
+    font-size: 0.9rem;
+  }
+  
+  .creation-badge .meta-text {
+    font-size: 0.75rem;
+  }
+  
   .proposal-meta-compact {
     flex-direction: column;
     align-items: flex-start;
@@ -1425,6 +1728,23 @@ watch(proposta, (newProposta) => {
   
   .meta-item {
     padding: 0.3rem 0.6rem;
+  }
+  
+  .meta-item.location-item {
+    padding: 0.5rem 0.8rem;
+  }
+  
+  .location-primary {
+    font-size: 0.8rem;
+  }
+  
+  .location-secondary {
+    font-size: 0.7rem;
+  }
+  
+  .location-cap {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
   }
   
   .meta-icon {
