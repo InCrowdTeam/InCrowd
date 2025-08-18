@@ -12,6 +12,7 @@ import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import UltimiCommentiView from '@/views/UltimiCommentiView.vue'
+import UserProfileView from '@/views/UserProfileView.vue'
 import { useUserStore } from '@/stores/userStore'
 import PropostaView from '@/views/PropostaView.vue'
 
@@ -83,7 +84,7 @@ const routes = [
   {
     path: '/users/:id',
     name: 'UserProfile',
-    component: () => import('../views/UserProfileView.vue')
+    component: UserProfileView
   },
   {
     path: '/:pathMatch(.*)*',

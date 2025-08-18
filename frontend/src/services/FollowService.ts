@@ -28,7 +28,7 @@ export const followApi = {
 
   // Smettere di seguire un utente
   unfollowUser: async (userId: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/api/follow/unfollow/${userId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/follow/${userId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

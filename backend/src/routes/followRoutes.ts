@@ -14,7 +14,7 @@ const router = express.Router();
 router.post('/:userId', authMiddleware, followUser);
 
 // Route per smettere di seguire un utente (richiede autenticazione)
-router.delete('/unfollow/:userId', authMiddleware, unfollowUser);
+router.delete('/:userId', authMiddleware, unfollowUser);
 
 // Route per ottenere i followers di un utente (pubblica)
 router.get('/followers/:userId', getFollowers);
