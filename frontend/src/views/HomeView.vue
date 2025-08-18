@@ -452,29 +452,20 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
         <!-- Container fisso per controlli aggiuntivi -->
         <div class="search-controls">
           <button 
-            v-if="searchType === 'proposte'"
             @click="toggleFilters" 
             class="filters-btn"
             :class="{ active: showFilters }"
           >
             Filtri
           </button>
-          
-          <!-- Filtro tipo utente per ricerca utenti -->
-          <div v-if="searchType === 'utenti'" class="user-type-filter">
-            <select v-model="userTypeFilter" @change="onSearch" class="user-type-select">
-              <option value="all">Tutti</option>
-              <option value="user">Utenti Privati</option>
-              <option value="ente">Enti</option>
-            </select>
-          </div>
         </div>
       </div>
 
       <!-- Pannello filtri avanzati -->
       <Transition name="slide-down">
-        <div v-if="showFilters && searchType === 'proposte'" class="filters-panel">
-          <div class="filters-grid">
+        <div v-if="showFilters" class="filters-panel">
+          <!-- Filtri per proposte -->
+          <div v-if="searchType === 'proposte'" class="filters-grid">
             <!-- Filtro categoria -->
             <div class="filter-group">
               <label class="filter-label">Categoria</label>
@@ -500,8 +491,19 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
                 class="filter-input"
               />
             </div>
+          </div>
 
-
+          <!-- Filtri per utenti -->
+          <div v-if="searchType === 'utenti'" class="filters-grid">
+            <!-- Filtro tipo utente -->
+            <div class="filter-group">
+              <label class="filter-label">Tipo Utente</label>
+              <select v-model="userTypeFilter" @change="onSearch" class="filter-select">
+                <option value="all">Tutti</option>
+                <option value="user">👤 Utenti Privati</option>
+                <option value="ente">🏢 Enti</option>
+              </select>
+            </div>
           </div>
 
           <div class="filters-actions">
@@ -2345,52 +2347,7 @@ ul {
   box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
 }
 
-/* Filtro tipo utente */
-.user-type-filter {
-  display: flex;
-  align-items: center;
-}
-
-.user-type-select {
-  padding: 0.6rem 1rem;
-  background: var(--color-background-mute, rgba(255, 255, 255, 0.9));
-  border: 2px solid var(--color-border, rgba(0, 0, 0, 0.1));
-  border-radius: 1.5rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--color-text, #374151);
-  transition: all 0.3s ease;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.6rem center;
-  background-repeat: no-repeat;
-  background-size: 1.2em 1.2em;
-  padding-right: 2.5rem;
-  min-width: 140px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.user-type-select:hover {
-  background: var(--color-border-hover, rgba(0, 0, 0, 0.05));
-  border-color: var(--color-primary, #fe4654);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.user-type-select:focus {
-  outline: none;
-  border-color: var(--color-primary, #fe4654);
-  box-shadow: 0 0 0 3px rgba(254, 70, 84, 0.1);
-  background: var(--color-background, #ffffff);
-}
-
-.user-type-select option {
-  background: var(--color-background);
-  color: var(--color-text);
-  padding: 0.5rem;
-}
-
+/* Pannello filtri */
 .filters-panel {
   margin-top: 1rem;
   padding: 1rem;
