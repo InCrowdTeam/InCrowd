@@ -56,6 +56,7 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
   }
 };
 
+
 /**
  * Recupera tutti gli operatori registrati
  * @param _req - Richiesta HTTP (non utilizzata)

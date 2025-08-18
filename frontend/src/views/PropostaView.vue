@@ -39,7 +39,7 @@
           
           <!-- Creator Badge and Hyper Counter Row -->
           <div class="creator-hyper-row">
-            <div class="creator-badge">
+            <div class="creator-badge" @click="goToCreatorProfile" :class="{ clickable: true }">
               <div class="creator-avatar">
                 <img 
                   v-if="proponenteAvatar"
@@ -88,25 +88,107 @@
           
           <p class="proposal-description">{{ proposta.descrizione }}</p>
           
-          <!-- Compact Meta Info -->
-          <div class="proposal-meta-compact">
-            <div v-if="proposta.luogo" class="meta-item">
-              <span class="meta-icon">📍</span>
-              <span class="meta-text">{{ proposta.luogo.citta }}</span>
-            </div>
+          <!-- Dettagli della Proposta -->
+          <div class="proposal-details-section">
+            <h3 class="details-title">📋 Informazioni</h3>
             
-            <div class="meta-item">
-              <span class="meta-icon">📅</span>
-              <span class="meta-text">
-                {{ proposta.dataIpotetica ? DateService.formatCompactDate(proposta.dataIpotetica.toString()) : 'Data da definire' }}
-              </span>
+            <div class="details-compact">
+              <!-- Indirizzo completo -->
+              <div v-if="proposta.luogo" class="detail-item">
+                <div class="detail-header">
+                  <span class="detail-icon">📍</span>
+                  <span class="detail-label">Dove</span>
+                </div>
+                <div class="detail-content">
+                  <div class="detail-primary">{{ proposta.luogo.citta }}</div>
+                  <div v-if="proposta.luogo.via || proposta.luogo.civico" class="detail-secondary">
+                    {{ formatFullAddress(proposta.luogo) }}
+                  </div>
+                  <div v-if="proposta.luogo.cap" class="detail-badge">
+                    CAP {{ proposta.luogo.cap }}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Data dell'evento -->
+              <div class="detail-item">
+                <div class="detail-header">
+                  <span class="detail-icon">📅</span>
+                  <span class="detail-label">Quando</span>
+                </div>
+                <div class="detail-content">
+                  <div v-if="proposta.dataIpotetica" class="detail-primary">
+                    {{ DateService.formatEventDate(proposta.dataIpotetica.toString()) }}
+                  </div>
+                  <div v-else class="detail-primary detail-tbd">
+                    Data da definire
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div class="meta-item">
+          </div>
+          
+          <!-- Meta Info - Solo data di creazione -->
+          <div class="proposal-meta-simple">
+            <div class="creation-badge">
               <span class="meta-icon">🗓️</span>
               <span class="meta-text">Creata {{ formatDate(proposta.createdAt.toString()) }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Hyper Users Section -->
+      <div v-if="hyperUsers.length > 0 || hyperUsersLoading" class="hyper-users-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">⚡</span>
+            Enti che supportano questa proposta
+          </h2>
+          <div class="hyper-count-badge">
+            {{ hyperUsers.filter(user => isEnte(user)).length }} 
+            {{ hyperUsers.filter(user => isEnte(user)).length === 1 ? 'Ente' : 'Enti' }}
+          </div>
+        </div>
+        
+        <!-- Loading State -->
+        <div v-if="hyperUsersLoading" class="loading-hyper-users">
+          <div class="loading-spinner small"></div>
+          <p>Caricamento sostenitori...</p>
+        </div>
+        
+        <!-- Enti che hanno messo hyper -->
+        <div v-else-if="hyperUsers.filter(user => isEnte(user)).length > 0" class="hyper-users-grid">
+          <div
+            v-for="user in hyperUsers.filter(user => isEnte(user))"
+            :key="user._id"
+            class="hyper-user-card"
+            @click="$router.push(`/users/${user._id}`)"
+          >
+            <div class="hyper-user-avatar">
+              <img
+                v-if="getHyperUserAvatar(user._id)"
+                :src="getHyperUserAvatar(user._id)"
+                :alt="`Avatar di ${user.nome}`"
+                class="avatar-image"
+                @error="(event) => onAvatarError(event, user._id)"
+              />
+              <div v-else class="avatar-placeholder">
+                <span class="avatar-initials">{{ getInitials(user.nome, user.cognome) }}</span>
+              </div>
+            </div>
+            <div class="hyper-user-info">
+              <h4 class="hyper-user-name">{{ user.nome }}</h4>
+              <span class="hyper-user-type">{{ isEnte(user) ? 'Ente' : 'Utente' }}</span>
+              <p v-if="user.biografia" class="hyper-user-bio">{{ user.biografia.substring(0, 80) }}{{ user.biografia.length > 80 ? '...' : '' }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Messaggio se non ci sono enti -->
+        <div v-else class="no-enti-hyper">
+          <span class="empty-icon">🏛️</span>
+          <p>Nessun ente ha ancora supportato questa proposta</p>
         </div>
       </div>
 
@@ -228,7 +310,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
 import { PropostaService } from '@/services/PropostaService';
 import { UserService } from '@/services/UserService';
@@ -238,6 +320,7 @@ import type { IProposta } from '@/types/Proposta';
 import type { IUser } from '@/types/User';
 
 const route = useRoute();
+const router = useRouter();
 const userStore = useUserStore();
 const { showError, showConfirm } = useModal();
 const proposta = ref<IProposta | null>(null);
@@ -253,6 +336,11 @@ const isHyperLoading = ref(false);
 // Cache per gli avatar dei commentatori (caricamento asincrono)
 const commentUserAvatars = ref<Map<string, string>>(new Map());
 const proponenteAvatar = ref<string | null>(null);
+
+// Cache per gli utenti che hanno messo hyper
+const hyperUsers = ref<any[]>([]);
+const hyperUsersLoading = ref(false);
+const hyperUserAvatars = ref<Map<string, string>>(new Map());
 
 // Funzione per caricare gli avatar in modo asincrono
 async function loadCommentAvatars() {
@@ -288,6 +376,47 @@ async function loadProponenteAvatar() {
   }
 }
 
+// Funzione per caricare gli utenti che hanno messo hyper
+async function loadHyperUsers() {
+  if (!proposta.value?.listaHyper?.length) {
+    hyperUsers.value = [];
+    return;
+  }
+
+  hyperUsersLoading.value = true;
+  
+  try {
+    const userPromises = proposta.value.listaHyper.map(async (userId: string) => {
+      try {
+        const userData = await UserService.loadUser(userId);
+        if (userData) {
+          // Carica anche l'avatar dell'utente
+          try {
+            const avatarUrl = await UserService.loadUserAvatar(userId);
+            hyperUserAvatars.value.set(userId, avatarUrl || '');
+          } catch (avatarError) {
+            console.error('❌ Errore nel caricamento avatar hyper user:', avatarError);
+            hyperUserAvatars.value.set(userId, '');
+          }
+          return userData;
+        }
+        return null;
+      } catch (error) {
+        console.error('❌ Errore nel caricamento dati utente hyper:', error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(userPromises);
+    hyperUsers.value = results.filter(user => user !== null);
+  } catch (error) {
+    console.error('❌ Errore nel caricamento utenti hyper:', error);
+    hyperUsers.value = [];
+  } finally {
+    hyperUsersLoading.value = false;
+  }
+}
+
 // Funzione per ottenere l'avatar di un commentatore
 function getCommentUserAvatar(userId?: string): string {
   if (!userId) return '';
@@ -295,6 +424,23 @@ function getCommentUserAvatar(userId?: string): string {
   // Restituiamo stringa vuota se non c'è avatar o se è stringa vuota
   // Questo farà funzionare correttamente il v-if nel template
   return avatar || '';
+}
+
+// Funzione per ottenere l'avatar di un utente hyper
+function getHyperUserAvatar(userId?: string): string {
+  if (!userId) return '';
+  const avatar = hyperUserAvatars.value.get(userId);
+  return avatar || '';
+}
+
+// Funzione per verificare se l'utente è un ente
+function isEnte(user: any): boolean {
+  // Verifica prima il campo userType se disponibile
+  if (user?.userType) {
+    return user.userType === 'ente';
+  }
+  // Fallback: se non ha cognome probabilmente è un ente
+  return user?.nome && !user?.cognome;
 }
 
 // Funzione per gestire errori di caricamento avatar
@@ -325,6 +471,30 @@ function onUserAvatarError(event: Event) {
   // Il getUserAvatar fallirà al prossimo render e mostrerà il placeholder
 }
 
+// Funzione per formattare l'indirizzo completo
+function formatAddress(indirizzo: any): string {
+  const parts = [];
+  if (indirizzo.via) {
+    parts.push(`${indirizzo.via}`);
+  }
+  if (indirizzo.civico) {
+    parts.push(`${indirizzo.civico}`);
+  }
+  return parts.join(', ');
+}
+
+// Funzione per formattare l'indirizzo completo con più dettagli
+function formatFullAddress(indirizzo: any): string {
+  const parts = [];
+  if (indirizzo.via) {
+    parts.push(`${indirizzo.via}`);
+  }
+  if (indirizzo.civico) {
+    parts.push(`n. ${indirizzo.civico}`);
+  }
+  return parts.join(', ');
+}
+
 // Funzione per processare le immagini (spostata dal service)
 function processImageUrl(foto: any): string {
   return PropostaService.processImageUrl(foto);
@@ -343,6 +513,13 @@ function getInitials(nome?: string, cognome?: string): string {
 // Funzione per ottenere il nome completo dell'utente (spostata dal service)
 function getFullName(user?: any): string {
   return UserService.getFullName(user);
+}
+
+// Funzione per navigare al profilo del creatore
+function goToCreatorProfile() {
+  if (proponente.value?._id) {
+    router.push(`/users/${proponente.value._id}`);
+  }
 }
 
 // Funzione per processare l'avatar dell'utente (deprecata - ora usa endpoint dedicato)
@@ -483,6 +660,9 @@ async function handleHyper() {
     // Aggiorna la proposta con i dati aggiornati
     proposta.value = updatedProposta;
     
+    // Ricarica gli utenti hyper dopo l'aggiornamento
+    await loadHyperUsers();
+    
   } catch (err: any) {
     console.error("Errore hyper:", err);
     showError("Errore nell'aggiunta dell'hyper", err.message);
@@ -506,6 +686,9 @@ onMounted(async () => {
         await loadProponenteAvatar();
       }
       
+      // Carica gli utenti che hanno messo hyper
+      await loadHyperUsers();
+      
       // Carica i commenti
       await caricaCommenti();
     } catch (error) {
@@ -519,6 +702,7 @@ onMounted(async () => {
 watch(proposta, (newProposta) => {
   if (newProposta) {
     caricaCommenti();
+    loadHyperUsers();
   }
 });
 </script>
@@ -663,6 +847,17 @@ watch(proposta, (newProposta) => {
   }
 }
 
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .hero-content {
   padding: 3rem;
 }
@@ -701,6 +896,15 @@ watch(proposta, (newProposta) => {
 .creator-badge:hover {
   background: rgba(254, 70, 84, 0.15);
   transform: translateY(-1px);
+}
+
+.creator-badge.clickable {
+  cursor: pointer;
+}
+
+.creator-badge.clickable:hover {
+  background: rgba(254, 70, 84, 0.2);
+  box-shadow: 0 4px 12px rgba(254, 70, 84, 0.3);
 }
 
 .creator-avatar {
@@ -872,11 +1076,139 @@ watch(proposta, (newProposta) => {
   font-size: 1.3rem;
   line-height: 1.8;
   color: var(--color-text);
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
   font-weight: 400;
 }
 
-/* Compact Meta Info */
+/* Proposal Details Section */
+.proposal-details-section {
+  margin-bottom: 2rem;
+}
+
+.details-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-heading);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.details-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.detail-item {
+  background: var(--color-background-soft);
+  border-radius: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+  min-width: 200px;
+  flex: 1;
+}
+
+.detail-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border-color: rgba(254, 70, 84, 0.3);
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.detail-icon {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.detail-primary {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-heading);
+  line-height: 1.3;
+  word-wrap: break-word;
+}
+
+.detail-primary.detail-tbd {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.detail-secondary {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  opacity: 0.9;
+}
+
+.detail-badge {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: rgba(254, 70, 84, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.8rem;
+  align-self: flex-start;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+/* Simplified Meta Info */
+.proposal-meta-simple {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.creation-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-card-background);
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.creation-badge:hover {
+  background: var(--color-background-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.creation-badge .meta-icon {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.creation-badge .meta-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+/* Compact Meta Info - Kept for backwards compatibility but now unused */
 .proposal-meta-compact {
   display: flex;
   flex-wrap: wrap;
@@ -901,6 +1233,39 @@ watch(proposta, (newProposta) => {
   box-shadow: 0 2px 10px var(--color-shadow);
 }
 
+.meta-item.location-item {
+  align-items: flex-start;
+  padding: 0.8rem 1.2rem;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.location-primary {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.location-secondary {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.location-cap {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: rgba(254, 70, 84, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.8rem;
+  align-self: flex-start;
+  font-weight: 500;
+}
+
 .meta-icon {
   font-size: 1.2rem;
   flex-shrink: 0;
@@ -920,6 +1285,158 @@ watch(proposta, (newProposta) => {
   padding: 3rem;
   box-shadow: 0 8px 40px var(--color-shadow);
   animation: fadeInUp 0.6s ease-out 0.5s both;
+}
+
+/* Hyper Users Section */
+.hyper-users-section {
+  background: var(--color-card-background);
+  border-radius: 2rem;
+  padding: 2.5rem;
+  box-shadow: 0 8px 40px var(--color-shadow);
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--color-background-soft);
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
+}
+
+.hyper-count-badge {
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+.loading-hyper-users {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  color: var(--color-text-secondary);
+}
+
+.hyper-users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.hyper-user-card {
+  background: var(--color-background-soft);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hyper-user-card:hover {
+  background: var(--color-background-mute);
+  border-color: rgba(254, 70, 84, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+}
+
+.hyper-user-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.hyper-user-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.hyper-user-avatar .avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.hyper-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hyper-user-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.3rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-user-type {
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  background: rgba(254, 70, 84, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-weight: 500;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+.hyper-user-bio {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  margin: 0.5rem 0 0 0;
+  opacity: 0.8;
+}
+
+.no-enti-hyper {
+  text-align: center;
+  padding: 3rem;
+  color: var(--color-text-secondary);
+}
+
+.no-enti-hyper .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+  display: block;
 }
 
 .comments-header {
@@ -1296,10 +1813,6 @@ watch(proposta, (newProposta) => {
     font-size: 2rem;
   }
   
-  .proposal-description {
-    font-size: 1.1rem;
-  }
-  
   .creator-hyper-row {
     flex-direction: column;
     gap: 1.5rem;
@@ -1325,16 +1838,84 @@ watch(proposta, (newProposta) => {
     font-size: 0.85rem;
   }
   
-  .proposal-meta-compact {
+  .proposal-description {
+    font-size: 1.1rem;
+  }
+  
+  .details-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .details-compact {
+    flex-direction: column;
     gap: 1rem;
   }
   
-  .meta-item {
-    padding: 0.4rem 0.8rem;
+  .detail-item {
+    padding: 0.8rem;
+    min-width: auto;
   }
   
-  .meta-text {
+  .detail-header {
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .detail-icon {
+    font-size: 1rem;
+  }
+  
+  .detail-label {
     font-size: 0.8rem;
+  }
+  
+  .detail-primary {
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+  
+  .detail-secondary {
+    font-size: 0.85rem;
+  }
+  
+  .detail-badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+  }
+  
+  .proposal-meta-simple {
+    justify-content: center;
+  }
+  
+  .creation-badge {
+    padding: 0.5rem 1rem;
+  }
+  
+  .creation-badge .meta-text {
+    font-size: 0.8rem;
+  }
+  
+  .hyper-users-section {
+    padding: 2rem;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+  }
+  
+  .hyper-users-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .hyper-user-card {
+    padding: 1rem;
+  }
+  
+  .hyper-user-avatar {
+    width: 50px;
+    height: 50px;
   }
   
   .comments-section {
@@ -1400,6 +1981,81 @@ watch(proposta, (newProposta) => {
     font-size: 0.8rem;
   }
   
+  .details-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.7rem;
+  }
+  
+  .detail-item {
+    padding: 0.7rem;
+  }
+  
+  .detail-header {
+    gap: 0.3rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .detail-icon {
+    font-size: 0.9rem;
+  }
+  
+  .detail-label {
+    font-size: 0.75rem;
+  }
+  
+  .detail-primary {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  
+  .detail-secondary {
+    font-size: 0.8rem;
+  }
+  
+  .detail-badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
+  
+  .hyper-users-section {
+    padding: 1.5rem;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .section-title {
+    font-size: 1.3rem;
+  }
+  
+  .hyper-user-card {
+    padding: 0.8rem;
+  }
+  
+  .hyper-user-avatar {
+    width: 45px;
+    height: 45px;
+  }
+  
+  .hyper-user-name {
+    font-size: 1rem;
+  }
+  
+  .creation-badge {
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .creation-badge .meta-icon {
+    font-size: 0.9rem;
+  }
+  
+  .creation-badge .meta-text {
+    font-size: 0.75rem;
+  }
+  
   .proposal-meta-compact {
     flex-direction: column;
     align-items: flex-start;
@@ -1408,6 +2064,23 @@ watch(proposta, (newProposta) => {
   
   .meta-item {
     padding: 0.3rem 0.6rem;
+  }
+  
+  .meta-item.location-item {
+    padding: 0.5rem 0.8rem;
+  }
+  
+  .location-primary {
+    font-size: 0.8rem;
+  }
+  
+  .location-secondary {
+    font-size: 0.7rem;
+  }
+  
+  .location-cap {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
   }
   
   .meta-icon {

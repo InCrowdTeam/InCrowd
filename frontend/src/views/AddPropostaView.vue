@@ -778,11 +778,12 @@ export default {
 
 /* Summary Card */
 .summary-card {
-  background: var(--color-background-soft);
+  background: var(--color-card-background);
   border-radius: 12px;
   padding: 1.5rem;
   margin-top: 1rem;
   border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px var(--color-shadow);
 }
 
 .summary-card h3 {
@@ -795,8 +796,8 @@ export default {
 .summary-item {
   margin-bottom: 0.75rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid #e2e8f0;
-  color: #374151;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
   font-size: 0.875rem;
 }
 
@@ -806,7 +807,7 @@ export default {
 }
 
 .summary-item strong {
-  color: #1e293b;
+  color: var(--color-heading);
   margin-right: 0.5rem;
 }
 

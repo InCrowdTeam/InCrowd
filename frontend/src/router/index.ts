@@ -12,6 +12,7 @@ import NotLoggedView from '@/views/NotLoggedView.vue'
 import PannelloOperatoreView from '@/views/PannelloOperatoreView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import UltimiCommentiView from '@/views/UltimiCommentiView.vue'
+import UserProfileView from '@/views/UserProfileView.vue'
 import { useUserStore } from '@/stores/userStore'
 import PropostaView from '@/views/PropostaView.vue'
 
@@ -81,6 +82,11 @@ const routes = [
     component: NotLoggedView
   },
   {
+    path: '/users/:id',
+    name: 'UserProfile',
+    component: UserProfileView
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'notFound',
     component: NotFoundView
@@ -89,7 +95,7 @@ const routes = [
     path: '/comments',
     name: 'UltimiCommenti',
     component: UltimiCommentiView
-  },
+  },  
 ]
 
 const router = createRouter({
