@@ -138,6 +138,60 @@
         </div>
       </div>
 
+      <!-- Hyper Users Section -->
+      <div v-if="hyperUsers.length > 0 || hyperUsersLoading" class="hyper-users-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">⚡</span>
+            Enti che supportano questa proposta
+          </h2>
+          <div class="hyper-count-badge">
+            {{ hyperUsers.filter(user => isEnte(user)).length }} 
+            {{ hyperUsers.filter(user => isEnte(user)).length === 1 ? 'Ente' : 'Enti' }}
+          </div>
+        </div>
+        
+        <!-- Loading State -->
+        <div v-if="hyperUsersLoading" class="loading-hyper-users">
+          <div class="loading-spinner small"></div>
+          <p>Caricamento sostenitori...</p>
+        </div>
+        
+        <!-- Enti che hanno messo hyper -->
+        <div v-else-if="hyperUsers.filter(user => isEnte(user)).length > 0" class="hyper-users-grid">
+          <div
+            v-for="user in hyperUsers.filter(user => isEnte(user))"
+            :key="user._id"
+            class="hyper-user-card"
+            @click="$router.push(`/users/${user._id}`)"
+          >
+            <div class="hyper-user-avatar">
+              <img
+                v-if="getHyperUserAvatar(user._id)"
+                :src="getHyperUserAvatar(user._id)"
+                :alt="`Avatar di ${user.nome}`"
+                class="avatar-image"
+                @error="(event) => onAvatarError(event, user._id)"
+              />
+              <div v-else class="avatar-placeholder">
+                <span class="avatar-initials">{{ getInitials(user.nome, user.cognome) }}</span>
+              </div>
+            </div>
+            <div class="hyper-user-info">
+              <h4 class="hyper-user-name">{{ user.nome }}</h4>
+              <span class="hyper-user-type">{{ isEnte(user) ? 'Ente' : 'Utente' }}</span>
+              <p v-if="user.biografia" class="hyper-user-bio">{{ user.biografia.substring(0, 80) }}{{ user.biografia.length > 80 ? '...' : '' }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Messaggio se non ci sono enti -->
+        <div v-else class="no-enti-hyper">
+          <span class="empty-icon">🏛️</span>
+          <p>Nessun ente ha ancora supportato questa proposta</p>
+        </div>
+      </div>
+
       <!-- Comments Section -->
       <div class="comments-section">
         <div class="comments-header">
@@ -283,6 +337,11 @@ const isHyperLoading = ref(false);
 const commentUserAvatars = ref<Map<string, string>>(new Map());
 const proponenteAvatar = ref<string | null>(null);
 
+// Cache per gli utenti che hanno messo hyper
+const hyperUsers = ref<any[]>([]);
+const hyperUsersLoading = ref(false);
+const hyperUserAvatars = ref<Map<string, string>>(new Map());
+
 // Funzione per caricare gli avatar in modo asincrono
 async function loadCommentAvatars() {
   if (!commentiProposta.value?.length) return;
@@ -317,6 +376,47 @@ async function loadProponenteAvatar() {
   }
 }
 
+// Funzione per caricare gli utenti che hanno messo hyper
+async function loadHyperUsers() {
+  if (!proposta.value?.listaHyper?.length) {
+    hyperUsers.value = [];
+    return;
+  }
+
+  hyperUsersLoading.value = true;
+  
+  try {
+    const userPromises = proposta.value.listaHyper.map(async (userId: string) => {
+      try {
+        const userData = await UserService.loadUser(userId);
+        if (userData) {
+          // Carica anche l'avatar dell'utente
+          try {
+            const avatarUrl = await UserService.loadUserAvatar(userId);
+            hyperUserAvatars.value.set(userId, avatarUrl || '');
+          } catch (avatarError) {
+            console.error('❌ Errore nel caricamento avatar hyper user:', avatarError);
+            hyperUserAvatars.value.set(userId, '');
+          }
+          return userData;
+        }
+        return null;
+      } catch (error) {
+        console.error('❌ Errore nel caricamento dati utente hyper:', error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(userPromises);
+    hyperUsers.value = results.filter(user => user !== null);
+  } catch (error) {
+    console.error('❌ Errore nel caricamento utenti hyper:', error);
+    hyperUsers.value = [];
+  } finally {
+    hyperUsersLoading.value = false;
+  }
+}
+
 // Funzione per ottenere l'avatar di un commentatore
 function getCommentUserAvatar(userId?: string): string {
   if (!userId) return '';
@@ -324,6 +424,23 @@ function getCommentUserAvatar(userId?: string): string {
   // Restituiamo stringa vuota se non c'è avatar o se è stringa vuota
   // Questo farà funzionare correttamente il v-if nel template
   return avatar || '';
+}
+
+// Funzione per ottenere l'avatar di un utente hyper
+function getHyperUserAvatar(userId?: string): string {
+  if (!userId) return '';
+  const avatar = hyperUserAvatars.value.get(userId);
+  return avatar || '';
+}
+
+// Funzione per verificare se l'utente è un ente
+function isEnte(user: any): boolean {
+  // Verifica prima il campo userType se disponibile
+  if (user?.userType) {
+    return user.userType === 'ente';
+  }
+  // Fallback: se non ha cognome probabilmente è un ente
+  return user?.nome && !user?.cognome;
 }
 
 // Funzione per gestire errori di caricamento avatar
@@ -543,6 +660,9 @@ async function handleHyper() {
     // Aggiorna la proposta con i dati aggiornati
     proposta.value = updatedProposta;
     
+    // Ricarica gli utenti hyper dopo l'aggiornamento
+    await loadHyperUsers();
+    
   } catch (err: any) {
     console.error("Errore hyper:", err);
     showError("Errore nell'aggiunta dell'hyper", err.message);
@@ -566,6 +686,9 @@ onMounted(async () => {
         await loadProponenteAvatar();
       }
       
+      // Carica gli utenti che hanno messo hyper
+      await loadHyperUsers();
+      
       // Carica i commenti
       await caricaCommenti();
     } catch (error) {
@@ -579,6 +702,7 @@ onMounted(async () => {
 watch(proposta, (newProposta) => {
   if (newProposta) {
     caricaCommenti();
+    loadHyperUsers();
   }
 });
 </script>
@@ -720,6 +844,17 @@ watch(proposta, (newProposta) => {
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -1150,6 +1285,158 @@ watch(proposta, (newProposta) => {
   padding: 3rem;
   box-shadow: 0 8px 40px var(--color-shadow);
   animation: fadeInUp 0.6s ease-out 0.5s both;
+}
+
+/* Hyper Users Section */
+.hyper-users-section {
+  background: var(--color-card-background);
+  border-radius: 2rem;
+  padding: 2.5rem;
+  box-shadow: 0 8px 40px var(--color-shadow);
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--color-background-soft);
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 0 8px rgba(254, 70, 84, 0.6));
+}
+
+.hyper-count-badge {
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+.loading-hyper-users {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  color: var(--color-text-secondary);
+}
+
+.hyper-users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.hyper-user-card {
+  background: var(--color-background-soft);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hyper-user-card:hover {
+  background: var(--color-background-mute);
+  border-color: rgba(254, 70, 84, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+}
+
+.hyper-user-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(254, 70, 84, 0.3);
+}
+
+.hyper-user-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.hyper-user-avatar .avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #fe4654, #e63946);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.hyper-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hyper-user-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.3rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-user-type {
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  background: rgba(254, 70, 84, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-weight: 500;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+.hyper-user-bio {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  margin: 0.5rem 0 0 0;
+  opacity: 0.8;
+}
+
+.no-enti-hyper {
+  text-align: center;
+  padding: 3rem;
+  color: var(--color-text-secondary);
+}
+
+.no-enti-hyper .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+  display: block;
 }
 
 .comments-header {
@@ -1609,6 +1896,28 @@ watch(proposta, (newProposta) => {
     font-size: 0.8rem;
   }
   
+  .hyper-users-section {
+    padding: 2rem;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+  }
+  
+  .hyper-users-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .hyper-user-card {
+    padding: 1rem;
+  }
+  
+  .hyper-user-avatar {
+    width: 50px;
+    height: 50px;
+  }
+  
   .comments-section {
     padding: 2rem;
   }
@@ -1706,6 +2015,33 @@ watch(proposta, (newProposta) => {
   .detail-badge {
     font-size: 0.7rem;
     padding: 0.1rem 0.4rem;
+  }
+  
+  .hyper-users-section {
+    padding: 1.5rem;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .section-title {
+    font-size: 1.3rem;
+  }
+  
+  .hyper-user-card {
+    padding: 0.8rem;
+  }
+  
+  .hyper-user-avatar {
+    width: 45px;
+    height: 45px;
+  }
+  
+  .hyper-user-name {
+    font-size: 1rem;
   }
   
   .creation-badge {
