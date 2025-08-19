@@ -92,7 +92,6 @@ onMounted(async () => {
     
     // Protezione aggiuntiva: gli operatori non possono accedere al profilo
     if (userStore.isOperatore) {
-      console.log("🔧 Operatore reindirizzato al pannello operatore");
       router.push('/pannello-operatore');
       return;
     }
@@ -175,7 +174,7 @@ const caricaUtentiSeguiti = async () => {
     // Aggiorna anche il counter dei seguiti con il numero effettivo caricato
     followStats.value.followingCount = utentiSeguiti.value.length;
     
-    console.log(`✅ Caricati ${utentiSeguiti.value.length} utenti seguiti`);
+    
   } catch (err) {
     console.error("❌ Errore nel caricamento degli utenti seguiti:", err);
     await showError("Errore nel caricamento degli utenti seguiti", "Riprova più tardi");
@@ -192,7 +191,7 @@ const caricaFollowStats = async () => {
     loadingFollowStats.value = true;
     const stats = await followStore.loadMyFollowStats(userStore.user._id);
     followStats.value = stats;
-    console.log(`✅ Stats di follow caricati: ${stats.followersCount} follower, ${stats.followingCount} following`);
+    
   } catch (err) {
     console.error("❌ Errore nel caricamento degli stats di follow:", err);
     // Non mostriamo errore all'utente per gli stats, li lasciamo a 0

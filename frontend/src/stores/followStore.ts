@@ -44,9 +44,6 @@ export const useFollowStore = defineStore('follow', {
         this.loading = true;
         this.error = null;
         
-        console.log('🔄 [followStore] Tentativo di follow utente:', userId);
-        console.log('🔄 [followStore] Token presente:', !!localStorage.getItem('token'));
-        
         await followApi.followUser(userId);
         
         // Aggiorna lo stato locale immediatamente
@@ -61,8 +58,6 @@ export const useFollowStore = defineStore('follow', {
             followersCount: currentStatus.followersCount + 1
           });
         }
-        
-        console.log(`✅ [followStore] Utente ${userId} seguito con successo`);
         
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore durante il follow';
@@ -84,9 +79,6 @@ export const useFollowStore = defineStore('follow', {
         this.loading = true;
         this.error = null;
         
-        console.log('🔄 [followStore] Tentativo di unfollow utente:', userId);
-        console.log('🔄 [followStore] Token presente:', !!localStorage.getItem('token'));
-        
         await followApi.unfollowUser(userId);
         
         // Aggiorna lo stato locale immediatamente
@@ -101,8 +93,6 @@ export const useFollowStore = defineStore('follow', {
             followersCount: Math.max(0, currentStatus.followersCount - 1)
           });
         }
-        
-        console.log(`✅ [followStore] Utente ${userId} unfollowato con successo`);
         
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore durante l\'unfollow';
@@ -191,13 +181,13 @@ export const useFollowStore = defineStore('follow', {
     async loadMyFollowStats(userId: string): Promise<{ followersCount: number; followingCount: number }> {
       try {
         // Per il proprio profilo, usa anche il metodo più accurato che conta le liste reali
-        console.log('🔄 Caricamento stats per il proprio profilo...');
+  
         const [followersCount, followingCount] = await Promise.all([
           this.getFollowersCount(userId),
           this.getFollowingCount(userId)
         ]);
         
-        console.log(`📊 Stats propri caricati: ${followersCount} follower, ${followingCount} following`);
+
         
         return {
           followersCount,

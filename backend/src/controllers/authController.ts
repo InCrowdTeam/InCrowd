@@ -41,7 +41,7 @@ const downloadImageAsBase64 = async (imageUrl: string): Promise<{ data: string, 
       contentType
     };
   } catch (error) {
-    console.error('Errore download immagine:', error);
+    res.status(500).json(apiResponse({ message: 'Errore download immagine' }));
     return null;
   }
 };
@@ -139,7 +139,7 @@ export const googleLogin = async (req: Request, res: Response) => {
 
   try {
     if (!process.env.GOOGLE_CLIENT_ID) {
-      console.error("GOOGLE_CLIENT_ID not set in environment");
+      return res.status(500).json(apiResponse({ message: 'Configurazione Google OAuth mancante' }));
     }
     const ticket = await googleClient.verifyIdToken({
       idToken,

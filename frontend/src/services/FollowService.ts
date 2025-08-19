@@ -12,10 +12,6 @@ const getAuthHeaders = (): Record<string, string> => {
 export const followApi = {
   // Seguire un utente
   followUser: async (userId: string): Promise<void> => {
-    console.log('🔄 [followApi] Tentativo di follow per utente:', userId);
-    const token = localStorage.getItem('token');
-    console.log('🔄 [followApi] Token presente:', !!token);
-    
     const res = await fetch(`${API_BASE_URL}/api/follow/${userId}`, {
       method: 'POST',
       headers: {
@@ -23,25 +19,15 @@ export const followApi = {
         ...getAuthHeaders()
       }
     });
-
-    console.log('🔄 [followApi] Risposta follow status:', res.status);
     
     if (!res.ok) {
       const error = await res.json();
-      console.error('❌ [followApi] Errore follow risposta:', error);
       throw new Error(error.error || error.message || 'Errore nel seguire l\'utente');
     }
-    
-    const result = await res.json();
-    console.log('✅ [followApi] Follow riuscito:', result);
   },
 
   // Smettere di seguire un utente
   unfollowUser: async (userId: string): Promise<void> => {
-    console.log('🔄 [followApi] Tentativo di unfollow per utente:', userId);
-    const token = localStorage.getItem('token');
-    console.log('🔄 [followApi] Token presente:', !!token);
-    
     const res = await fetch(`${API_BASE_URL}/api/follow/${userId}`, {
       method: 'DELETE',
       headers: {
@@ -50,16 +36,10 @@ export const followApi = {
       }
     });
 
-    console.log('🔄 [followApi] Risposta unfollow status:', res.status);
-
     if (!res.ok) {
       const error = await res.json();
-      console.error('❌ [followApi] Errore unfollow risposta:', error);
       throw new Error(error.error || error.message || 'Errore nell\'annullare il follow');
     }
-    
-    const result = await res.json();
-    console.log('✅ [followApi] Unfollow riuscito:', result);
   },
 
   // Ottenere i followers di un utente

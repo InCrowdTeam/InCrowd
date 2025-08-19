@@ -51,8 +51,7 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
     await newOperatore.save();
     res.status(201).json(apiResponse({ data: newOperatore, message: "Operatore creato con successo" }));
   } catch (error) {
-    console.error("Errore durante la creazione dell'operatore:", error);
-    res.status(500).json(apiResponse({ message: "Errore creazione operatore", error }));
+    res.status(500).json(apiResponse({ message: "Errore durante la creazione dell'operatore" }));
   }
 };
 
@@ -150,8 +149,7 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
     
     res.json(apiResponse({ data: stats, message: "Statistiche operatore" }));
   } catch (error) {
-    console.error("Errore nel recupero statistiche operatore:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
+    res.status(500).json(apiResponse({ message: "Errore nel recupero statistiche operatore" }));
   }
 };
 

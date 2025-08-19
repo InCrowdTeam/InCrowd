@@ -274,7 +274,7 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
   
   // Controlla se l'utente è operatore o amministratore
   if (userStore.isOperatore || userStore.isAdmin) {
-    console.log('Gli operatori e amministratori non possono seguire gli utenti')
+    
     return
   }
   

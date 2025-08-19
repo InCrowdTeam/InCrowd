@@ -433,11 +433,11 @@ const loadFollowStats = async () => {
     if (isOwnProfile.value) {
       // Se è il proprio profilo, usa il metodo per i propri stats
       stats = await followStore.loadMyFollowStats(userId.value);
-      console.log(`✅ Stats di follow caricati per il proprio profilo: ${stats.followersCount} follower, ${stats.followingCount} following`);
+
     } else {
       // Se è il profilo di un altro utente, usa il metodo generico
       stats = await followStore.loadUserFollowStats(userId.value);
-      console.log(`✅ Stats di follow caricati per utente ${userId.value}: ${stats.followersCount} follower, ${stats.followingCount} following`);
+      
     }
     
     followStats.value = {
@@ -507,7 +507,7 @@ const loadFollowing = async () => {
     // Aggiorna anche il count dei following con il numero reale caricato
     followStats.value.followingCount = followingList.value.length;
     
-    console.log(`✅ Caricati ${followingList.value.length} utenti seguiti (Lista reale aggiornata)`);
+    
   } catch (err: any) {
     console.error('❌ Errore nel caricamento dei seguiti:', err);
     followingList.value = [];
@@ -528,9 +528,7 @@ const toggleFollow = async () => {
     loadingFollow.value = true;
     
     // Debug info
-    console.log('🔄 Tentativo di toggle follow per utente:', userId.value);
-    console.log('🔄 Stato follow attuale:', followStatus.value.isFollowing);
-    console.log('🔄 Token presente:', !!localStorage.getItem('token'));
+
     
     await followStore.toggleFollow(userId.value);
     
@@ -540,10 +538,10 @@ const toggleFollow = async () => {
     // Aggiorna anche gli stats
     if (followStatus.value.isFollowing) {
       followStats.value.followersCount++;
-      console.log('✅ Follow effettuato, followers count:', followStats.value.followersCount);
+      
     } else {
       followStats.value.followersCount = Math.max(0, followStats.value.followersCount - 1);
-      console.log('✅ Unfollow effettuato, followers count:', followStats.value.followersCount);
+      
     }
     
   } catch (err: any) {

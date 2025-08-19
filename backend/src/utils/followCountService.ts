@@ -13,7 +13,6 @@ export class FollowCountService {
     try {
       return await Follow.countDocuments({ followingId: userId });
     } catch (error) {
-      console.error('Errore nel calcolo followers:', error);
       return 0;
     }
   }
@@ -27,7 +26,6 @@ export class FollowCountService {
     try {
       return await Follow.countDocuments({ followerId: userId });
     } catch (error) {
-      console.error('Errore nel calcolo following:', error);
       return 0;
     }
   }
@@ -46,7 +44,6 @@ export class FollowCountService {
 
       return { followersCount, followingCount };
     } catch (error) {
-      console.error('Errore nel calcolo contatori:', error);
       return { followersCount: 0, followingCount: 0 };
     }
   }
@@ -62,7 +59,6 @@ export class FollowCountService {
       const follow = await Follow.findOne({ followerId, followingId });
       return !!follow;
     } catch (error) {
-      console.error('Errore nella verifica follow:', error);
       return false;
     }
   }
@@ -94,7 +90,6 @@ export class FollowCountService {
         isFollowedByCurrentUser
       };
     } catch (error) {
-      console.error('Errore nel recupero info follow completo:', error);
       return {
         followersCount: 0,
         followingCount: 0,

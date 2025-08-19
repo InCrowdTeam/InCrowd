@@ -63,15 +63,17 @@ app.use(errorMiddleware);
 
 async function start() {
   await prepareMongo();
-  mongoose
-    .connect(mongoUri as string)
+  mongoose.connect(mongoUri as string)
     .then(() => {
       console.log("Connected to MongoDB");
       app.listen(process.env.PORT || 3000, () => {
         console.log("Server running");
       });
     })
-    .catch((err) => console.error("MongoDB connection error:", err));
+    .catch((err) => {
+      console.error("MongoDB connection error:", err);
+      process.exit(1);
+    });
 }
 
 start();
