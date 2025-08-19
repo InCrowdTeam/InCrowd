@@ -7,7 +7,7 @@ import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 import { apiResponse } from "../utils/responseFormatter";
-import { FollowCountService } from "../utils/followCountService";
+
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -17,13 +17,11 @@ interface AuthenticatedRequest extends Request {
  * Crea dati utente pubblici unificati per la visualizzazione
  * @param user - Oggetto utente dal database
  * @param userType - Tipo utente ('privato' | 'ente') 
- * @param followCounts - Contatori follow (opzionale)
  * @returns Oggetto con dati pubblici unificati con user_type
  */
 const createPublicUser = (
   user: any, 
-  userType: 'privato' | 'ente',
-  followCounts?: { followersCount: number; followingCount: number }
+  userType: 'privato' | 'ente'
 ) => {
   const publicData: any = {
     _id: user._id,
@@ -40,12 +38,6 @@ const createPublicUser = (
     publicData.cognome = user.cognome;
   } else if (userType === 'ente') {
     publicData.nome_org = user.nome_org;
-  }
-
-  // Aggiungi i contatori se disponibili
-  if (followCounts) {
-    publicData.followersCount = followCounts.followersCount;
-    publicData.followingCount = followCounts.followingCount;
   }
 
   return publicData;
@@ -265,11 +257,8 @@ export const getUserById = async (req: Request, res: Response) => {
     }
 
     const { user, userType } = result;
-
-    // Conta followers/following
-    const followCounts = await FollowCountService.getBothCounts(userId);
     
-    const publicUser = createPublicUser(user, userType, followCounts);
+    const publicUser = createPublicUser(user, userType);
     
     res.json(
       apiResponse({
@@ -300,15 +289,12 @@ export const getCurrentUser = async (req: any, res: Response) => {
     }
 
     const { user } = result;
-    const followCounts = await FollowCountService.getBothCounts(userId);
     
     // Per il profilo personale, include tutti i dati (tranne password)
     const safeUser = createSafeCredentials(user);
     const completeUser = {
       ...safeUser,
-      user_type: userType,
-      followersCount: followCounts.followersCount,
-      followingCount: followCounts.followingCount
+      user_type: userType
     };
 
     res.json(
@@ -402,13 +388,10 @@ export const updateProfile = async (req: any, res: Response) => {
     await user.save();
 
     // Risposta con dati completi dell'utente (come getCurrentUser)
-    const followCounts = await FollowCountService.getBothCounts(userId);
     const safeUser = createSafeCredentials(user);
     const completeUser = {
       ...safeUser,
-      user_type: userType,
-      followersCount: followCounts.followersCount,
-      followingCount: followCounts.followingCount
+      user_type: userType
     };
     
     res.json(
