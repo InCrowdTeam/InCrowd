@@ -76,9 +76,7 @@ const searchFilters = ref<SearchFilters>({
   citta: '',
   stato: '',
   sortBy: 'createdAt',
-  sortOrder: 'desc',
-  limit: 20,
-  skip: 0
+  sortOrder: 'desc'
 })
 
 // Stato per controllare la visibilità del banner
@@ -133,9 +131,9 @@ const classificaProposte = computed(() => {
 })
 
 // Controlli per tipo utente (ora utilizzano i getter dello store)
-const isOperatore = computed(() => userStore.isOperatore)
-const isAmministratore = computed(() => userStore.isAdmin)
-const canHype = computed(() => userStore.canHype)
+// const isOperatore = computed(() => userStore.isOperatore)
+// const isAmministratore = computed(() => userStore.isAdmin)
+// const canHype = computed(() => userStore.canHype)
 
 // LOGICA PER I COMMENTI - RIMOSSA
 
@@ -143,16 +141,15 @@ const canHype = computed(() => userStore.canHype)
 
 // LOGICA PER IL BOTTONE HYPE - RIMOSSA
 
-// Funzione per ottenere il badge dell'utente (disabilitata)
-function getUserBadge(commento: any) {
-  return ''; // Nessun badge per tutti gli utenti
-}
+// Funzioni per commenti (non utilizzate attualmente)
+// function getUserBadge(commento: any) {
+//   return ''; // Nessun badge per tutti gli utenti
+// }
 
-// Funzione per ottenere il nome dell'utente
-function getUserName(commento: any) {
-  if (!commento.utente) return 'Utente';
-  return `${commento.utente.nome || ''} ${commento.utente.cognome || ''}`.trim() || 'Utente';
-}
+// function getUserName(commento: any) {
+//   if (!commento.utente) return 'Utente';
+//   return `${commento.utente.cognome || ''} ${commento.utente.cognome || ''}`.trim() || 'Utente';
+// }
 
 // Funzione per ottenere l'etichetta della categoria
 function getCategoryLabel(categoria: string) {
@@ -211,7 +208,7 @@ const executeSearch = async () => {
     } else {
       // Ricerca utenti
       if (searchQuery.value) {
-        const response: SearchUsersResponse = await searchUsers(searchQuery.value, 1, 20)
+        const response: SearchUsersResponse = await searchUsers(searchQuery.value)
         let filteredUsers = response.data.users
         
         // Applica il filtro per tipo utente

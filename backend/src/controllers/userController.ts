@@ -444,7 +444,7 @@ export const deleteAccount = async (req: any, res: Response) => {
  */
 export const searchUsers = async (req: Request, res: Response) => {
   try {
-    const { q, limit = 10, page = 1, user_type } = req.query;
+    const { q, user_type } = req.query;
 
     if (!q || typeof q !== 'string' || q.trim().length < 2) {
       return res.status(400).json(
@@ -453,9 +453,6 @@ export const searchUsers = async (req: Request, res: Response) => {
     }
 
     const searchRegex = new RegExp(q.trim(), 'i');
-    const limitNum = Math.min(parseInt(limit as string) || 10, 50);
-    const pageNum = Math.max(parseInt(page as string) || 1, 1);
-    const skip = (pageNum - 1) * limitNum;
 
     // Query per privati
     const privateQuery = {
@@ -482,9 +479,7 @@ export const searchUsers = async (req: Request, res: Response) => {
     if (!user_type || user_type === 'privato') {
       const privati = await Privato.find(privateQuery)
         .select('nome cognome biografia fotoProfilo createdAt')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum);
+        .sort({ createdAt: -1 });
 
       const privateResults = privati.map(user => createPublicUser(user, 'privato'));
       results = results.concat(privateResults);
@@ -497,9 +492,7 @@ export const searchUsers = async (req: Request, res: Response) => {
     if (!user_type || user_type === 'ente') {
       const enti = await Ente.find(enteQuery)
         .select('nome_org nome biografia fotoProfilo createdAt')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum);
+        .sort({ createdAt: -1 });
 
       const enteResults = enti.map(ente => createPublicUser(ente, 'ente'));
       results = results.concat(enteResults);
@@ -511,20 +504,13 @@ export const searchUsers = async (req: Request, res: Response) => {
 
     // Ordina i risultati unificati per data
     results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    // Limita se necessario
-    if (!user_type) {
-      results = results.slice(0, limitNum);
-    }
 
     res.json(
       apiResponse({
         message: "Ricerca completata",
         data: {
           users: results,
-          total: user_type ? results.length : totalCount,
-          page: pageNum,
-          limit: limitNum
+          total: user_type ? results.length : totalCount
         }
       })
     );

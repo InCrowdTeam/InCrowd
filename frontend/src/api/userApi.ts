@@ -22,8 +22,6 @@ export interface SearchUsersResponse {
   data: {
     users: IUser[];
     total: number;
-    page: number;
-    limit: number;
   };
   message: string;
 }
@@ -187,14 +185,10 @@ export async function deleteAccount(token: string): Promise<{ message: string }>
 // Cerca utenti - ENDPOINT UNIFICATO
 export async function searchUsers(
   query: string, 
-  page: number = 1, 
-  limit: number = 10,
   user_type?: 'privato' | 'ente'
 ): Promise<SearchUsersResponse> {
   const url = new URL(`${BASE_URL}/search`);
   url.searchParams.append('q', query);
-  url.searchParams.append('page', page.toString());
-  url.searchParams.append('limit', limit.toString());
   
   if (user_type) {
     url.searchParams.append('user_type', user_type);

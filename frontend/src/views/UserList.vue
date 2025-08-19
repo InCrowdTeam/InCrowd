@@ -264,7 +264,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { getAllUsers } from '@/api/userApi'
 import { useModal } from '@/composables/useModal'
-import axios from 'axios'
+// Import non utilizzato rimosso per ottimizzazione
 
 // Tipi
 interface User {

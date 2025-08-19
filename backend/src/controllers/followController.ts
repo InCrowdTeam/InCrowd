@@ -103,19 +103,15 @@ export const unfollowUser = async (req: Request, res: Response) => {
 };
 
 /**
- * Recupera la lista dei followers di un utente o ente con paginazione
- * @param req - Richiesta HTTP con userId nel parametro e page/limit opzionali
+ * Recupera la lista dei followers di un utente o ente
+ * @param req - Richiesta HTTP con userId nel parametro
  * @param res - Risposta HTTP con lista dei followers
  */
 export const getFollowers = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
 
     const follows = await Follow.find({ followingId: userId })
-      .skip((page - 1) * limit)
-      .limit(limit)
       .sort({ createdAt: -1 });
 
     // Popola manualmente i followers
@@ -147,19 +143,15 @@ export const getFollowers = async (req: Request, res: Response) => {
 };
 
 /**
- * Recupera la lista degli utenti/enti seguiti da un utente o ente con paginazione
- * @param req - Richiesta HTTP con userId nel parametro e page/limit opzionali
+ * Recupera la lista degli utenti/enti seguiti da un utente o ente
+ * @param req - Richiesta HTTP con userId nel parametro
  * @param res - Risposta HTTP con lista degli utenti seguiti
  */
 export const getFollowing = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
 
     const follows = await Follow.find({ followerId: userId })
-      .skip((page - 1) * limit)
-      .limit(limit)
       .sort({ createdAt: -1 });
 
     // Popola manualmente gli utenti/enti seguiti

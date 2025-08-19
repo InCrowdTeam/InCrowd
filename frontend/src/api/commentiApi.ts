@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { useUserStore } from '@/stores/userStore';
+// Import non utilizzati rimossi per ottimizzazione
 
 export async function getUltimiCommenti() {
   const res = await fetch(

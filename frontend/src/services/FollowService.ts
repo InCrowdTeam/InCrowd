@@ -43,13 +43,8 @@ export const followApi = {
   },
 
   // Ottenere i followers di un utente
-  getFollowers: async (userId: string, page: number = 1, limit: number = 20): Promise<IUser[]> => {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString()
-    });
-
-    const res = await fetch(`${API_BASE_URL}/api/follow/followers/${userId}?${params}`);
+  getFollowers: async (userId: string): Promise<IUser[]> => {
+    const res = await fetch(`${API_BASE_URL}/api/follow/followers/${userId}`);
 
     if (!res.ok) {
       const error = await res.json();
@@ -61,13 +56,8 @@ export const followApi = {
   },
 
   // Ottenere gli utenti seguiti
-  getFollowing: async (userId: string, page: number = 1, limit: number = 20): Promise<IUser[]> => {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString()
-    });
-
-    const res = await fetch(`${API_BASE_URL}/api/follow/following/${userId}?${params}`);
+  getFollowing: async (userId: string): Promise<IUser[]> => {
+    const res = await fetch(`${API_BASE_URL}/api/follow/following/${userId}`);
 
     if (!res.ok) {
       const error = await res.json();

@@ -22,8 +22,6 @@ export interface SearchFilters {
   stato?: string;
   sortBy?: 'createdAt' | 'listaHyper' | 'titolo';
   sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  skip?: number;
 }
 
 export async function searchProposte(filters: SearchFilters = {}) {

@@ -218,12 +218,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { searchProposte, type SearchFilters } from '@/api/propostaApi'
+import type { IProposta } from '@/types/Proposta'
 
 // Props & Emits
 defineEmits<{
-  selectProposta: [proposta: any]
+  selectProposta: [proposta: IProposta]
 }>()
 
 // Stato reattivo
@@ -232,7 +233,7 @@ const showFilters = ref(false)
 const loading = ref(false)
 const loadingMore = ref(false)
 const searchExecuted = ref(false)
-const results = ref<any[]>([])
+const results = ref<IProposta[]>([])
 const total = ref(0)
 const hasMore = ref(false)
 
@@ -241,9 +242,7 @@ const filters = ref<SearchFilters>({
   citta: '',
   stato: '',
   sortBy: 'createdAt',
-  sortOrder: 'desc',
-  limit: 12,
-  skip: 0
+  sortOrder: 'desc'
 })
 
 // Computed
@@ -267,7 +266,6 @@ const onSearch = () => {
 
 const executeSearch = async (reset = false) => {
   if (reset) {
-    filters.value.skip = 0
     results.value = []
   }
 
@@ -301,7 +299,7 @@ const executeSearch = async (reset = false) => {
 }
 
 const loadMore = () => {
-  filters.value.skip = results.value.length
+  // Carica tutti i risultati senza paginazione
   executeSearch(false)
 }
 
@@ -321,9 +319,7 @@ const resetFilters = () => {
     citta: '',
     stato: '',
     sortBy: 'createdAt',
-    sortOrder: 'desc',
-    limit: 12,
-    skip: 0
+    sortOrder: 'desc'
   }
   onSearch()
 }

@@ -307,7 +307,7 @@ const showSettingsModal = ref(false);
 
 // Impostazioni state  
 const activeSection = ref('profilo');
-const settingsLoading = ref(false);
+// const settingsLoading = ref(false);
 const saving = ref(false);
 const message = ref({ text: '', type: '' });
 
@@ -483,17 +483,17 @@ const cancelImageSelection = () => {
   showMessage('Selezione immagine annullata', 'success');
 };
 
-const loadProfileData = () => {
-  if (userStore.user) {
-    profileForm.value = {
-      nome: userStore.user.nome || '',
-      cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
-      email: userStore.user.credenziali?.email || '',
-      biografia: userStore.user.biografia || '',
-      fotoProfilo: null
-    };
-  }
-};
+// const loadProfileData = () => {
+//   if (userStore.user) {
+//     profileForm.value = {
+//       nome: userStore.user.nome || '',
+//       cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
+//       email: userStore.user.credenziali?.email || '',
+//       biografia: userStore.user.biografia || '',
+//       fotoProfilo: null
+//     };
+//   }
+// };
 
 const validateProfileForm = () => {
   if (!profileForm.value.nome.trim()) {
@@ -540,7 +540,6 @@ const saveProfileChanges = async () => {
     
     // Usa il nuovo endpoint unificato per tutti gli utenti
     const result = await updateProfile(formData, userStore.token);
-    response = result;
     
     if (result.data) {
       const userData = result.data.user;
@@ -601,13 +600,10 @@ const setPassword = async () => {
     saving.value = true;
     clearMessage();
     
-    let response;
-    
     // Usa il nuovo endpoint: invia solo newPassword per il setup iniziale
     const result = await setPasswordApi({
       newPassword: credentialsForm.value.newPassword
     }, userStore.token);
-    response = { message: result.message };
     
     showMessage('Password impostata con successo!');
     credentialsForm.value.newPassword = '';
@@ -649,10 +645,10 @@ const initializeGoogleSignIn = async (): Promise<void> => {
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
-    // @ts-ignore
+    // @ts-expect-error - Google API non tipizzata
     if (typeof google === 'undefined') return;
 
-    // @ts-ignore
+    // @ts-expect-error - Google API non tipizzata
     google.accounts.id.initialize({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
       callback: handleGoogleConnectResponse,
@@ -667,7 +663,7 @@ const initializeGoogleSignIn = async (): Promise<void> => {
     const initialContainer = document.getElementById('google-signin-settings-initial');
     
     if (settingsContainer) {
-      // @ts-ignore
+      // @ts-expect-error - Google API non tipizzata
       google.accounts.id.renderButton(settingsContainer, {
         theme: 'outline',
         size: 'large',
@@ -678,7 +674,7 @@ const initializeGoogleSignIn = async (): Promise<void> => {
     }
     
     if (initialContainer) {
-      // @ts-ignore
+      // @ts-expect-error - Google API non tipizzata
       google.accounts.id.renderButton(initialContainer, {
         theme: 'filled_blue',
         size: 'large',

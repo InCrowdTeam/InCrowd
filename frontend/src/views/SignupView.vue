@@ -741,7 +741,7 @@ export default {
     redirectToCompleteSignup(data) {
       let nome = data.nome || '';
       let cognome = data.cognome || '';
-      let accountType = this.type;
+      const accountType = this.type;
       
       if (accountType === 'privato') {
         if (!cognome && nome.includes(' ')) {

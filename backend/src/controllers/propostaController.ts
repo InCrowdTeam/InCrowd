@@ -156,9 +156,7 @@ export const searchProposte = async (req: Request, res: Response) => {
       citta,       // filtro per città
       stato,       // filtro per stato (approvata, in_approvazione, rifiutata)
       sortBy,      // ordinamento (createdAt, listaHyper, titolo)
-      sortOrder,   // direzione ordinamento (asc, desc)
-      limit,       // limite risultati
-      skip         // skip per paginazione
+      sortOrder    // direzione ordinamento (asc, desc)
     } = req.query;
 
     // Costruzione del filtro di ricerca
@@ -214,14 +212,6 @@ export const searchProposte = async (req: Request, res: Response) => {
             },
             { $sort: { hyperCount: sortOrder === 'asc' ? 1 : -1 } }
           ];
-          
-          if (skip && typeof skip === 'string') {
-            pipeline.push({ $skip: parseInt(skip) });
-          }
-          
-          if (limit && typeof limit === 'string') {
-            pipeline.push({ $limit: parseInt(limit) });
-          }
 
           const risultatiAggregazione = await Proposta.aggregate(pipeline);
           const proposteProcessate = risultatiAggregazione.map(p => {
@@ -251,18 +241,8 @@ export const searchProposte = async (req: Request, res: Response) => {
       sort.createdAt = -1; // Default: più recenti prima
     }
 
-    // Query con paginazione
-    let query = Proposta.find(filter).sort(sort);
-    
-    if (skip && typeof skip === 'string') {
-      query = query.skip(parseInt(skip));
-    }
-    
-    if (limit && typeof limit === 'string') {
-      query = query.limit(parseInt(limit));
-    }
-
-    const proposte = await query.exec();
+    // Query senza paginazione
+    const proposte = await Proposta.find(filter).sort(sort).exec();
     const total = await Proposta.countDocuments(filter);
 
     const proposteProcessate = proposte.map(p => {
@@ -277,8 +257,7 @@ export const searchProposte = async (req: Request, res: Response) => {
       apiResponse({
         data: {
           proposte: proposteProcessate,
-          total,
-          hasMore: (parseInt((skip as string) || '0') + proposteProcessate.length) < total,
+          total
         },
         message: "Risultati ricerca",
       })

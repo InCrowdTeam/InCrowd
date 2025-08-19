@@ -9,8 +9,8 @@ const userStore = useUserStore()
 const router = useRouter()
 const { showConfirm } = useModal()
 
-// Funzione per navigazione programmatica alla pagina di aggiunta proposte
-const goToAddProposta = () => router.push('/addproposta')
+// Funzione per navigazione programmatica alla pagina di aggiunta proposte (non utilizzata attualmente)
+// const goToAddProposta = () => router.push('/addproposta')
 
 // Controlla se l'utente è un admin (usa il getter dello store)
 const isAdmin = computed(() => userStore.isAdmin)
@@ -39,7 +39,7 @@ const handleLogoClick = () => {
 }
 
 // Funzioni per la gestione del profilo utente nella navbar
-function processProfileImage(foto: any): string {
+function processProfileImage(foto: { data: string | number[] | Uint8Array; contentType?: string }): string {
   if (!foto || !foto.data) return '';
   
   try {
@@ -78,12 +78,13 @@ function getUserDisplayName(): string {
   return `${user.nome || ''} ${user.cognome || ''}`.trim() || 'Utente';
 }
 
-function getUserRole(): string {
-  if (userStore.isAdmin) return '👑 Admin';
-  if (userStore.isOperatore) return '🔧 Operatore';
-  if (userStore.isEnte) return '🏢 Ente';
-  return '👤 Utente';
-}
+// Funzione per ottenere il ruolo utente (non utilizzata attualmente)
+// function getUserRole(): string {
+//   if (userStore.isAdmin) return '👑 Admin';
+//   if (userStore.isOperatore) return '🔧 Operatore';
+//   if (userStore.isEnte) return '🏢 Ente';
+//   return '👤 Utente';
+// }
 </script>
 
 <template>

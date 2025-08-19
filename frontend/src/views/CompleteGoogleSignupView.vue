@@ -352,7 +352,7 @@ async function handleSignUp() {
           router.push('/');
         }
       }, 1500);
-    } catch (loginErr) {
+    } catch {
       setTimeout(() => {
         router.push('/login');
       }, 1500);

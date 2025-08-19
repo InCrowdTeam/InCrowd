@@ -136,10 +136,10 @@ export const useFollowStore = defineStore('follow', {
     },
 
     // Caricare i followers di un utente
-    async loadFollowers(userId: string, page: number = 1, limit: number = 20): Promise<IUser[]> {
+    async loadFollowers(userId: string): Promise<IUser[]> {
       try {
         this.loading = true;
-        return await followApi.getFollowers(userId, page, limit);
+        return await followApi.getFollowers(userId);
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore nel caricamento dei followers';
         console.error('❌ Errore followers:', error);
@@ -150,10 +150,10 @@ export const useFollowStore = defineStore('follow', {
     },
 
     // Caricare gli utenti seguiti
-    async loadFollowing(userId: string, page: number = 1, limit: number = 20): Promise<IUser[]> {
+    async loadFollowing(userId: string): Promise<IUser[]> {
       try {
         this.loading = true;
-        return await followApi.getFollowing(userId, page, limit);
+        return await followApi.getFollowing(userId);
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore nel caricamento del following';
         console.error('❌ Errore following:', error);
@@ -203,12 +203,6 @@ export const useFollowStore = defineStore('follow', {
     // Caricare gli stats di follow per qualsiasi utente (per profili pubblici)
     async loadUserFollowStats(userId: string): Promise<{ followersCount: number; followingCount: number }> {
       try {
-        // Carica direttamente le liste per avere i count accurati
-        const [followers, following] = await Promise.all([
-          this.loadFollowers(userId, 1, 1), // Carica solo 1 elemento per ottenere il count
-          this.loadFollowing(userId, 1, 1)
-        ]);
-        
         // Ottieni i count reali dalle API
         const followersCount = await this.getFollowersCount(userId);
         const followingCount = await this.getFollowingCount(userId);
@@ -219,20 +213,8 @@ export const useFollowStore = defineStore('follow', {
         };
       } catch (error: any) {
         console.error('❌ Errore nel caricamento degli stats di follow per utente:', error);
-        // Fallback: prova a ottenere i dati dalle liste già caricate
-        try {
-          const [followers, following] = await Promise.all([
-            this.loadFollowers(userId),
-            this.loadFollowing(userId)
-          ]);
-          return {
-            followersCount: followers.length,
-            followingCount: following.length
-          };
-        } catch (fallbackError) {
-          console.error('❌ Fallback fallito:', fallbackError);
-          return { followersCount: 0, followingCount: 0 };
-        }
+        // Fallback: ritorna valori di default
+        return { followersCount: 0, followingCount: 0 };
       }
     },
 
