@@ -34,7 +34,7 @@ export function requireRole(...roles: string[]) {
   }
 }
 
-export const isUtente = (req: AuthenticatedRequest) => req.user?.userType === 'user'
+export const isUtente = (req: AuthenticatedRequest) => req.user?.userType === 'privato'
 export const isEnte = (req: AuthenticatedRequest) => req.user?.userType === 'ente'
 export const isOperatore = (req: AuthenticatedRequest) => req.user?.userType === 'operatore'
 export const isAmministratore = (req: AuthenticatedRequest) => req.user?.userType === 'admin'

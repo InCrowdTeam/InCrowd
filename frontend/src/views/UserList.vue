@@ -15,7 +15,7 @@
           <span class="stat-label">{{ filteredUsers.length === 1 ? 'Utente/Ente' : 'Utenti/Enti' }}</span>
         </div>
         <div class="stat-badge" v-if="users.length > 0">
-          <span class="stat-number">{{ users.filter(u => u.userType === 'user').length }}</span>
+          <span class="stat-number">{{ users.filter(u => u.userType === 'privato').length }}</span>
           <span class="stat-label">Utenti</span>
         </div>
         <div class="stat-badge" v-if="users.length > 0">
@@ -313,8 +313,8 @@ const filteredUsers = computed(() => {
   if (filterType.value !== 'all') {
     filtered = filtered.filter(user => {
       switch (filterType.value) {
-        case 'user':
-          return user.userType === 'user'
+        case 'privato':
+          return user.userType === 'privato'
         case 'ente':
           return user.userType === 'ente'
         case 'operatore':
@@ -404,7 +404,7 @@ const loadUsers = async () => {
     if (usersResponse.data && usersResponse.data.users) {
       allUsers = usersResponse.data.users.map((user: any) => ({
         ...user,
-        userType: user.user_type || 'user' // Mappa il campo unificato
+        userType: user.user_type || 'privato' // Mappa il campo unificato
       }))
     }
     
@@ -447,7 +447,7 @@ const getUserTypeClass = (user: User): string => {
       return 'type-ente'
     case 'operatore':
       return 'type-operatore'
-    case 'user':
+    case 'privato':
       return 'type-user'
     default:
       // Fallback per compatibilità con il vecchio sistema
@@ -468,7 +468,7 @@ const getUserTypeLabel = (user: User): string => {
       return 'Ente'
     case 'operatore':
       return 'Operatore'
-    case 'user':
+    case 'privato':
       return 'Utente'
     default:
       // Fallback per compatibilità con il vecchio sistema

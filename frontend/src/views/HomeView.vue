@@ -69,7 +69,7 @@ const searchUsersResults = ref<IUser[]>([])
 const searchExecuted = ref(false)
 
 // Filtro per tipo utente (solo per ricerca utenti)
-const userTypeFilter = ref<'all' | 'user' | 'ente'>('all')
+const userTypeFilter = ref<'all' | 'privato' | 'ente'>('all')
 
 const searchFilters = ref<SearchFilters>({
   categoria: '',
@@ -531,7 +531,7 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
             <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
           </span>
           <span v-if="searchType === 'utenti' && userTypeFilter !== 'all'" class="filter-tag">
-            Tipo: {{ userTypeFilter === 'user' ? '👤 Utenti Privati' : '🏢 Enti' }}
+            Tipo: {{ userTypeFilter === 'privato' ? '👤 Utenti Privati' : '🏢 Enti' }}
             <button @click="userTypeFilter = 'all'; onSearch()" class="tag-remove">✕</button>
           </span>
         </div>

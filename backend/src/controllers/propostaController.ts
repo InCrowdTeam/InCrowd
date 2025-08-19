@@ -39,7 +39,7 @@ const getUserData = async (userId: string, userType?: string) => {
     let userData = null;
     
     // Se conosciamo il userType, andiamo direttamente al modello corretto
-    if (userType === 'privato') { // Cambiato da 'user' a 'privato'
+    if (userType === 'privato') { 
       userData = await Privato.findById(userId, 'nome cognome');
     } else if (userType === 'ente') {
       userData = await Ente.findById(userId, 'nome');

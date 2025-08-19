@@ -55,8 +55,22 @@ export async function createUser(userData: CreateUserData): Promise<UserResponse
   return await res.json();
 }
 
-// Creazione utente con FormData (per file upload) - UNIFICATO
+/**
+ * Crea un nuovo utente (privato o ente) tramite FormData.
+ * - Per signup classica: passare password (obbligatoria), non passare oauthCode.
+ * - Per signup Google: passare oauthCode (obbligatorio), non passare password.
+ * Il backend accetta uno solo dei due campi.
+ */
 export async function createUserWithFormData(formData: FormData): Promise<UserResponse> {
+  // Validazione lato client: almeno uno tra password e oauthCode deve essere presente
+  const hasPassword = formData.has('password') && formData.get('password');
+  const hasOauthCode = formData.has('oauthCode') && formData.get('oauthCode');
+  if (!hasPassword && !hasOauthCode) {
+    throw new Error('Devi fornire una password oppure un oauthCode');
+  }
+  if (hasPassword && hasOauthCode) {
+    throw new Error('Non puoi fornire sia password che oauthCode');
+  }
   const res = await fetch(BASE_URL, {
     method: 'POST',
     body: formData

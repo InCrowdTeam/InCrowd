@@ -124,7 +124,8 @@ export const createUser = async (req: Request, res: Response) => {
       codiceFiscale,
       biografia,
       email,
-      password
+      password,
+      oauthCode
     } = req.body;
 
     // Validazioni base
@@ -134,9 +135,21 @@ export const createUser = async (req: Request, res: Response) => {
       );
     }
 
-    if (!nome || !codiceFiscale || !email || !password) {
+    if (!nome || !codiceFiscale || !email) {
       return res.status(400).json(
-        apiResponse({ message: "nome, codiceFiscale, email e password sono obbligatori" })
+        apiResponse({ message: "nome, codiceFiscale ed email sono obbligatori" })
+      );
+    }
+
+    // Serve almeno uno tra password e oauthCode
+    if (!password && !oauthCode) {
+      return res.status(400).json(
+        apiResponse({ message: "Devi fornire una password oppure un oauthCode" })
+      );
+    }
+    if (password && oauthCode) {
+      return res.status(400).json(
+        apiResponse({ message: "Non puoi fornire sia password che oauthCode" })
       );
     }
 
@@ -153,7 +166,7 @@ export const createUser = async (req: Request, res: Response) => {
       );
     }
 
-    // Validazioni email, password e codice fiscale
+    // Validazioni email e codice fiscale
     if (!validateEmail(email)) {
       return res.status(400).json(
         apiResponse({ message: "Formato email non valido" })
@@ -173,18 +186,21 @@ export const createUser = async (req: Request, res: Response) => {
       );
     }
 
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.isValid) {
-      return res.status(400).json(
-        apiResponse({
-          message: "Password non valida",
-          error: { details: passwordValidation.errors }
-        })
-      );
+    let hashedPassword = undefined;
+    if (password) {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json(
+          apiResponse({
+            message: "Password non valida",
+            error: { details: passwordValidation.errors }
+          })
+        );
+      }
+      hashedPassword = await bcrypt.hash(password, 10);
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // TODO: validazione oauthCode se necessario (es. verifica lato Google)
 
     // Crea utente nel modello appropriato
     let newUser: any;
@@ -196,7 +212,8 @@ export const createUser = async (req: Request, res: Response) => {
         biografia: biografia ? sanitizeInput(biografia) : "",
         credenziali: {
           email: email.toLowerCase(),
-          password: hashedPassword
+          password: hashedPassword,
+          oauthCode: oauthCode || undefined
         }
       });
     } else {
@@ -207,7 +224,8 @@ export const createUser = async (req: Request, res: Response) => {
         biografia: biografia ? sanitizeInput(biografia) : "",
         credenziali: {
           email: email.toLowerCase(),
-          password: hashedPassword
+          password: hashedPassword,
+          oauthCode: oauthCode || undefined
         }
       });
     }
@@ -537,9 +555,10 @@ export const getUserAvatar = async (req: Request, res: Response) => {
 };
 
 /**
+/**
  * @deprecated - Le password sono gestite in /api/auth/password
  */
-export const updatePassword = async (req: Request, res: Response) => {
+export const updatePassword = async (req: any, res: Response) => {
   res.status(404).json(
     apiResponse({
       message: "Endpoint spostato a PATCH /api/auth/password"

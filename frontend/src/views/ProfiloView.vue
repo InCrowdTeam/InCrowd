@@ -9,7 +9,7 @@ import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import { useModal } from '@/composables/useModal';
 import { getUserById, updateProfile, getCurrentUser, deleteAccount } from "@/api/userApi";
-import { changePassword } from "@/api/authApi";
+import { setPassword as setPasswordApi } from "@/api/authApi";
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -549,9 +549,8 @@ const setPassword = async () => {
     
     let response;
     
-    // Usa il nuovo endpoint unificato per l'impostazione/cambio password
-    const result = await changePassword({
-      currentPassword: '', // Password vuota per indicare impostazione iniziale
+    // Usa il nuovo endpoint: invia solo newPassword per il setup iniziale
+    const result = await setPasswordApi({
       newPassword: credentialsForm.value.newPassword
     }, userStore.token);
     response = { message: result.message };

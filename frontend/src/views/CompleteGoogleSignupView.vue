@@ -60,8 +60,8 @@
           <!-- Tipo account selezionato -->
           <div class="account-type-display">
             <div class="selected-type">
-              <span class="type-icon">{{ type === 'user' ? '👤' : '🏢' }}</span>
-              <span class="type-text">{{ type === 'user' ? 'Utente Privato' : 'Ente/Organizzazione' }}</span>
+              <span class="type-icon">{{ type === 'privato' ? '👤' : '🏢' }}</span>
+              <span class="type-text">{{ type === 'privato' ? 'Utente Privato' : 'Ente/Organizzazione' }}</span>
             </div>
           </div>
           
@@ -86,7 +86,7 @@
                 <small v-if="!!nomeGoogle" class="input-note">Importato da Google</small>
               </div>
               
-              <div v-if="type === 'user'" class="form-group">
+              <div v-if="type === 'privato'" class="form-group">
                 <label for="cognome" class="form-label">
                   <span class="label-icon">👤</span>
                   Cognome
@@ -206,8 +206,8 @@ const previewUrl = ref('');
 const isSubmitting = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// Parametri dalla query (teniamo il GET come richiesto)
-const type = computed(() => route.query.type as string || 'user');
+// Parametri dalla query
+const type = computed(() => route.query.type as string || 'privato');
 const nomeGoogle = computed(() => {
   const nome = route.query.nome as string || '';
   return nome.includes(' ') ? nome.split(' ')[0] : nome;
@@ -250,12 +250,12 @@ const form = ref({
   }
 });
 
-const showCognome = computed(() => type.value === 'user');
+const showCognome = computed(() => type.value === 'privato');
 
 const canProceed = computed(() => {
   const baseFields = form.value.nome && form.value.codiceFiscale;
-  
-  if (type.value === 'user') {
+
+  if (type.value === 'privato') {
     return baseFields && form.value.cognome;
   }
   return baseFields;
@@ -322,7 +322,10 @@ async function handleSignUp() {
     formData.append('user_type', showCognome.value ? 'privato' : 'ente');
     
     formData.append('email', form.value.credenziali.email);
-    formData.append('oauthCode', form.value.credenziali.oauthCode);
+    // Solo oauthCode, mai password per Google
+    if (form.value.credenziali.oauthCode) {
+      formData.append('oauthCode', form.value.credenziali.oauthCode);
+    }
 
     // Usa il nuovo endpoint unificato
     await createUserWithFormData(formData);

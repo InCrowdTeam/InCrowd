@@ -241,7 +241,7 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     let user: any;
     let Model: any;
     
-    if (userType === 'privato') { // Cambiato da 'user' a 'privato'
+    if (userType === 'privato') { 
       user = await Privato.findById(userId);
       Model = Privato;
     } else if (userType === 'ente') {
@@ -313,16 +313,17 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
 };
 
 /**
- * Cambia password per utenti (privati ed enti)
+ * Imposta la password per utenti (privati ed enti) che non ne hanno una (es. signup Google)
+ * Permette di settare la password solo se non esiste già.
  */
 export const updatePassword = async (req: any, res: Response) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { newPassword } = req.body;
     const { userId, userType } = req.user;
 
-    if (!currentPassword || !newPassword) {
+    if (!newPassword) {
       return res.status(400).json(
-        apiResponse({ message: "Password attuale e nuova password sono obbligatorie" })
+        apiResponse({ message: "La nuova password è obbligatoria" })
       );
     }
 
@@ -351,28 +352,33 @@ export const updatePassword = async (req: any, res: Response) => {
       );
     }
 
-    // Verifica password attuale
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.credenziali.password);
-    if (!isCurrentPasswordValid) {
-      return res.status(401).json(
-        apiResponse({ message: "Password attuale non corretta" })
+    // Permetti di settare la password solo se non esiste già
+    if (user.credenziali && user.credenziali.password) {
+      return res.status(400).json(
+        apiResponse({ message: "La password è già stata impostata. Usa la funzione di cambio password." })
       );
     }
 
     // Hash e salva nuova password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    user.credenziali.password = hashedPassword;
+    if (!user.credenziali) {
+      user.credenziali = { email: user.credenziali?.email || user.email, password: hashedPassword };
+    } else {
+      user.credenziali.password = hashedPassword;
+    }
     await user.save();
 
-    res.json(
-      apiResponse({ message: "Password aggiornata con successo" })
-    );
+    // Restituisci l'utente aggiornato in modo sicuro
+    const updatedUser = await (userType === 'ente' ? Ente.findById(userId) : Privato.findById(userId));
+    const safeUser = createSafeCredentials(updatedUser!);
+
+    res.json(apiResponse({ data: safeUser, message: "Password impostata con successo" }));
 
   } catch (err: any) {
     const message = err?.message || err.toString();
     res.status(500).json(
-      apiResponse({ message: `Errore aggiornamento password: ${message}` })
+      apiResponse({ message: `Errore impostazione password: ${message}` })
     );
   }
 };

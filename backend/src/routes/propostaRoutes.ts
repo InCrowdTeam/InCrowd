@@ -45,16 +45,16 @@ router.get("/user/:userId", getUserProposte);
 router.get("/pending", authMiddleware, requireRole("operatore"), getPendingProposte as any);
 
 // Rotta per creare una nuova proposta (con upload file)
-router.post("/", authMiddleware, requireRole("user", "ente"), upload.single("foto"), addProposta);
+router.post("/", authMiddleware, requireRole("privato", "ente"), upload.single("foto"), addProposta);
 
 // Rotta per ottenere una singola proposta per ID
 router.get("/:id", getPropostaById);
 
 //Rotta per mettere hype a una proposta
-router.patch("/:id/hyper", authMiddleware, requireRole("user", "ente"), hyperProposta as any);
+router.patch("/:id/hyper", authMiddleware, requireRole("privato", "ente"), hyperProposta as any);
 
 // Rotta per aggiungere un commento a una proposta
-router.post("/:id/commenti", authMiddleware, requireRole("user", "ente", "operatore"), aggiungiCommento as any);
+router.post("/:id/commenti", authMiddleware, requireRole("privato", "ente", "operatore"), aggiungiCommento as any);
 
 // Aggiorna stato proposta (approva o rifiuta)
 router.patch("/:id/stato", authMiddleware, requireRole("operatore"), updateStatoProposta as any);
@@ -66,6 +66,6 @@ router.get("/:id/commenti", getCommentiProposta as any);
 router.delete("/:propostaId/commenti/:commentoId", authMiddleware, deleteCommento as any);
 
 // Rotta per eliminare una proposta
-router.delete("/:id", authMiddleware, requireRole("user", "ente", "operatore"), deleteProposta as any);
+router.delete("/:id", authMiddleware, requireRole("privato", "ente", "operatore"), deleteProposta as any);
 
 export default router;

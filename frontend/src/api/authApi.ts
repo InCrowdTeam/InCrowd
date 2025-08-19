@@ -16,7 +16,7 @@ export interface GoogleLoginResponse extends LoginResponse {
 }
 
 export interface ChangePasswordData {
-  currentPassword: string;
+  currentPassword?: string;
   newPassword: string;
 }
 
@@ -64,8 +64,8 @@ export async function googleLogin(data: GoogleLoginData): Promise<GoogleLoginRes
   return await res.json();
 }
 
-// Cambia password - NUOVO ENDPOINT UNIFICATO
-export async function changePassword(data: ChangePasswordData, authToken: string): Promise<{ message: string }> {
+// Imposta la password per la prima volta (es. dopo signup Google) - ENDPOINT UNIFICATO
+export async function setPassword(data: ChangePasswordData, authToken: string): Promise<{ message: string }> {
   const res = await fetch(`${BASE_URL}/password`, {
     method: 'PATCH',
     headers: {
@@ -77,7 +77,7 @@ export async function changePassword(data: ChangePasswordData, authToken: string
 
   if (!res.ok) {
     const error = await res.json();
-    throw new Error(error.message || 'Errore nel cambio password');
+    throw new Error(error.message || 'Errore nell\'impostazione della password');
   }
 
   return await res.json();
