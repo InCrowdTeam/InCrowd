@@ -2,5 +2,7 @@ export interface Follow {
     id: number;
     followerId: number; // ID di chi segue
     followedId: number; // ID di chi viene seguito
+    followerType: 'privato' | 'ente';
+    followingType: 'privato' | 'ente';
     createdAt: Date;
 }

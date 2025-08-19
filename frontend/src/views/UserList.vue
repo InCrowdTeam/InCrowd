@@ -15,7 +15,7 @@
           <span class="stat-label">{{ filteredUsers.length === 1 ? 'Utente/Ente' : 'Utenti/Enti' }}</span>
         </div>
         <div class="stat-badge" v-if="users.length > 0">
-          <span class="stat-number">{{ users.filter(u => u.userType === 'user').length }}</span>
+          <span class="stat-number">{{ users.filter(u => u.userType === 'privato').length }}</span>
           <span class="stat-label">Utenti</span>
         </div>
         <div class="stat-badge" v-if="users.length > 0">
@@ -41,7 +41,7 @@
       <div class="filters-container">
         <select v-model="filterType" class="filter-select">
           <option value="all">Tutti gli utenti ed enti</option>
-          <option value="user">Solo utenti normali</option>
+          <option value="privato">Solo utenti normali</option>
           <option value="ente">Solo enti</option>
         </select>
         
@@ -89,7 +89,7 @@
               </div>
             </div>
 
-            <p class="user-email">{{ user.credenziali.email }}</p>
+            <p class="user-email">{{ user.email || 'Email non disponibile' }}</p>
 
             <!-- Dettagli -->
             <div class="user-details">
@@ -191,7 +191,7 @@
             </div>
             <div class="user-summary-info">
               <h4>{{ selectedUser.nome }}{{ selectedUser.cognome ? ` ${selectedUser.cognome}` : '' }}</h4>
-              <p class="user-email-large">{{ selectedUser.credenziali.email }}</p>
+              <p class="user-email-large">{{ selectedUser.email || 'Email non disponibile' }}</p>
               <div class="user-type-badge large" :class="getUserTypeClass(selectedUser)">
                 {{ getUserTypeLabel(selectedUser) }}
               </div>
@@ -211,7 +211,7 @@
               </div>
               <div class="detail-item">
                 <span class="label">Email:</span>
-                <span class="value">{{ selectedUser.credenziali.email }}</span>
+                <span class="value">{{ selectedUser.email || 'Email non disponibile' }}</span>
               </div>
               <div class="detail-item" v-if="selectedUser.biografia">
                 <span class="label">Biografia:</span>
@@ -262,18 +262,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
-import { getAllEnti } from '@/api/enteApi'
+import { getAllUsers } from '@/api/userApi'
 import { useModal } from '@/composables/useModal'
-import axios from 'axios'
+// Import non utilizzato rimosso per ottimizzazione
 
 // Tipi
 interface User {
   _id: string
   nome: string
   cognome?: string // Opzionale per gli enti
-  credenziali: {
-    email: string
-  }
+  email: string
   biografia?: string
   createdAt?: string
   indirizzo?: {
@@ -313,8 +311,8 @@ const filteredUsers = computed(() => {
   if (filterType.value !== 'all') {
     filtered = filtered.filter(user => {
       switch (filterType.value) {
-        case 'user':
-          return user.userType === 'user'
+        case 'privato':
+          return user.userType === 'privato'
         case 'ente':
           return user.userType === 'ente'
         case 'operatore':
@@ -329,10 +327,10 @@ const filteredUsers = computed(() => {
   if (search.value) {
     const searchLower = search.value.toLowerCase()
     filtered = filtered.filter(user =>
-      user.nome.toLowerCase().includes(searchLower) ||
-      (user.cognome && user.cognome.toLowerCase().includes(searchLower)) ||
-      user.credenziali.email.toLowerCase().includes(searchLower) ||
-      (user.biografia && user.biografia.toLowerCase().includes(searchLower))
+  user.nome.toLowerCase().includes(searchLower) ||
+  (user.cognome && user.cognome.toLowerCase().includes(searchLower)) ||
+  user.email.toLowerCase().includes(searchLower) ||
+  (user.biografia && user.biografia.toLowerCase().includes(searchLower))
     )
   }
 
@@ -342,11 +340,12 @@ const filteredUsers = computed(() => {
       case 'name':
         return `${a.nome} ${a.cognome || ''}`.localeCompare(`${b.nome} ${b.cognome || ''}`)
       case 'email':
-        return a.credenziali.email.localeCompare(b.credenziali.email)
-      case 'date':
+        return a.email.localeCompare(b.email)
+      case 'date': {
         const dateA = new Date(a.createdAt || 0).getTime()
         const dateB = new Date(b.createdAt || 0).getTime()
         return dateB - dateA
+      }
       default:
         return 0
     }
@@ -395,64 +394,39 @@ const loadUsers = async () => {
   try {
     loading.value = true
     
-    // Carica sia utenti che enti in parallelo
-    const [usersResponse, entiResponse] = await Promise.allSettled([
-      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users`, {
-        headers: {
-          'Authorization': `Bearer ${store.token}`
-        },
-        timeout: 10000
-      }),
-      getAllEnti(store.token)
-    ])
+    // Usa il nuovo endpoint unificato per tutti gli utenti
+    const usersResponse = await getAllUsers(store.token);
     
     let allUsers: User[] = []
     
-    // Processa utenti
-    if (usersResponse.status === 'fulfilled') {
-      const userData = usersResponse.value.data?.data || usersResponse.value.data || []
-      allUsers = allUsers.concat(userData.map((user: any) => ({
+    // Processa tutti gli utenti (privati ed enti insieme)
+    if (usersResponse.data && usersResponse.data.users) {
+      allUsers = usersResponse.data.users.map((user: any) => ({
         ...user,
-        userType: 'user'
-      })))
-    } else {
-      console.error('Errore nel caricamento utenti:', usersResponse.reason)
-    }
-    
-    // Processa enti
-    if (entiResponse.status === 'fulfilled') {
-      const entiData = entiResponse.value?.data || entiResponse.value || []
-      allUsers = allUsers.concat(entiData.map((ente: any) => ({
-        ...ente,
-        userType: 'ente',
-        // Per gli enti, assicuriamoci che cognome sia undefined invece di stringa vuota
-        cognome: undefined
-      })))
-    } else {
-      console.error('Errore nel caricamento enti:', entiResponse.reason)
+        userType: user.user_type || 'privato',
+        email: user.email || user.credenziali?.email || '' // fallback legacy
+      }))
     }
     
     users.value = allUsers
-  } catch (error) {    
-    // Gestisci l'errore
-    if (axios.isAxiosError(error)) {
-      if (error.code === 'ECONNABORTED') {
+  } catch (error) {
+    console.error('Errore nel caricamento degli utenti:', error)
+    
+    // Gestisci l'errore più elegantemente
+    if (error instanceof Error) {
+      if (error.message.includes('timeout')) {
         showError('Timeout nel caricamento degli utenti', 'Il server potrebbe essere lento. Riprova.');
-      } else if (error.response?.status === 401) {
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         showError('Sessione scaduta', 'Effettua nuovamente il login.');
-        // Eventualmente reindirizza al login
-      } else if (error.response?.status === 403) {
+      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
         showError('Permessi insufficienti', 'Non hai i permessi per visualizzare gli utenti.');
-      } else if (error.response?.status === 500) {
+      } else if (error.message.includes('500')) {
         showError('Errore del server', 'Riprova più tardi.');
       } else {
-        const errorData = error.response?.data;
-        const errorMessage = errorData?.message || errorData?.error || error.message || 'Errore sconosciuto';
-        showError('Errore nel caricamento degli utenti', errorMessage);
+        showError('Errore nel caricamento degli utenti', error.message || 'Errore sconosciuto');
       }
     } else {
-      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
-      showError('Errore nel caricamento degli utenti', errorMessage);
+      showError('Errore nel caricamento degli utenti', 'Errore sconosciuto');
     }
     
     users.value = []
@@ -473,7 +447,7 @@ const getUserTypeClass = (user: User): string => {
       return 'type-ente'
     case 'operatore':
       return 'type-operatore'
-    case 'user':
+    case 'privato':
       return 'type-user'
     default:
       // Fallback per compatibilità con il vecchio sistema
@@ -494,7 +468,7 @@ const getUserTypeLabel = (user: User): string => {
       return 'Ente'
     case 'operatore':
       return 'Operatore'
-    case 'user':
+    case 'privato':
       return 'Utente'
     default:
       // Fallback per compatibilità con il vecchio sistema
@@ -538,7 +512,11 @@ const closeUserModal = () => {
 const contactUser = (user: User) => {
   const subject = encodeURIComponent('Contatto dalla piattaforma InCrowd')
   const body = encodeURIComponent(`Ciao ${user.nome},\n\n`)
-  window.open(`mailto:${user.credenziali.email}?subject=${subject}&body=${body}`)
+  if (user.email) {
+    window.open(`mailto:${user.email}?subject=${subject}&body=${body}`)
+  } else {
+    console.warn('Email non disponibile per questo utente:', user)
+  }
 }
 
 // Lifecycle

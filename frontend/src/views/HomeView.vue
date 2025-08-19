@@ -69,16 +69,14 @@ const searchUsersResults = ref<IUser[]>([])
 const searchExecuted = ref(false)
 
 // Filtro per tipo utente (solo per ricerca utenti)
-const userTypeFilter = ref<'all' | 'user' | 'ente'>('all')
+const userTypeFilter = ref<'all' | 'privato' | 'ente'>('all')
 
 const searchFilters = ref<SearchFilters>({
   categoria: '',
   citta: '',
   stato: '',
   sortBy: 'createdAt',
-  sortOrder: 'desc',
-  limit: 20,
-  skip: 0
+  sortOrder: 'desc'
 })
 
 // Stato per controllare la visibilità del banner
@@ -133,9 +131,25 @@ const classificaProposte = computed(() => {
 })
 
 // Controlli per tipo utente (ora utilizzano i getter dello store)
-const isOperatore = computed(() => userStore.isOperatore)
-const isAmministratore = computed(() => userStore.isAdmin)
-const canHype = computed(() => userStore.canHype)
+// const isOperatore = computed(() => userStore.isOperatore)
+// const isAmministratore = computed(() => userStore.isAdmin) // Admin non gestisce moderazione
+// const canHype = computed(() => userStore.canHype)
+
+// LOGICA PER I COMMENTI - RIMOSSA
+
+// PROPOSTA DA APRIRE SULLA DESTRA - RIMOSSA
+
+// LOGICA PER IL BOTTONE HYPE - RIMOSSA
+
+// Funzioni per commenti (non utilizzate attualmente)
+// function getUserBadge(commento: any) {
+//   return ''; // Nessun badge per tutti gli utenti
+// }
+
+// function getUserName(commento: any) {
+//   if (!commento.utente) return 'Utente';
+//   return `${commento.utente.cognome || ''} ${commento.utente.cognome || ''}`.trim() || 'Utente';
+// }
 
 // Funzione per ottenere l'etichetta della categoria
 function getCategoryLabel(categoria: string) {
@@ -194,7 +208,7 @@ const executeSearch = async () => {
     } else {
       // Ricerca utenti
       if (searchQuery.value) {
-        const response: SearchUsersResponse = await searchUsers(searchQuery.value, 1, 20)
+        const response: SearchUsersResponse = await searchUsers(searchQuery.value)
         let filteredUsers = response.data.users
         
         // Applica il filtro per tipo utente
@@ -206,7 +220,7 @@ const executeSearch = async () => {
         searchResults.value = []
 
         // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato e non è operatore/admin
-        if (userStore.user && !userStore.isOperatore && !userStore.isAdmin) {
+        if (userStore.user && !userStore.isOperatore) {
           const followPromises = filteredUsers
             .filter(user => user._id !== userStore.user?._id)
             .map(user => followStore.loadFollowStatus(user._id))
@@ -255,8 +269,9 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
     return
   }
   
-  // Controlla se l'utente è operatore o amministratore
-  if (userStore.isOperatore || userStore.isAdmin) {
+  // Controlla se l'utente è operatore
+  if (userStore.isOperatore) {
+    
     return
   }
   
@@ -271,12 +286,11 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
   }
 }
 
-// Computed per verificare se l'utente può seguire (è loggato, non è se stesso, e non è operatore/admin)
+// Computed per verificare se l'utente può seguire (è loggato, non è se stesso, e non è operatore)
 const canFollowUser = (userId: string) => {
   return userStore.user && 
          userStore.user._id !== userId && 
-         !userStore.isOperatore && 
-         !userStore.isAdmin
+         !userStore.isOperatore
 }
 
 // Funzione per gestire l'immagine del profilo utente
@@ -310,8 +324,8 @@ const loadSeguiti = async () => {
     return
   }
 
-  // Operatori e amministratori non possono avere seguiti
-  if (userStore.isOperatore || userStore.isAdmin) {
+  // Operatori non possono avere seguiti
+  if (userStore.isOperatore) {
     seguitiProposte.value = []
     return
   }
@@ -355,8 +369,8 @@ watch(() => userStore.user, (newUser) => {
 })
 
 // Watcher per reindirizzare operatori/admin da "seguiti" a "esplora"
-watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.value], ([isOp, isAdmin, selectedValue]) => {
-  if ((isOp || isAdmin) && selectedValue === 'seguiti') {
+watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue]) => {
+  if (isOp && selectedValue === 'seguiti') {
     selected.value = 'esplora'
   }
 })
@@ -367,6 +381,13 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
 
     <!-- Barra di ricerca -->
     <div class="search-container">
+      <!-- Titolo della sezione ricerca -->
+      <div class="search-header">
+        <h2 class="search-title">
+          Cerca
+        </h2>
+        <p class="search-subtitle">Trova proposte e utenti nella community</p>
+      </div>
 
       <div class="search-bar">
         <div class="search-input-container">
@@ -490,7 +511,7 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
             <button @click="searchFilters.citta = ''; onSearch()" class="tag-remove">✕</button>
           </span>
           <span v-if="searchType === 'utenti' && userTypeFilter !== 'all'" class="filter-tag">
-            Tipo: {{ userTypeFilter === 'user' ? '👤 Utenti Privati' : '🏢 Enti' }}
+            Tipo: {{ userTypeFilter === 'privato' ? '👤 Utenti Privati' : '🏢 Enti' }}
             <button @click="userTypeFilter = 'all'; onSearch()" class="tag-remove">✕</button>
           </span>
         </div>
@@ -501,10 +522,10 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
       <div class="main-toggle-switch">
         <div class="main-toggle-background">
           <div class="main-toggle-slider" :class="{ 
-            'slide-center': selected === 'seguiti' && !userStore.isOperatore && !userStore.isAdmin,
-            'slide-right': selected === 'classifica' && (!userStore.isOperatore && !userStore.isAdmin),
-            'slide-right-two': selected === 'classifica' && (userStore.isOperatore || userStore.isAdmin),
-            'slide-left-two': selected === 'esplora' && (userStore.isOperatore || userStore.isAdmin)
+                    'slide-center': selected === 'seguiti' && !userStore.isOperatore,
+        'slide-right': selected === 'classifica' && !userStore.isOperatore,
+        'slide-right-two': selected === 'classifica' && userStore.isOperatore,
+        'slide-left-two': selected === 'esplora' && userStore.isOperatore
           }"></div>
         </div>
         <button
@@ -515,7 +536,7 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
           <span class="toggle-text">Esplora</span>
         </button>
         <button
-          v-if="!userStore.isOperatore && !userStore.isAdmin"
+                          v-if="!userStore.isOperatore"
           class="main-toggle-option"
           :class="{ active: selected === 'seguiti' }"
           @click="selected = 'seguiti'"
@@ -619,10 +640,10 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
             </div>
           </div>
           
-          <div v-else-if="userStore.isOperatore || userStore.isAdmin" class="empty-state">
+          <div v-else-if="userStore.isOperatore" class="empty-state">
             <div class="empty-icon">👮‍♀️</div>
-            <h3>Funzione non disponibile per operatori e amministratori</h3>
-            <p>Gli operatori e amministratori non possono seguire altri utenti</p>
+                          <h3>Funzione non disponibile per operatori</h3>
+                          <p>Gli operatori non possono seguire altri utenti</p>
             <button @click="selected = 'esplora'" class="cta-button">
               Torna a Esplora
             </button>
@@ -689,10 +710,33 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
               </div>
             </div>
           </div>
+
+
+          
         </div>
       </div>
 
       <div v-else>
+        <!--SEZIONE ESPLORA-->
+        <!--sezione categorie-->
+        <!-- <div class="categorie-section">
+          <h2 class="categorie-title">Categorie</h2>
+          <div class="categorie-list">
+            <button
+              :class="['categoria-btn', { selected: categoriaSelezionata === null }]"
+              @click="categoriaSelezionata = null"
+            >Tutte
+            </button>
+            <button
+              v-for="cat in categorie"
+              :key="cat.value"
+              :class="['categoria-btn', { selected: categoriaSelezionata === cat.value }]"
+              @click="categoriaSelezionata = cat.value"
+            >
+              {{ cat.label }}
+            </button>
+          </div>
+        </div> -->
 
         <!--sezione risultati ricerca o proposte--> 
         <div class="risultati-section">
@@ -776,27 +820,6 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
                 </div>
               </div>
             </div>
-
-            <br />
-
-            <!-- Banner per utenti non loggati -->
-            <div v-if="!userStore.user && showBanner" class="welcome-banner">
-              <button class="banner-close-btn" @click="closeBanner">×</button>
-              <div class="banner-content" @click="$router.push('/not-logged')">
-                <div class="banner-icon">🎪</div>
-                <div class="banner-text">
-                  <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
-                  <div class="banner-bottom-row">
-                    <p>Registrati gratis e unisciti alla community</p>
-                    <div class="banner-cta">
-                      <span class="cta-text">Scopri di più →</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
           </div>
 
           <!-- Sezione utenti -->
@@ -875,6 +898,25 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
             </div>
           </div>
         </div>
+
+            <!-- Banner per utenti non loggati -->
+    <div v-if="!userStore.user && showBanner" class="welcome-banner">
+      <button class="banner-close-btn" @click="closeBanner">×</button>
+      <div class="banner-content" @click="$router.push('/not-logged')">
+        <div class="banner-icon">🎪</div>
+        <div class="banner-text">
+          <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
+          <div class="banner-bottom-row">
+            <p>Registrati gratis e unisciti alla community</p>
+            <div class="banner-cta">
+              <span class="cta-text">Scopri di più →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
       </div>
     </div>
   </div>

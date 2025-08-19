@@ -3,7 +3,7 @@
  * Sistema centralizzato per messaggi, conferme ed errori
  */
 
-import { ref, reactive } from 'vue'
+import { reactive } from 'vue'
 
 export type ModalType = 'success' | 'error' | 'warning' | 'confirm' | 'info'
 

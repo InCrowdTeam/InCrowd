@@ -3,14 +3,21 @@ import type { LoginCredentials, GoogleLoginData, SignupData } from '@/types/User
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api/auth`;
 
 export interface LoginResponse {
-  token: string;
-  user?: any;
-  userType: string;
+  data: {
+    token: string;
+    user: any;
+    userType: string;
+  };
+  message: string;
 }
 
 export interface GoogleLoginResponse extends LoginResponse {
   needsRegistration?: boolean;
-  data?: any;
+}
+
+export interface ChangePasswordData {
+  currentPassword?: string;
+  newPassword: string;
 }
 
 // Login tradizionale
@@ -28,9 +35,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
     throw new Error(error.message || 'Errore nel login');
   }
 
-  const body = await res.json();
-  // Backend ora incapsula in { data }, ma mantiene anche proprietà top-level per compat
-  return body.data ?? body;
+  return await res.json(); // Struttura standardizzata { data, message }
 }
 
 // Login con Google
@@ -56,28 +61,26 @@ export async function googleLogin(data: GoogleLoginData): Promise<GoogleLoginRes
     throw new Error(error.message || 'Errore nel login con Google');
   }
 
-  const body = await res.json();
-  return body.data ?? body;
+  return await res.json();
 }
 
-// Completamento registrazione Google
-export async function completeGoogleSignup(formData: FormData, isEnte: boolean = false): Promise<any> {
-  const url = isEnte 
-    ? `${import.meta.env.VITE_BACKEND_URL}/api/enti`
-    : `${import.meta.env.VITE_BACKEND_URL}/api/users`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    body: formData,
+// Imposta la password per la prima volta (es. dopo signup Google) - ENDPOINT UNIFICATO
+export async function setPassword(data: ChangePasswordData, authToken: string): Promise<{ message: string }> {
+  const res = await fetch(`${BASE_URL}/password`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    },
+    body: JSON.stringify(data),
   });
 
   if (!res.ok) {
     const error = await res.json();
-    throw new Error(error.message || 'Errore nella registrazione');
+    throw new Error(error.message || 'Errore nell\'impostazione della password');
   }
 
-  const body = await res.json();
-  return body.data ?? body;
+  return await res.json();
 }
 
 // Collega account Google
@@ -96,6 +99,5 @@ export async function linkGoogleAccount(idToken: string, authToken: string): Pro
     throw new Error(error.message || 'Errore nel collegamento dell\'account Google');
   }
 
-  const body = await res.json();
-  return body.data ?? body;
+  return await res.json();
 }

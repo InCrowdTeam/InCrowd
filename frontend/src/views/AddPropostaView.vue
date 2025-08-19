@@ -442,10 +442,10 @@ export default {
         this.isSubmitting = true;
 
         this.form.stato = { stato: "in_approvazione", commento: "" };
-        const statoPuro = {
-          stato: this.form.stato.stato,
-          commento: this.form.stato.commento
-        };
+        // const statoPuro = {
+        //   stato: this.form.stato.stato,
+        //   commento: this.form.stato.commento
+        // };
 
         const formData = new FormData();
         formData.append("titolo", this.form.titolo);
@@ -475,7 +475,7 @@ export default {
           body: formData,
         });
         
-        const data = await response.json().catch(() => ({}));
+        await response.json().catch(() => ({}));
         if (!response.ok) throw new Error("Failed to create proposta");
         
         await this.showSuccess(

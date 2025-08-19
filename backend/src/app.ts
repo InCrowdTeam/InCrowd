@@ -5,9 +5,7 @@ import dotenv from "dotenv";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import userRoutes from "./routes/userRoutes";
 import propostaRoutes from "./routes/propostaRoutes";
-import enteRoutes from "./routes/enteRoutes";
 import operatoreRoutes from "./routes/operatoreRoutes";
-import adminOperatoreRoutes from "./routes/adminOperatoreRoutes";
 import authRoutes from "./routes/authRoutes";
 import { notFoundMiddleware } from "./middleware/notFoundMiddleware";
 import { errorMiddleware } from "./middleware/errorMiddleware";
@@ -33,21 +31,28 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 app.get("/ping", (req, res) => {
-  res.json({ pong: true });
+  res.json({ 
+    data: { 
+      status: "ok", 
+      timestamp: new Date().toISOString() 
+    },
+    message: "Server is running"
+  });
 });
 
 app.use("/api/proposte", propostaRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/enti", enteRoutes);
-app.use("/api/operatori", operatoreRoutes);
-app.use("/api/admin/operatori", adminOperatoreRoutes);
+app.use("/api/user", userRoutes); // Unificato users e enti in /api/user
+app.use("/api/operatori", operatoreRoutes); // Tutte le operazioni operatori qui
 app.use("/api/auth", authRoutes);
 app.use('/api/follow', followRoutes);
 
 // Base route
 app.get("/", (req, res) => {
-  res.send("Connesso alle API di InCrowd!");
+  res.json({
+    message: "Benvenuti nelle API di InCrowd"
+  });
 });
 
 // 404 handler for unmatched routes (only for API routes)
@@ -58,15 +63,17 @@ app.use(errorMiddleware);
 
 async function start() {
   await prepareMongo();
-  mongoose
-    .connect(mongoUri as string)
+  mongoose.connect(mongoUri as string)
     .then(() => {
-      console.log("Connesso a MongoDB");
+      console.log("Connected to MongoDB");
       app.listen(process.env.PORT || 3000, () => {
-        console.log("Server in esecuzione");
+        console.log("Server running");
       });
     })
-    .catch((err) => console.error("Errore di connessione a MongoDB:", err));
+    .catch((err) => {
+      console.error("MongoDB connection error:", err);
+      process.exit(1);
+    });
 }
 
 start();

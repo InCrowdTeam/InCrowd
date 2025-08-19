@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import User from "../models/User";
+import Privato from "../models/Privato";
 import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -7,650 +7,581 @@ import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 import { apiResponse } from "../utils/responseFormatter";
-import { FollowCountService } from "../utils/followCountService";
+
 
 interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
 /**
- * Crea dati utente pubblici (limitati) per la visualizzazione pubblica
- * @param user - Oggetto utente completo dal database
- * @param userType - Tipo di utente ('user' o 'ente')
- * @param followCounts - Contatori dinamici di follow (opzionale)
- * @returns Oggetto con solo i dati pubblici dell'utente
+ * Crea dati utente pubblici unificati per la visualizzazione
+ * @param user - Oggetto utente dal database
+ * @param userType - Tipo utente ('privato' | 'ente') 
+ * @param requestUser - Utente autenticato che fa la richiesta (opzionale)
+ * @returns Oggetto con dati pubblici unificati con user_type
  */
 const createPublicUser = (
   user: any, 
-  userType: 'user' | 'ente' = 'user',
-  followCounts?: { followersCount: number; followingCount: number }
+  userType: 'privato' | 'ente',
+  requestUser?: any
 ) => {
-  const publicData = {
+  const isOperator = requestUser && requestUser.userType === 'operatore';
+  
+  const publicData: any = {
     _id: user._id,
+    user_type: userType, // Sempre presente e valorizzato
     nome: user.nome,
-    cognome: user.cognome,
     biografia: user.biografia,
     fotoProfilo: user.fotoProfilo,
-    createdAt: user.createdAt,
-    userType: userType
+    createdAt: user.createdAt
   };
 
-  // Aggiungi i contatori se disponibili
-  if (followCounts) {
-    return {
-      ...publicData,
-      followersCount: followCounts.followersCount,
-      followingCount: followCounts.followingCount
-    };
+  // Email e dati sensibili solo per operatori
+  if (isOperator) {
+    publicData.email = user.credenziali?.email;
+    publicData.codiceFiscale = user.codiceFiscale;
+  }
+
+  // Campi specifici per tipo utente
+  if (userType === 'privato') {
+    publicData.cognome = user.cognome;
+  } else if (userType === 'ente') {
+    publicData.nome_org = user.nome_org;
   }
 
   return publicData;
 };
 
 /**
- * Verifica se l'utente autenticato ha permessi per visualizzare dati completi degli utenti
+ * Verifica se l'utente autenticato ha permessi per visualizzare dati completi
  * @param requestUser - Oggetto utente dalla richiesta autenticata
  */
-// Verifica se l'utente ha permessi per vedere tutti i dati
 const canViewFullUserData = (requestUser: any) => {
-  return requestUser && (requestUser.userType === 'operatore' || requestUser.userType === 'admin');
+  return requestUser && requestUser.userType === 'operatore';
 };
 
 /**
- * Recupera tutti gli utenti (solo per operatori)
- * @param req - Richiesta HTTP
- * @param res - Risposta HTTP
+ * Trova un utente per ID cercando in entrambe le collezioni
+ * @param userId - ID dell'utente da cercare
+ * @returns Oggetto con user e userType, o null se non trovato
+ */
+const findUserById = async (userId: string) => {
+  let user = await Privato.findById(userId);
+  if (user) {
+    return { user, userType: 'privato' as const };
+  }
+  
+  user = await Ente.findById(userId);
+  if (user) {
+    return { user, userType: 'ente' as const };
+  }
+  
+  return null;
+};
+
+/**
+ * GET /api/user - Recupera tutti gli utenti (solo per operatori)
  */
 export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // Verifica autorizzazione
     if (!canViewFullUserData(req.user)) {
-      return res.status(403).json(apiResponse({ message: "Accesso negato. Solo operatori e amministratori possono visualizzare tutti gli utenti." }));
+      return res.status(403).json(
+        apiResponse({ message: "Accesso negato. Permessi amministrativi richiesti" })
+      );
     }
 
-    const users = await User.find();
-    res.json(apiResponse({ data: users, message: "Lista utenti" }));
-  } catch (error) {
-    console.error("Errore nel recupero utenti:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
-  }
-};
+    // Recupera entrambi i tipi di utente
+  const privati = await Privato.find().select('nome cognome biografia fotoProfilo createdAt credenziali');
+  const enti = await Ente.find().select('nome_org nome biografia fotoProfilo createdAt credenziali');
 
+    // Unifica i risultati con user_type
+    const allUsers = [
+      ...privati.map(user => createPublicUser(user, 'privato', req.user)),
+      ...enti.map(ente => createPublicUser(ente, 'ente', req.user))
+    ];
 
-/**
- * Crea un nuovo utente nel sistema
- * @param req - Richiesta HTTP con dati utente
- * @param res - Risposta HTTP
- */
-export const createUser = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { nome, cognome, codiceFiscale, biografia, email, password, oauthCode, fotoProfiloGoogle } = req.body;
-
-    // Validazioni input obbligatori
-    if (!nome || !nome.trim()) {
-  res.status(400).json(apiResponse({ message: "Il nome è obbligatorio" }));
-      return;
-    }
-
-    if (!cognome || !cognome.trim()) {
-  res.status(400).json(apiResponse({ message: "Il cognome è obbligatorio" }));
-      return;
-    }
-
-    if (!codiceFiscale || !codiceFiscale.trim()) {
-  res.status(400).json(apiResponse({ message: "Il codice fiscale è obbligatorio" }));
-      return;
-    }
-
-    if (!email || !email.trim()) {
-  res.status(400).json(apiResponse({ message: "L'email è obbligatoria" }));
-      return;
-    }
-
-    // Sanitizza gli input per prevenire injection
-    const sanitizedNome = sanitizeInput(nome);
-    const sanitizedCognome = sanitizeInput(cognome);
-    const sanitizedBiografia = biografia ? sanitizeInput(biografia) : "";
-    const sanitizedEmail = email.trim().toLowerCase();
-    const sanitizedCodiceFiscale = codiceFiscale.trim().toUpperCase();
-
-    // Controlli di sicurezza solo se abilitati
-    const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
-    
-    if (securityEnabled) {
-      // Validazioni specifiche per sicurezza
-      if (!validateEmail(sanitizedEmail)) {
-        res.status(400).json(apiResponse({ message: "Formato email non valido" }));
-        return;
-      }
-
-      if (!isValidCodiceFiscale(sanitizedCodiceFiscale)) {
-        res.status(400).json(apiResponse({ message: "Codice fiscale non valido" }));
-        return;
-      }
-    }
-
-    if (await emailExists(sanitizedEmail)) {
-      res.status(409).json(apiResponse({ message: "Email già registrata" }));
-      return;
-    }
-
-    // Validazione e hashing password (solo se fornita e non OAuth)
-    let hashedPassword: string | undefined = undefined;
-    
-    if (password && !oauthCode) {
-      const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
-      
-      if (securityEnabled) {
-        const passwordValidation = validatePassword(password);
-        if (!passwordValidation.isValid) {
-          res.status(400).json(apiResponse({ message: "Password non valida", error: passwordValidation.errors }));
-          return;
-        }
-      }
-      hashedPassword = await bcrypt.hash(password, 10); // Torniamo a 10 rounds
-    }
-
-    // Gestione foto profilo
-    let fotoProfilo: { data?: string | Buffer, contentType?: string } = {};
-    
-    if (req.file) {
-      // Validazione semplice foto profilo
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-      if (!allowedTypes.includes(req.file.mimetype)) {
-  res.status(400).json(apiResponse({ message: "Tipo di file non supportato. Usa JPEG, PNG o GIF." }));
-        return;
-      }
-      
-      // Controllo dimensione massima 5MB
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (req.file.size > maxSize) {
-  res.status(400).json(apiResponse({ message: "File troppo grande. Dimensione massima: 5MB" }));
-        return;
-      }
-      
-      // Usa l'immagine originale senza compressione
-      fotoProfilo = {
-        data: req.file.buffer.toString('base64'),
-        contentType: req.file.mimetype,
-      };
-    } else if (fotoProfiloGoogle) {
-      // Foto da Google
-      try {
-        const googlePhoto = JSON.parse(fotoProfiloGoogle);
-        fotoProfilo = {
-          data: googlePhoto.data,
-          contentType: googlePhoto.contentType,
-        };
-      } catch (e) {
-        console.error('Errore parsing foto Google:', e);
-      }
-    }
-
-    // Crea un nuovo utente
-    const newUser = new User({
-      nome: sanitizedNome,
-      cognome: sanitizedCognome,
-      codiceFiscale: sanitizedCodiceFiscale,
-      biografia: sanitizedBiografia,
-      ...(Object.keys(fotoProfilo).length > 0 && { fotoProfilo }),
-      credenziali: {
-        email: sanitizedEmail,
-        ...(hashedPassword && { password: hashedPassword }),
-        ...(oauthCode && { oauthCode }),
-      },
-    });
-
-    await newUser.save();
-    const safeUser = createSafeCredentials(newUser);
-    
-    // Genera token JWT per consentire login automatico dopo registrazione
-    const JWT_SECRET = process.env.JWT_SECRET || "default_secret";
-    const token = jwt.sign(
-      { userId: newUser._id, email: newUser.credenziali.email, userType: "user" },
-      JWT_SECRET,
-      { expiresIn: "7d" }
+    res.json(
+      apiResponse({
+        message: "Utenti recuperati con successo",
+        data: { users: allUsers, total: allUsers.length }
+      })
     );
-    
-    // Restituisce dati utente, token e tipo per login automatico
-    const responseData = {
-      user: safeUser,
-      token,
-      userType: "user"
-    };
-    
-    res.status(201).json(apiResponse({ data: responseData, message: "Utente creato con successo" }));
-  } catch (error) {
-    console.error("Errore durante la creazione dell'utente:", error);
-    res.status(500).json(apiResponse({ message: "Errore nella creazione dell'utente", error }));
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore recupero utenti: ${err.message}` })
+    );
   }
 };
 
 /**
- * Recupera un utente specifico per ID (solo per operatori)
- * @param req - Richiesta HTTP con ID utente
- * @param res - Risposta HTTP
+ * POST /api/user - Crea nuovo utente (privato o ente)
  */
-export const getUserById = async (req: AuthenticatedRequest, res: Response) => {
+export const createUser = async (req: Request, res: Response) => {
   try {
-    const userId = req.params.id;
-    const currentUserId = req.user?.userId;
-    
-    // Prima cerca nell'collection utenti
-    let user = await User.findById(userId);
-    let isEnte = false;
-    
-    // Se non trovato negli utenti, cerca negli enti
-    if (!user) {
-      user = await Ente.findById(userId);
-      isEnte = true;
-    }
-    
-    if (!user) {
-      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
-    }
+    const {
+      user_type, // Obbligatorio: 'privato' | 'ente'
+      nome,
+      cognome, // Solo per privati
+      nome_org, // Solo per enti  
+      codiceFiscale,
+      biografia,
+      email,
+      password,
+      oauthCode
+    } = req.body;
 
-    // Ottieni i contatori dinamici e lo stato di follow
-    const followInfo = await FollowCountService.getFullFollowInfo(userId, currentUserId);
-
-    // Se l'utente è autenticato ed è operatore/admin, restituisce dati completi
-    if (canViewFullUserData(req.user)) {
-      const safeUser = createSafeCredentials(user);
-      // Aggiungi il campo userType per distinguere utenti ed enti
-      safeUser.userType = isEnte ? 'ente' : 'user';
-      safeUser.followersCount = followInfo.followersCount;
-      safeUser.followingCount = followInfo.followingCount;
-      safeUser.isFollowedByCurrentUser = followInfo.isFollowedByCurrentUser;
-      return res.json(apiResponse({ data: safeUser, message: "Utente trovato" }));
+    // Validazioni base
+    if (!user_type || !['privato', 'ente'].includes(user_type)) {
+      return res.status(400).json(
+        apiResponse({ message: "user_type obbligatorio e deve essere 'privato' o 'ente'" })
+      );
     }
 
-    // Altrimenti restituisce solo dati pubblici con contatori
-    const userTypeForPublic = isEnte ? 'ente' : 'user';
-    const publicUser = createPublicUser(user, userTypeForPublic, {
-      followersCount: followInfo.followersCount,
-      followingCount: followInfo.followingCount
-    });
-    
-    // Aggiungi lo stato di follow se l'utente è autenticato
-    if (followInfo.isFollowedByCurrentUser !== undefined) {
-      (publicUser as any).isFollowedByCurrentUser = followInfo.isFollowedByCurrentUser;
-    }
-    
-    res.json(apiResponse({ data: publicUser, message: "Dati pubblici utente" }));
-  } catch (error) {
-    console.error("Errore nel recupero utente:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
-  }
-};
-
-/**
- * Recupera l'avatar di un utente specifico (utenti privati o enti)
- * @param req - Richiesta HTTP con ID utente
- * @param res - Risposta HTTP con dati avatar
- */
-export const getUserAvatar = async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.id;
-    
-    // Prima cerca nell'collection utenti
-    let user = await User.findById(userId).select("fotoProfilo nome");
-    
-    // Se non trovato negli utenti, cerca negli enti
-    if (!user) {
-      user = await Ente.findById(userId).select("fotoProfilo nome");
-    }
-    
-    if (!user) {
-      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+    if (!nome || !codiceFiscale || !email) {
+      return res.status(400).json(
+        apiResponse({ message: "nome, codiceFiscale ed email sono obbligatori" })
+      );
     }
 
-    if (!user.fotoProfilo || !user.fotoProfilo.data) {
-      return res.status(404).json(apiResponse({ message: "Avatar non disponibile" }));
+    // Serve almeno uno tra password e oauthCode
+    if (!password && !oauthCode) {
+      return res.status(400).json(
+        apiResponse({ message: "Devi fornire una password oppure un oauthCode" })
+      );
+    }
+    if (password && oauthCode) {
+      return res.status(400).json(
+        apiResponse({ message: "Non puoi fornire sia password che oauthCode" })
+      );
     }
 
-    // Prepara l'URL dell'avatar
-    let avatarUrl = "";
-    if (user.fotoProfilo.data && user.fotoProfilo.contentType) {
-      // Assicuriamoci che i dati siano correttamente convertiti in base64
-      let base64Data = user.fotoProfilo.data;
-      if (Buffer.isBuffer(user.fotoProfilo.data)) {
-        base64Data = user.fotoProfilo.data.toString('base64');
-      }
-      avatarUrl = `data:${user.fotoProfilo.contentType};base64,${base64Data}`;
+    // Validazioni specifiche per tipo
+    if (user_type === 'privato' && !cognome) {
+      return res.status(400).json(
+        apiResponse({ message: "cognome obbligatorio per utenti privati" })
+      );
     }
 
-    res.json(apiResponse({
-      data: {
-        userId: user._id,
-        nome: user.nome,
-        avatarUrl
-      },
-      message: "Avatar utente"
-    }));
-  } catch (error) {
-    console.error("Errore nel recupero avatar utente:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
-  }
-};
-
-/**
- * Recupera dati pubblici di un utente specifico
- * @param req - Richiesta HTTP con ID utente
- * @param res - Risposta HTTP con dati pubblici
- */
-export const getUtente = async (req: Request, res: Response) => {
-  try {
-    const utente = await User.findById(req.params.id).select("nome biografia fotoProfilo");
-    if (!utente) return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
-
-    let fotoProfiloUrl = "";
-    if (utente.fotoProfilo && utente.fotoProfilo.data && utente.fotoProfilo.contentType) {
-      // Assicuriamoci che i dati siano correttamente convertiti in base64
-      let base64Data = utente.fotoProfilo.data;
-      if (Buffer.isBuffer(utente.fotoProfilo.data)) {
-        base64Data = utente.fotoProfilo.data.toString('base64');
-      }
-      fotoProfiloUrl = `data:${utente.fotoProfilo.contentType};base64,${base64Data}`;
+    if (user_type === 'ente' && !nome_org) {
+      return res.status(400).json(
+        apiResponse({ message: "nome_org obbligatorio per enti" })
+      );
     }
 
-    res.json(apiResponse({
-      data: {
-        nome: utente.nome,
-        biografia: utente.biografia,
-        fotoProfiloUrl
-      },
-      message: "Dati pubblici utente"
-    }));
-  } catch (err) {
-    res.status(500).json(apiResponse({ message: "Errore nel recupero utente", error: err }));
-  }
-};
-
-/**
- * Ottiene i dati dell'utente corrente autenticato
- * @param req - Richiesta HTTP autenticata
- * @param res - Risposta HTTP
- */
-export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
+    // Validazioni email e codice fiscale
+    if (!validateEmail(email)) {
+      return res.status(400).json(
+        apiResponse({ message: "Formato email non valido" })
+      );
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
+    const existingEmail = await emailExists(email);
+    if (existingEmail) {
+      return res.status(409).json(
+        apiResponse({ message: "Email già registrata" })
+      );
     }
 
-    // Crea una versione sicura dell'utente senza la password ma con un flag che indica se esiste
-    const safeUser = createSafeCredentials(user);
-
-    res.json(apiResponse({ data: safeUser, message: "Utente corrente" }));
-  } catch (error) {
-    console.error("Errore nel recupero utente corrente:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
-  }
-};
-
-/**
- * Aggiorna il profilo dell'utente corrente
- * @param req - Richiesta HTTP autenticata con dati profilo
- * @param res - Risposta HTTP
- */
-export const updateProfile = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-  return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
+    if (!isValidCodiceFiscale(codiceFiscale)) {
+      return res.status(400).json(
+        apiResponse({ message: "Codice fiscale non valido" })
+      );
     }
 
-    const { nome, cognome, biografia } = req.body;
-
-    // Validazioni
-    if (!nome || !nome.trim()) {
-      return res.status(400).json(apiResponse({ message: "Il nome è obbligatorio" }));
-    }
-
-    // Il cognome è obbligatorio solo per gli utenti di tipo "user"
-    if (req.user?.userType === 'user' && (!cognome || !cognome.trim())) {
-      return res.status(400).json(apiResponse({ message: "Il cognome è obbligatorio" }));
-    }
-
-    if (biografia && biografia.length > 500) {
-  return res.status(400).json(apiResponse({ message: "La biografia non può superare i 500 caratteri" }));
-    }
-
-    // Trova l'utente corrente
-    const user = await User.findById(userId);
-    if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
-    }
-
-    // Aggiorna i dati (email non modificabile)
-    user.nome = nome.trim();
-    user.cognome = cognome?.trim() || "";
-    user.biografia = biografia?.trim() || "";
-
-    // Gestione foto profilo
-    if (req.file) {
-      // Validazione semplice foto profilo
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-      if (!allowedTypes.includes(req.file.mimetype)) {
-        return res.status(400).json(apiResponse({ message: "Tipo di file non supportato. Usa JPEG, PNG o GIF." }));
-      }
-      
-      // Controllo dimensione massima 5MB
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (req.file.size > maxSize) {
-        return res.status(400).json(apiResponse({ message: "File troppo grande. Dimensione massima: 5MB" }));
-      }
-      
-      // Usa l'immagine originale senza compressione
-      user.fotoProfilo = {
-        data: req.file.buffer.toString('base64'),
-        contentType: req.file.mimetype,
-      };
-    }
-
-    await user.save();
-
-    // Restituisce i dati aggiornati dell'utente con hasPassword
-    const updatedUser = await User.findById(userId);
-    const safeUser = createSafeCredentials(updatedUser!);
-    
-    res.json(apiResponse({ data: safeUser, message: "Profilo aggiornato con successo" }));
-  } catch (error) {
-    console.error("Errore nell'aggiornamento del profilo:", error);
-  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
-  }
-};
-
-/**
- * Aggiorna la password dell'utente corrente
- * @param req - Richiesta HTTP autenticata con nuova password
- * @param res - Risposta HTTP
- */
-export const updatePassword = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-  return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
-    }
-
-    const { newPassword } = req.body;
-
-    // Validazioni con i nuovi standard
-    if (!newPassword) {
-      return res.status(400).json(apiResponse({ message: "La nuova password è obbligatoria" }));
-    }
-
-    const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
-    
-    if (securityEnabled) {
-      const passwordValidation = validatePassword(newPassword);
+    let hashedPassword = undefined;
+    if (password) {
+      const passwordValidation = validatePassword(password);
       if (!passwordValidation.isValid) {
-        return res.status(400).json(apiResponse({ message: "Password non valida", error: passwordValidation.errors }));
+        return res.status(400).json(
+          apiResponse({
+            message: "Password non valida",
+            error: { details: passwordValidation.errors }
+          })
+        );
       }
+      hashedPassword = await bcrypt.hash(password, 10);
     }
 
-    // Trova l'utente
-    const user = await User.findById(userId);
-    if (!user) {
-  return res.status(404).json(apiResponse({ message: "Utente non trovato" }));
-    }
+    // TODO: validazione oauthCode se necessario (es. verifica lato Google)
 
-    // Cripta la nuova password con 10 rounds
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Aggiorna la password
-    if (!user.credenziali) {
-      // Se non esistono credenziali, crea un nuovo oggetto
-      // L'email dovrebbe essere già presente nell'utente da quando è stato creato
-      user.credenziali = { email: "", password: hashedPassword };
+    // Crea utente nel modello appropriato
+    let newUser: any;
+    if (user_type === 'privato') {
+      newUser = new Privato({
+        nome: sanitizeInput(nome),
+        cognome: sanitizeInput(cognome),
+        codiceFiscale: sanitizeInput(codiceFiscale),
+        biografia: biografia ? sanitizeInput(biografia) : "",
+        credenziali: {
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          oauthCode: oauthCode || undefined
+        }
+      });
     } else {
-      // Mantieni l'email esistente e aggiorna solo la password
-      user.credenziali.password = hashedPassword;
-    }
-
-    await user.save();
-
-    // Restituisce i dati aggiornati dell'utente con hasPassword
-    const updatedUser = await User.findById(userId);
-    const safeUser = createSafeCredentials(updatedUser!);
-
-    res.json(apiResponse({ data: safeUser, message: "Password aggiornata con successo" }));
-  } catch (error) {
-    console.error("Errore nell'aggiornamento della password:", error);
-  res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
-  }
-};
-
-/**
- * Elimina l'account dell'utente corrente e tutti i suoi dati
- * Gestisce sia utenti che enti
- * @param req - Richiesta HTTP autenticata
- * @param res - Risposta HTTP
- */
-export const deleteAccount = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    const userType = req.user?.userType;
-    
-    if (!userId || !userType) {
-      return res.status(401).json(apiResponse({ message: "Utente non autenticato" }));
-    }
-
-    // Verifica che sia un utente o ente (non operatore/admin)
-    if (userType === 'operatore' || userType === 'admin') {
-      return res.status(403).json(apiResponse({ message: "Operatori e amministratori non possono eliminare il proprio account" }));
-    }
-
-    // Elimina tutte le proposte dell'utente/ente
-    const Proposta = (await import("../models/Proposta")).default;
-    await Proposta.deleteMany({ proponenteID: userId });
-    
-    // Elimina tutti i commenti dell'utente/ente
-    const Commento = (await import("../models/Commento")).default;
-    await Commento.deleteMany({ utente: userId });
-    
-    let deleted = null;
-    
-    // Elimina l'account in base al tipo
-    if (userType === 'user') {
-      deleted = await User.findByIdAndDelete(userId);
-    } else if (userType === 'ente') {
-      const Ente = (await import("../models/Ente")).default;
-      deleted = await Ente.findByIdAndDelete(userId);
-    }
-    
-    if (!deleted) {
-      return res.status(404).json(apiResponse({ message: "Account non trovato" }));
-    }
-    
-    res.json(apiResponse({ message: "Account eliminato definitivamente" }));
-  } catch (error) {
-    console.error("Errore eliminazione account:", error);
-    res.status(500).json(apiResponse({ message: "Errore eliminazione account", error }));
-  }
-};
-
-/**
- * Ricerca utenti (privati ed enti) per nome, cognome o biografia con paginazione
- * @param req - Richiesta HTTP con query di ricerca e parametri di paginazione
- * @param res - Risposta HTTP con risultati della ricerca e metadati di paginazione
- */
-export const searchUsers = async (req: Request, res: Response) => {
-  try {
-    const { query, page = 1, limit = 10 } = req.query;
-    
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({
-        success: false,
-        message: 'Query di ricerca richiesta'
+      newUser = new Ente({
+        nome_org: sanitizeInput(nome_org),
+        nome: nome ? sanitizeInput(nome) : undefined,
+        codiceFiscale: sanitizeInput(codiceFiscale),
+        biografia: biografia ? sanitizeInput(biografia) : "",
+        credenziali: {
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          oauthCode: oauthCode || undefined
+        }
       });
     }
 
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
-    const skip = (pageNum - 1) * limitNum;
+    await newUser.save();
 
-    // Ricerca per nome, cognome o biografia
-    const searchRegex = new RegExp(query, 'i');
-    const searchQuery = {
-      $or: [
-        { nome: { $regex: searchRegex } },
-        { cognome: { $regex: searchRegex } },
-        { biografia: { $regex: searchRegex } }
-      ]
+    // Risposta con dati pubblici
+    const publicUser = createPublicUser(newUser, user_type, undefined); // Nessun utente autenticato per la creazione
+    
+    res.status(201).json(
+      apiResponse({
+        message: "Utente creato con successo",
+        data: { user: publicUser }
+      })
+    );
+
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore creazione utente: ${err.message}` })
+    );
+  }
+};
+
+/**
+ * GET /api/user/:id - Recupera utente per ID
+ */
+export const getUserById = async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const result = await findUserById(userId);
+
+    if (!result) {
+      return res.status(404).json(
+        apiResponse({ message: "Utente non trovato" })
+      );
+    }
+
+    const { user, userType } = result;
+    
+    // Estrai utente autenticato se presente (per autenticazione opzionale)
+    const authenticatedUser = (req as any).user;
+    const publicUser = createPublicUser(user, userType, authenticatedUser);
+    
+    res.json(
+      apiResponse({
+        message: "Utente recuperato con successo",
+        data: { user: publicUser }
+      })
+    );
+
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore recupero utente: ${err.message}` })
+    );
+  }
+};
+
+/**
+ * GET /api/user/me - Recupera profilo utente corrente
+ */
+export const getCurrentUser = async (req: any, res: Response) => {
+  try {
+    const { userId, userType } = req.user;
+    const result = await findUserById(userId);
+
+    if (!result) {
+      return res.status(404).json(
+        apiResponse({ message: "Utente non trovato" })
+      );
+    }
+
+    const { user } = result;
+    
+    // Per il profilo personale, include tutti i dati (tranne password)
+    const safeUser = createSafeCredentials(user);
+    const completeUser = {
+      ...safeUser,
+      user_type: userType
     };
 
-    // Esegui ricerca parallela in entrambe le collections
-    const [users, enti, totalUsers, totalEnti] = await Promise.all([
-      User.find(searchQuery)
-        .select('nome cognome biografia fotoProfilo createdAt')
-        .sort({ nome: 1 })
-        .lean(),
-      Ente.find(searchQuery)
-        .select('nome biografia fotoProfilo createdAt')
-        .sort({ nome: 1 })
-        .lean(),
-      User.countDocuments(searchQuery),
-      Ente.countDocuments(searchQuery)
-    ]);
+    res.json(
+      apiResponse({
+        message: "Profilo recuperato con successo",
+        data: { user: completeUser }
+      })
+    );
 
-    // Combina i risultati e aggiungi campo userType per distinguere utenti ed enti
-    const combinedResults = [
-      ...users.map((user: any) => ({ ...user, userType: 'user' })),
-      ...enti.map((ente: any) => ({ ...ente, userType: 'ente', cognome: undefined }))
-    ];
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore recupero profilo: ${err.message}` })
+    );
+  }
+};
 
-    // Ordina i risultati combinati per nome
-    combinedResults.sort((a, b) => a.nome.localeCompare(b.nome));
+/**
+ * PATCH /api/user/profile - Aggiorna profilo utente
+ */
+export const updateProfile = async (req: any, res: Response) => {
+  try {
+    const { userId, userType } = req.user;
+    const updates = req.body;
 
-    // Applica paginazione ai risultati combinati
-    const totalCombined = totalUsers + totalEnti;
-    const paginatedResults = combinedResults.slice(skip, skip + limitNum);
+    // Trova utente
+    const result = await findUserById(userId);
+    if (!result) {
+      return res.status(404).json(
+        apiResponse({ message: "Utente non trovato" })
+      );
+    }
 
-    res.json({
-      success: true,
-      data: {
-        users: paginatedResults,
-        pagination: {
-          currentPage: pageNum,
-          totalPages: Math.ceil(totalCombined / limitNum),
-          totalUsers: totalCombined,
-          hasNextPage: skip + limitNum < totalCombined,
-          hasPrevPage: pageNum > 1
-        }
+    const { user } = result;
+
+    // Campi aggiornabili comuni
+    const allowedCommonFields = ['nome', 'biografia'];
+    const allowedPrivateFields = ['cognome'];
+    const allowedEnteFields = ['nome_org'];
+
+    // Applica aggiornamenti sicuri
+    allowedCommonFields.forEach(field => {
+      if (updates[field] !== undefined) {
+        (user as any)[field] = sanitizeInput(updates[field]);
       }
     });
 
-  } catch (error) {
-    console.error('Errore nella ricerca utenti:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Errore interno del server'
-    });
+    // Campi specifici per tipo
+    if (userType === 'privato') {
+      allowedPrivateFields.forEach(field => {
+        if (updates[field] !== undefined) {
+          (user as any)[field] = sanitizeInput(updates[field]);
+        }
+      });
+    } else if (userType === 'ente') {
+      allowedEnteFields.forEach(field => {
+        if (updates[field] !== undefined) {
+          (user as any)[field] = sanitizeInput(updates[field]);
+        }
+      });
+    }
+
+    // Gestione upload foto profilo
+    if (req.file) {
+      // Validazione dimensione file (già gestita da multer ma aggiungiamo controllo)
+      if (req.file.size > 5 * 1024 * 1024) {
+        return res.status(400).json(
+          apiResponse({ message: "Il file immagine è troppo grande (max 5MB)" })
+        );
+      }
+
+      // Validazione tipo file
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json(
+          apiResponse({ message: "Formato file non supportato. Usa JPEG, PNG, GIF o WebP" })
+        );
+      }
+
+      const fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype
+      };
+      (user as any).fotoProfilo = fotoProfilo;
+    }
+    
+    // Gestione rimozione foto profilo (se viene inviato un campo removeFotoProfilo)
+    if (updates.removeFotoProfilo === 'true' || updates.removeFotoProfilo === true) {
+      (user as any).fotoProfilo = undefined;
+    }
+
+    await user.save();
+
+    // Risposta con dati completi dell'utente (come getCurrentUser)
+    const safeUser = createSafeCredentials(user);
+    const completeUser = {
+      ...safeUser,
+      user_type: userType
+    };
+    
+    res.json(
+      apiResponse({
+        message: "Profilo aggiornato con successo",
+        data: { user: completeUser }
+      })
+    );
+
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore aggiornamento profilo: ${err.message}` })
+    );
   }
+};
+
+/**
+ * DELETE /api/user/account - Elimina account utente
+ */
+export const deleteAccount = async (req: any, res: Response) => {
+  try {
+    const { userId, userType } = req.user;
+
+    let deleted: any;
+    if (userType === 'ente') {
+      deleted = await Ente.findByIdAndDelete(userId);
+    } else {
+      deleted = await Privato.findByIdAndDelete(userId);
+    }
+
+    if (!deleted) {
+      return res.status(404).json(
+        apiResponse({ message: "Utente non trovato" })
+      );
+    }
+
+    res.json(
+      apiResponse({ message: "Account eliminato con successo" })
+    );
+
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore eliminazione account: ${err.message}` })
+    );
+  }
+};
+
+/**
+ * GET /api/user/search - Ricerca utenti
+ */
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    const { q, user_type, limit = 10, page = 1 } = req.query;
+    
+    // Estrai utente autenticato se presente (per autenticazione opzionale)
+    const authenticatedUser = (req as any).user;
+
+    if (!q || q.toString().trim().length < 2) {
+      return res.status(400).json(
+        apiResponse({ message: "Query di ricerca richiesta (minimo 2 caratteri)" })
+      );
+    }
+
+    const searchRegex = new RegExp(q.toString().trim(), 'i');
+
+    // Query per privati
+    const privateQuery = {
+      $or: [
+        { nome: searchRegex },
+        { cognome: searchRegex },
+        { biografia: searchRegex }
+      ]
+    };
+
+    // Query per enti
+    const enteQuery = {
+      $or: [
+        { nome_org: searchRegex },
+        { nome: searchRegex },
+        { biografia: searchRegex }
+      ]
+    };
+
+    let results: any[] = [];
+    let totalCount = 0;
+
+    // Cerca in base al filtro user_type
+    if (!user_type || user_type === 'privato') {
+      const privati = await Privato.find(privateQuery)
+        .select('nome cognome biografia fotoProfilo createdAt')
+        .sort({ createdAt: -1 });
+
+      const privateResults = privati.map(user => createPublicUser(user, 'privato', authenticatedUser));
+      results = results.concat(privateResults);
+
+      if (!user_type) {
+        totalCount += await Privato.countDocuments(privateQuery);
+      }
+    }
+
+    if (!user_type || user_type === 'ente') {
+      const enti = await Ente.find(enteQuery)
+        .select('nome_org nome biografia fotoProfilo createdAt')
+        .sort({ createdAt: -1 });
+
+      const enteResults = enti.map(ente => createPublicUser(ente, 'ente', authenticatedUser));
+      results = results.concat(enteResults);
+
+      if (!user_type) {
+        totalCount += await Ente.countDocuments(enteQuery);
+      }
+    }
+
+    // Ordina i risultati unificati per data
+    results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json(
+      apiResponse({
+        message: "Ricerca completata",
+        data: {
+          users: results,
+          total: user_type ? results.length : totalCount
+        }
+      })
+    );
+
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore ricerca utenti: ${err.message}` })
+    );
+  }
+};
+
+// Funzioni legacy mantenute per compatibilità con le route esistenti
+// Queste dovrebbero essere migrate man mano
+
+/**
+ * @deprecated - Usare getUserById invece
+ */
+export const getUtente = getUserById;
+
+/**
+ * @deprecated - Non implementata nel nuovo sistema unificato
+ */
+export const getUserAvatar = async (req: Request, res: Response) => {
+  try {
+    const result = await findUserById(req.params.id);
+    
+    if (!result || !result.user.fotoProfilo) {
+      return res.status(404).json(
+        apiResponse({ message: "Avatar non trovato" })
+      );
+    }
+
+    const { user } = result;
+    const fotoProfilo = user.fotoProfilo;
+    
+    res.json(
+      apiResponse({
+        message: "Avatar recuperato",
+        data: { fotoProfilo }
+      })
+    );
+
+  } catch (err: any) {
+    res.status(500).json(
+      apiResponse({ message: `Errore recupero avatar: ${err.message}` })
+    );
+  }
+};
+
+/**
+/**
+ * @deprecated - Le password sono gestite in /api/auth/password
+ */
+export const updatePassword = async (req: any, res: Response) => {
+  res.status(404).json(
+    apiResponse({
+      message: "Endpoint spostato a PATCH /api/auth/password"
+    })
+  );
 };

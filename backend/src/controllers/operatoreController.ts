@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Operatore from "../models/Operatore";
 import Proposta from "../models/Proposta";
-import User from "../models/User";
+import Privato from "../models/Privato"; // Rinominato da User
 import Ente from "../models/Ente";
 import Commento from "../models/Commento";
 import bcrypt from "bcrypt";
@@ -51,8 +51,7 @@ export const createOperatore = async (req: Request, res: Response): Promise<void
     await newOperatore.save();
     res.status(201).json(apiResponse({ data: newOperatore, message: "Operatore creato con successo" }));
   } catch (error) {
-    console.error("Errore durante la creazione dell'operatore:", error);
-    res.status(500).json(apiResponse({ message: "Errore creazione operatore", error }));
+    res.status(500).json(apiResponse({ message: "Errore durante la creazione dell'operatore" }));
   }
 };
 
@@ -125,10 +124,10 @@ export const deleteOperatore = async (req: Request, res: Response): Promise<void
  */
 export const getOperatorStats = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // Conta utenti e enti separatamente
-    const utentiCount = await User.countDocuments();
+    // Conta utenti privati ed enti separatamente
+    const privatiCount = await Privato.countDocuments();
     const entiCount = await Ente.countDocuments();
-    const utentiTotali = utentiCount + entiCount;
+    const utentiTotali = privatiCount + entiCount;
     
     // Conta proposte per stato
     const proposteInAttesa = await Proposta.countDocuments({ "stato.stato": 'in_approvazione' });
@@ -142,7 +141,7 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
       proposteInAttesa,
       proposteApprovate,
       proposteRifiutate,
-      utentiRegistrati: utentiCount,
+      utentiRegistrati: privatiCount, // Aggiornato il nome della variabile
       entiRegistrati: entiCount,
       commentiTotali,
       utentiTotali
@@ -150,8 +149,7 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
     
     res.json(apiResponse({ data: stats, message: "Statistiche operatore" }));
   } catch (error) {
-    console.error("Errore nel recupero statistiche operatore:", error);
-    res.status(500).json(apiResponse({ message: "Errore interno del server", error }));
+    res.status(500).json(apiResponse({ message: "Errore nel recupero statistiche operatore" }));
   }
 };
 

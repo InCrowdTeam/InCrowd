@@ -1,0 +1,63 @@
+# ========================================
+# GITIGNORE PER CARTELLA TEST
+# ========================================
+
+# Coverage reports
+coverage/
+*.lcov
+*.html
+*.xml
+
+# Jest cache
+.jest-cache/
+.jest/
+
+# Test results
+test-results/
+junit.xml
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Node modules (se installati nella cartella test)
+node_modules/
+
+# Environment files
+.env.test.local
+.env.test.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test data files
+test-data/
+uploads-test/
+logs-test/
+temp-test/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Lock files
+package-lock.json
+yarn.lock
+
+# ========================================
+# FINE GITIGNORE
+# ========================================

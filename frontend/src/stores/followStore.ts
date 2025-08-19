@@ -58,9 +58,15 @@ export const useFollowStore = defineStore('follow', {
             followersCount: currentStatus.followersCount + 1
           });
         }
-                
+        
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore durante il follow';
+        console.error('❌ [followStore] Errore follow:', error);
+        console.error('❌ [followStore] Dettagli errore follow:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         throw error;
       } finally {
         this.loading = false;
@@ -87,9 +93,15 @@ export const useFollowStore = defineStore('follow', {
             followersCount: Math.max(0, currentStatus.followersCount - 1)
           });
         }
-                
+        
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore durante l\'unfollow';
+        console.error('❌ [followStore] Errore unfollow:', error);
+        console.error('❌ [followStore] Dettagli errore unfollow:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         throw error;
       } finally {
         this.loading = false;
@@ -118,17 +130,19 @@ export const useFollowStore = defineStore('follow', {
         
         return status;
       } catch (error: any) {
+        console.error('❌ Errore nel caricamento del follow status:', error);
         throw error;
       }
     },
 
     // Caricare i followers di un utente
-    async loadFollowers(userId: string, page: number = 1, limit: number = 20): Promise<IUser[]> {
+    async loadFollowers(userId: string): Promise<IUser[]> {
       try {
         this.loading = true;
-        return await followApi.getFollowers(userId, page, limit);
+        return await followApi.getFollowers(userId);
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore nel caricamento dei followers';
+        console.error('❌ Errore followers:', error);
         throw error;
       } finally {
         this.loading = false;
@@ -136,12 +150,13 @@ export const useFollowStore = defineStore('follow', {
     },
 
     // Caricare gli utenti seguiti
-    async loadFollowing(userId: string, page: number = 1, limit: number = 20): Promise<IUser[]> {
+    async loadFollowing(userId: string): Promise<IUser[]> {
       try {
         this.loading = true;
-        return await followApi.getFollowing(userId, page, limit);
+        return await followApi.getFollowing(userId);
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore nel caricamento del following';
+        console.error('❌ Errore following:', error);
         throw error;
       } finally {
         this.loading = false;
@@ -166,16 +181,20 @@ export const useFollowStore = defineStore('follow', {
     async loadMyFollowStats(userId: string): Promise<{ followersCount: number; followingCount: number }> {
       try {
         // Per il proprio profilo, usa anche il metodo più accurato che conta le liste reali
+  
         const [followersCount, followingCount] = await Promise.all([
           this.getFollowersCount(userId),
           this.getFollowingCount(userId)
         ]);
-                
+        
+
+        
         return {
           followersCount,
           followingCount
         };
       } catch (error: any) {
+        console.error('❌ Errore nel caricamento degli stats di follow propri:', error);
         // Ritorna valori di default in caso di errore
         return { followersCount: 0, followingCount: 0 };
       }
@@ -184,12 +203,6 @@ export const useFollowStore = defineStore('follow', {
     // Caricare gli stats di follow per qualsiasi utente (per profili pubblici)
     async loadUserFollowStats(userId: string): Promise<{ followersCount: number; followingCount: number }> {
       try {
-        // Carica direttamente le liste per avere i count accurati
-        const [followers, following] = await Promise.all([
-          this.loadFollowers(userId, 1, 1), // Carica solo 1 elemento per ottenere il count
-          this.loadFollowing(userId, 1, 1)
-        ]);
-        
         // Ottieni i count reali dalle API
         const followersCount = await this.getFollowersCount(userId);
         const followingCount = await this.getFollowingCount(userId);
@@ -199,19 +212,9 @@ export const useFollowStore = defineStore('follow', {
           followingCount
         };
       } catch (error: any) {
-        // Fallback: prova a ottenere i dati dalle liste già caricate
-        try {
-          const [followers, following] = await Promise.all([
-            this.loadFollowers(userId),
-            this.loadFollowing(userId)
-          ]);
-          return {
-            followersCount: followers.length,
-            followingCount: following.length
-          };
-        } catch (fallbackError) {
-          return { followersCount: 0, followingCount: 0 };
-        }
+        console.error('❌ Errore nel caricamento degli stats di follow per utente:', error);
+        // Fallback: ritorna valori di default
+        return { followersCount: 0, followingCount: 0 };
       }
     },
 
@@ -221,6 +224,7 @@ export const useFollowStore = defineStore('follow', {
         const followers = await this.loadFollowers(userId);
         return followers.length;
       } catch (error) {
+        console.error('❌ Errore nel conteggio followers:', error);
         return 0;
       }
     },
@@ -230,6 +234,7 @@ export const useFollowStore = defineStore('follow', {
         const following = await this.loadFollowing(userId);
         return following.length;
       } catch (error) {
+        console.error('❌ Errore nel conteggio following:', error);
         return 0;
       }
     },

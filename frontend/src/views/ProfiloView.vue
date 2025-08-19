@@ -8,8 +8,8 @@ import { useFollowStore } from "@/stores/followStore";
 import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import { useModal } from '@/composables/useModal';
-import { updateEnteProfile, updateEntePassword } from "@/api/enteApi";
-import { deleteAccount } from "@/api/userApi";
+import { getUserById, updateProfile, getCurrentUser, deleteAccount } from "@/api/userApi";
+import { setPassword as setPasswordApi } from "@/api/authApi";
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -73,12 +73,19 @@ const fotoProfiloUrl = computed(() => {
   return userStore.user?.fotoProfiloUrl || null;
 });
 
+// Computed per preview dell'immagine selezionata
+const previewUrl = ref<string | null>(null);
+const currentPhotoUrl = computed(() => {
+  return previewUrl.value || fotoProfiloUrl.value;
+});
+
 onMounted(async () => {
   try {
     loading.value = true;
     
     // Verifica che l'utente sia autenticato
     if (!userStore.token || !userStore.user) {
+      console.error("❌ Utente non autenticato");
       loading.value = false;
       return;
     }
@@ -111,6 +118,7 @@ onMounted(async () => {
         // L'API /my usa successResponse che wrappa i dati in { success: true, data: [...] }
         mieProposte.value = response.data.data || response.data;
       }).catch(err => {
+        console.error("❌ Errore nel caricamento delle mie proposte:", err);
       })
     );
     
@@ -135,8 +143,8 @@ onMounted(async () => {
     const userId = userStore.user?._id;
     if (userId && !userStore.user?.biografia) {
       promises.push(
-        axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`).then(response => {
-          const userData = response.data?.data || response.data;
+        getUserById(userId, userStore.token).then(result => {
+          const userData = result.data?.user;
           userStore.setUser({ ...userStore.user, ...userData });
         }).catch(err => {
           console.error("Errore nel caricamento dati utente:", err);
@@ -166,7 +174,9 @@ const caricaUtentiSeguiti = async () => {
     // Aggiorna anche il counter dei seguiti con il numero effettivo caricato
     followStats.value.followingCount = utentiSeguiti.value.length;
     
+    
   } catch (err) {
+    console.error("❌ Errore nel caricamento degli utenti seguiti:", err);
     await showError("Errore nel caricamento degli utenti seguiti", "Riprova più tardi");
   } finally {
     loadingSeguiti.value = false;
@@ -181,7 +191,9 @@ const caricaFollowStats = async () => {
     loadingFollowStats.value = true;
     const stats = await followStore.loadMyFollowStats(userStore.user._id);
     followStats.value = stats;
+    
   } catch (err) {
+    console.error("❌ Errore nel caricamento degli stats di follow:", err);
     // Non mostriamo errore all'utente per gli stats, li lasciamo a 0
   } finally {
     loadingFollowStats.value = false;
@@ -284,6 +296,7 @@ const smettereSeguitoUtente = async (utente: IUser) => {
     
     await showSuccess(`Non segui più ${utente.nome}`);
   } catch (err: any) {
+    console.error("❌ Errore nell'unfollow:", err);
     const errorMessage = err.response?.data?.message || "Errore nello smettere di seguire l'utente";
     await showError("Errore unfollow", errorMessage);
   }
@@ -294,7 +307,7 @@ const showSettingsModal = ref(false);
 
 // Impostazioni state  
 const activeSection = ref('profilo');
-const settingsLoading = ref(false);
+// const settingsLoading = ref(false);
 const saving = ref(false);
 const message = ref({ text: '', type: '' });
 
@@ -407,9 +420,9 @@ const handleFileUpload = (event: Event) => {
   
   if (file) {
     // Validazione del file
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      showMessage('Seleziona un file immagine valido', 'error');
+      showMessage('Seleziona un file immagine valido (JPEG, JPG, PNG, GIF, WebP)', 'error');
       return;
     }
     
@@ -418,21 +431,69 @@ const handleFileUpload = (event: Event) => {
       return;
     }
     
+    // Crea preview dell'immagine
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewUrl.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    
     profileForm.value.fotoProfilo = file;
+    showMessage('Immagine selezionata. Salva le modifiche per applicarla.', 'success');
   }
 };
 
-const loadProfileData = () => {
-  if (userStore.user) {
-    profileForm.value = {
-      nome: userStore.user.nome || '',
-      cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
-      email: userStore.user.credenziali?.email || '',
-      biografia: userStore.user.biografia || '',
-      fotoProfilo: null
-    };
+const removeAvatar = async () => {
+  const confirmed = await showConfirm(
+    'Sei sicuro di voler rimuovere la tua foto profilo?',
+    'Rimuovi foto profilo'
+  );
+  
+  if (confirmed) {
+    try {
+      saving.value = true;
+      clearMessage();
+      
+      const formData = new FormData();
+      formData.append('removeFotoProfilo', 'true');
+      
+      const result = await updateProfile(formData, userStore.token);
+      
+      if (result.data) {
+        const userData = result.data.user;
+        userStore.setUser(userData);
+        showMessage('Foto profilo rimossa con successo!');
+        previewUrl.value = null; // Pulisce anche la preview
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Errore durante la rimozione della foto profilo';
+      showMessage(errorMessage, 'error');
+    } finally {
+      saving.value = false;
+    }
   }
 };
+
+const cancelImageSelection = () => {
+  profileForm.value.fotoProfilo = null;
+  previewUrl.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+  showMessage('Selezione immagine annullata', 'success');
+};
+
+// const loadProfileData = () => {
+//   if (userStore.user) {
+//     profileForm.value = {
+//       nome: userStore.user.nome || '',
+//       cognome: isUser.value ? (userStore.user.cognome || '') : '', // Cognome solo per User
+//       email: userStore.user.credenziali?.email || '',
+//       biografia: userStore.user.biografia || '',
+//       fotoProfilo: null
+//     };
+//   }
+// };
 
 const validateProfileForm = () => {
   if (!profileForm.value.nome.trim()) {
@@ -477,31 +538,15 @@ const saveProfileChanges = async () => {
     
     let response;
     
-    // Usa l'API corretta in base al tipo di utente
-    if (isUser.value) {
-      response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${userStore.token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-    } else if (isEnte.value) {
-      const result = await updateEnteProfile(userStore.token, formData);
-      response = { data: result };
-    } else {
-      showMessage('Tipo utente non supportato per la modifica del profilo', 'error');
-      return;
-    }
+    // Usa il nuovo endpoint unificato per tutti gli utenti
+    const result = await updateProfile(formData, userStore.token);
     
-    if (response.data.data || response.data) {
-      const userData = response.data.data || response.data;
+    if (result.data) {
+      const userData = result.data.user;
       userStore.setUser(userData);
       showMessage('Profilo aggiornato con successo!');
       profileForm.value.fotoProfilo = null;
+      previewUrl.value = null; // Pulisce la preview
       
       // Aggiorna il form con i nuovi dati per sincronizzarlo con lo store
       profileForm.value.nome = userData.nome || '';
@@ -555,41 +600,17 @@ const setPassword = async () => {
     saving.value = true;
     clearMessage();
     
-    let response;
-    
-    // Usa l'API corretta in base al tipo di utente
-    if (isUser.value) {
-      response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/users/password`,
-        {
-          newPassword: credentialsForm.value.newPassword
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${userStore.token}`
-          }
-        }
-      );
-    } else if (isEnte.value) {
-      const result = await updateEntePassword(userStore.token, credentialsForm.value.newPassword);
-      response = { data: result };
-    } else {
-      showMessage('Tipo utente non supportato per la modifica della password', 'error');
-      return;
-    }
+    // Usa il nuovo endpoint: invia solo newPassword per il setup iniziale
+    const result = await setPasswordApi({
+      newPassword: credentialsForm.value.newPassword
+    }, userStore.token);
     
     showMessage('Password impostata con successo!');
     credentialsForm.value.newPassword = '';
     credentialsForm.value.confirmPassword = '';
     
-    // Aggiorna l'utente con i dati ricevuti dal server
-    if (response.data.data || response.data) {
-      const userData = response.data.data || response.data;
-      userStore.setUser(userData);
-    } else {
-      // Fallback: ricarica i dati utente
-      await loadUserData();
-    }
+    // Fallback: ricarica i dati utente per sincronizzare lo stato
+    await loadUserData();
     
     // Torna alla sezione credenziali se era in setup
     if (activeSection.value === 'setup-password') {
@@ -624,10 +645,10 @@ const initializeGoogleSignIn = async (): Promise<void> => {
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
-    // @ts-ignore
+    // @ts-expect-error - Google API non tipizzata
     if (typeof google === 'undefined') return;
 
-    // @ts-ignore
+    // @ts-expect-error - Google API non tipizzata
     google.accounts.id.initialize({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
       callback: handleGoogleConnectResponse,
@@ -642,7 +663,7 @@ const initializeGoogleSignIn = async (): Promise<void> => {
     const initialContainer = document.getElementById('google-signin-settings-initial');
     
     if (settingsContainer) {
-      // @ts-ignore
+      // @ts-expect-error - Google API non tipizzata
       google.accounts.id.renderButton(settingsContainer, {
         theme: 'outline',
         size: 'large',
@@ -653,7 +674,7 @@ const initializeGoogleSignIn = async (): Promise<void> => {
     }
     
     if (initialContainer) {
-      // @ts-ignore
+      // @ts-expect-error - Google API non tipizzata
       google.accounts.id.renderButton(initialContainer, {
         theme: 'filled_blue',
         size: 'large',
@@ -707,17 +728,10 @@ const getCategoryLabel = (categoria: string): string => {
 
 const loadUserData = async () => {
   try {
-    const response = await axios.get(
-      `${import.meta.env.VITE_BACKEND_URL}/api/users/me`,
-      {
-        headers: {
-          'Authorization': `Bearer ${userStore.token}`
-        }
-      }
-    );
+    const result = await getCurrentUser(userStore.token);
     
-    if (response.data.data) {
-      userStore.setUser(response.data.data);
+    if (result.data) {
+      userStore.setUser(result.data.user);
     }
   } catch (error) {
     console.error('Errore nel caricamento dati utente:', error);
@@ -1104,18 +1118,39 @@ const getUserTypeLabel = (): string => {
               <div class="photo-container">
                 <div class="current-photo">
                   <img
-                    v-if="fotoProfiloUrl"
-                    :src="fotoProfiloUrl"
-                    alt="Foto profilo attuale"
+                    v-if="currentPhotoUrl"
+                    :src="currentPhotoUrl"
+                    alt="Foto profilo"
                     class="profile-photo"
                   />
                   <div v-else class="photo-placeholder">
                     <span>{{ (profileForm.nome[0] || '?').toUpperCase() }}</span>
                   </div>
+                  <div v-if="previewUrl" class="preview-badge">
+                    Anteprima
+                  </div>
                 </div>
                 <div class="photo-actions">
                   <button type="button" @click="triggerFileUpload" class="photo-button">
                     📷 Cambia foto
+                  </button>
+                  <button 
+                    v-if="fotoProfiloUrl" 
+                    type="button" 
+                    @click="removeAvatar" 
+                    class="photo-button remove-button"
+                    :disabled="saving"
+                  >
+                    🗑️ Rimuovi
+                  </button>
+                  <button 
+                    v-if="previewUrl" 
+                    type="button" 
+                    @click="cancelImageSelection" 
+                    class="photo-button cancel-button"
+                    :disabled="saving"
+                  >
+                    ✖️ Annulla
                   </button>
                   <input
                     ref="fileInput"
@@ -2426,6 +2461,57 @@ const getUserTypeLabel = (): string => {
   color: white;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(254, 70, 84, 0.3);
+}
+
+.photo-button.remove-button {
+  border-color: #dc3545;
+  color: #dc3545;
+  margin-left: 0.5rem;
+}
+
+.photo-button.remove-button:hover {
+  background: #dc3545;
+  color: white;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.photo-button.cancel-button {
+  border-color: #6c757d;
+  color: #6c757d;
+  margin-left: 0.5rem;
+}
+
+.photo-button.cancel-button:hover {
+  background: #6c757d;
+  color: white;
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.current-photo {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #fe4654;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+  z-index: 2;
 }
 
 /* Auth status styles */

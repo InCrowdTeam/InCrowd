@@ -14,7 +14,8 @@ export interface IUser {
   followersCount?: number;  // Contatore dinamico
   followingCount?: number;  // Contatore dinamico
   isFollowedByCurrentUser?: boolean;
-  userType?: 'user' | 'ente';  // Campo per distinguere tra utente privato ed ente
+  userType?: 'privato' | 'ente';  // Campo per distinguere tra utente privato ed ente (legacy)
+  user_type?: 'privato' | 'ente';  // Campo unificato dall'API
 }
 
 // Tipi per le API di autenticazione

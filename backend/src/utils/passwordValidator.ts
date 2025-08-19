@@ -7,12 +7,26 @@ export interface PasswordValidationResult {
 export function validatePassword(password: string): PasswordValidationResult {
   const errors: string[] = [];
   
-  // Controlli di sicurezza
+  // Controlli di sicurezza parametrizzati tramite variabile di ambiente
+  const securityEnabled = process.env.ENABLE_SECURITY_CONTROLS !== 'false';
+  
+  // Controlli di base sempre attivi
   if (!password) {
     errors.push('La password è obbligatoria');
     return { isValid: false, errors, strength: 'weak' };
   }
   
+  if (!securityEnabled) {
+    // Se i controlli sono disabilitati, accetta qualsiasi password non vuota
+    return {
+      isValid: true,
+      errors: [],
+      strength: 'weak'
+    };
+  }
+  
+  // Controlli di sicurezza (abilitabili/disabilitabili)
+  // Requisiti minimi: 8 caratteri, 1 maiuscola, 1 minuscola, 1 carattere speciale
   if (password.length < 8) {
     errors.push('La password deve contenere almeno 8 caratteri');
   }
@@ -23,10 +37,6 @@ export function validatePassword(password: string): PasswordValidationResult {
   
   if (!/[A-Z]/.test(password)) {
     errors.push('La password deve contenere almeno una lettera maiuscola');
-  }
-  
-  if (!/\d/.test(password)) {
-    errors.push('La password deve contenere almeno un numero');
   }
   
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
@@ -59,13 +69,12 @@ export function validatePassword(password: string): PasswordValidationResult {
     length: password.length >= 8,
     lowercase: /[a-z]/.test(password),
     uppercase: /[A-Z]/.test(password),
-    number: /\d/.test(password),
     special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
   };
   
   const score = Object.values(checks).filter(Boolean).length;
   
-  if (score >= 5 && password.length >= 12) {
+  if (score >= 4 && password.length >= 12) {
     strength = 'strong';
   } else if (score >= 4) {
     strength = 'good';

@@ -1,24 +1,23 @@
-import { Request, Response } from 'express';
-import Follow from '../models/Follow';
-import User from '../models/User';
-import Ente from '../models/Ente';
-import { apiResponse } from '../utils/responseFormatter';
+import { Request, Response } from "express";
+import Follow from "../models/Follow";
+import Privato from '../models/Privato'; // Rinominato da User
+import Ente from "../models/Ente";
+import { apiResponse } from "../utils/responseFormatter";
 import { AppError } from '../utils/error';
-import { FollowCountService } from '../utils/followCountService';
 
 /**
  * Trova un utente/ente per ID e determina il tipo
  * @param id - ID dell'utente/ente da cercare
  * @returns Oggetto con user/ente e tipo, o null se non trovato
  */
-const findUserOrEnte = async (id: string): Promise<{ entity: any; type: 'user' | 'ente' } | null> => {
-  // Prima cerca negli utenti
-  let entity = await User.findById(id);
+const findUserOrEnte = async (id: string): Promise<{ entity: any; type: 'privato' | 'ente' } | null> => {
+  // Prima cerca nei privati
+  let entity = await Privato.findById(id);
   if (entity) {
-    return { entity, type: 'user' };
+    return { entity, type: 'privato' };
   }
   
-  // Se non trovato negli utenti, cerca negli enti
+  // Se non trovato nei privati, cerca negli enti
   entity = await Ente.findById(id);
   if (entity) {
     return { entity, type: 'ente' };
@@ -103,19 +102,15 @@ export const unfollowUser = async (req: Request, res: Response) => {
 };
 
 /**
- * Recupera la lista dei followers di un utente o ente con paginazione
- * @param req - Richiesta HTTP con userId nel parametro e page/limit opzionali
+ * Recupera la lista dei followers di un utente o ente
+ * @param req - Richiesta HTTP con userId nel parametro
  * @param res - Risposta HTTP con lista dei followers
  */
 export const getFollowers = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
 
     const follows = await Follow.find({ followingId: userId })
-      .skip((page - 1) * limit)
-      .limit(limit)
       .sort({ createdAt: -1 });
 
     // Popola manualmente i followers
@@ -123,43 +118,34 @@ export const getFollowers = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followerInfo = await findUserOrEnte(follow.followerId.toString());
       if (followerInfo) {
-        // Ottieni i contatori dinamicamente per ogni follower
-        const followCounts = await FollowCountService.getBothCounts(followerInfo.entity._id.toString());
-        
         const followerData = {
           _id: followerInfo.entity._id,
           nome: followerInfo.entity.nome,
           cognome: followerInfo.entity.cognome,
           biografia: followerInfo.entity.biografia,
           fotoProfilo: followerInfo.entity.fotoProfilo,
-          userType: followerInfo.type,
-          followersCount: followCounts.followersCount,
-          followingCount: followCounts.followingCount
+          userType: followerInfo.type
         };
         followers.push(followerData);
       }
     }
 
-    res.json(apiResponse({ data: followers, message: 'Followers recuperati' }));
+    res.json(apiResponse({ data: { followers, total: followers.length }, message: 'Followers recuperati' }));
   } catch (error: any) {
     res.status(500).json(apiResponse({ message: error.message, error }));
   }
 };
 
 /**
- * Recupera la lista degli utenti/enti seguiti da un utente o ente con paginazione
- * @param req - Richiesta HTTP con userId nel parametro e page/limit opzionali
+ * Recupera la lista degli utenti/enti seguiti da un utente o ente
+ * @param req - Richiesta HTTP con userId nel parametro
  * @param res - Risposta HTTP con lista degli utenti seguiti
  */
 export const getFollowing = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
 
     const follows = await Follow.find({ followerId: userId })
-      .skip((page - 1) * limit)
-      .limit(limit)
       .sort({ createdAt: -1 });
 
     // Popola manualmente gli utenti/enti seguiti
@@ -167,24 +153,19 @@ export const getFollowing = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followingInfo = await findUserOrEnte(follow.followingId.toString());
       if (followingInfo) {
-        // Ottieni i contatori dinamicamente per ogni following
-        const followCounts = await FollowCountService.getBothCounts(followingInfo.entity._id.toString());
-        
         const followingData = {
           _id: followingInfo.entity._id,
           nome: followingInfo.entity.nome,
           cognome: followingInfo.entity.cognome,
           biografia: followingInfo.entity.biografia,
           fotoProfilo: followingInfo.entity.fotoProfilo,
-          userType: followingInfo.type,
-          followersCount: followCounts.followersCount,
-          followingCount: followCounts.followingCount
+          userType: followingInfo.type
         };
         following.push(followingData);
       }
     }
 
-    res.json(apiResponse({ data: following, message: 'Following recuperati' }));
+    res.json(apiResponse({ data: { following, total: following.length }, message: 'Following recuperati' }));
   } catch (error: any) {
     res.status(500).json(apiResponse({ message: error.message, error }));
   }
@@ -193,7 +174,7 @@ export const getFollowing = async (req: Request, res: Response) => {
 /**
  * Verifica lo stato di follow tra l'utente autenticato e un altro utente o ente
  * @param req - Richiesta HTTP autenticata con userId nel parametro
- * @param res - Risposta HTTP con stato del follow e contatori
+ * @param res - Risposta HTTP con stato del follow
  */
 export const getFollowStatus = async (req: Request, res: Response) => {
   try {
@@ -210,18 +191,16 @@ export const getFollowStatus = async (req: Request, res: Response) => {
       throw new AppError('Utente non trovato', 404);
     }
 
-    // Ottieni informazioni complete sui follow
-    const followInfo = await FollowCountService.getFullFollowInfo(followingId, followerId);
+    // Verifica se l'utente corrente segue l'utente target
+    const isFollowing = await Follow.findOne({ followerId, followingId });
     
     res.json(apiResponse({ 
       data: {
-        isFollowing: followInfo.isFollowedByCurrentUser || false,
-        followersCount: followInfo.followersCount,
-        followingCount: followInfo.followingCount
+        isFollowing: !!isFollowing
       }, 
-      message: 'Status recuperato' 
+      message: 'Status follow verificato' 
     }));
   } catch (error: any) {
-    res.status(500).json(apiResponse({ message: error.message, error }));
+    res.status(error.status || 500).json(apiResponse({ message: error.message, error }));
   }
 };

@@ -47,8 +47,8 @@
           <div class="account-type-grid">
             <div 
               class="account-type-card"
-              :class="{ active: type === 'user' }"
-              @click="selectAccountType('user')"
+              :class="{ active: type === 'privato' }"
+              @click="selectAccountType('privato')"
             >
               <div class="card-content">
                 <div class="card-icon">👤</div>
@@ -140,7 +140,7 @@
                 </div>
               </div>
               
-              <div v-if="type === 'user'" class="form-group">
+              <div v-if="type === 'privato'" class="form-group">
                 <label for="cognome" class="form-label">
                   <span class="label-icon">👤</span>
                   Cognome
@@ -151,11 +151,11 @@
                   id="cognome" 
                   v-model="form.cognome" 
                   class="form-input"
-                  :class="{ 'error': showErrors && type === 'user' && !form.cognome.trim() }"
+                  :class="{ 'error': showErrors && type === 'privato' && !form.cognome.trim() }"
                   placeholder="Es: Rossi"
                   required 
                 />
-                <div v-if="showErrors && type === 'user' && !form.cognome.trim()" class="field-error">
+                <div v-if="showErrors && type === 'privato' && !form.cognome.trim()" class="field-error">
                   Il cognome è obbligatorio
                 </div>
               </div>
@@ -171,7 +171,7 @@
                   id="codiceFiscale" 
                   v-model="form.codiceFiscale" 
                   class="form-input"
-                  :class="{ 'error': showErrors && (!form.codiceFiscale.trim() || (type === 'user' && !isValidCodiceFiscale)) }"
+                  :class="{ 'error': showErrors && (!form.codiceFiscale.trim() || (type === 'privato' && !isValidCodiceFiscale)) }"
                   :placeholder="type === 'ente' ? 'Es: 12345678901 (P.IVA/CF)' : 'Es: RSSMRA80A01H501Z'"
                   required 
                   @blur="validateCodiceFiscale"
@@ -179,7 +179,7 @@
                 <div v-if="showErrors && !form.codiceFiscale.trim()" class="field-error">
                   Il codice fiscale è obbligatorio
                 </div>
-                <div v-else-if="showErrors && form.codiceFiscale.trim() && type === 'user' && !isValidCodiceFiscale" class="field-error">
+                <div v-else-if="showErrors && form.codiceFiscale.trim() && type === 'privato' && !isValidCodiceFiscale" class="field-error">
                   Codice fiscale non valido
                 </div>
               </div>
@@ -219,9 +219,9 @@
                   id="password" 
                   v-model="form.credenziali.password" 
                   class="form-input"
-                  :class="{ 'error': showErrors && (!form.credenziali.password || !isValidPassword) }"
+                  :class="{ 'error': showErrors && showPassword && (!form.credenziali.password || !isValidPassword) }"
                   placeholder="Scegli una password sicura"
-                  required 
+                  :required="showPassword"
                   @input="validatePassword"
                 />
                 
@@ -260,7 +260,7 @@
                 </div>
                 
                 <div v-if="showErrors && !form.credenziali.password" class="field-error">
-                  La password è obbligatoria
+                  La password è obbligatoria se non usi Google
                 </div>
                 <div v-else-if="showErrors && form.credenziali.password && !isValidPassword" class="field-error">
                   La password non soddisfa i requisiti di sicurezza
@@ -361,6 +361,7 @@
 import axios from 'axios';
 import { useModal } from '@/composables/useModal';
 import { useUserStore } from '@/stores/userStore';
+import { createUserWithFormData } from '@/api/userApi';
 
 export default {
   setup() {
@@ -416,16 +417,20 @@ export default {
       return this.isEmailSignup || this.googleSignInCompleted;
     },
     canProceedStep3() {
-      const baseFields = this.form.nome && this.form.codiceFiscale && 
-                        this.form.credenziali.email && 
-                        this.form.credenziali.password && 
-                        this.isValidEmail && this.isValidPassword;
-      
+      // Serve almeno uno tra password e oauthCode
+      const hasPassword = !!this.form.credenziali.password;
+      const hasOauthCode = !!this.form.credenziali.oauthCode;
+      const baseFields = this.form.nome && this.form.codiceFiscale &&
+                        this.form.credenziali.email &&
+                        (hasPassword || hasOauthCode) &&
+                        this.isValidEmail &&
+                        (hasOauthCode || this.isValidPassword);
+
       // Per gli utenti, controlla anche il codice fiscale e cognome
-      if (this.type === 'user') {
+      if (this.type === 'privato') {
         return baseFields && this.form.cognome && this.isValidCodiceFiscale;
       }
-      
+
       // Per gli enti, non controlliamo il formato del codice fiscale
       return baseFields;
     },
@@ -579,13 +584,13 @@ export default {
         
         // Verifica che tutti i campi obbligatori siano validi
         if (!this.canProceedStep3) {
-          this.registrationMessage = 'Compila correttamente tutti i campi obbligatori';
+          this.registrationMessage = 'Compila correttamente tutti i campi obbligatori: nome, codice fiscale, email e almeno una password o un accesso Google.';
           return;
         }
         
         const formData = new FormData();
         formData.append("nome", this.form.nome);
-        if (this.type === 'user') {
+        if (this.type === 'privato') {
           formData.append("cognome", this.form.cognome);
         }
         formData.append("codiceFiscale", this.form.codiceFiscale);
@@ -594,31 +599,20 @@ export default {
           formData.append("fotoProfilo", this.form.fotoProfilo.data);
         }
         formData.append("email", this.form.credenziali.email);
+        // Solo uno tra password e oauthCode
         if (this.showPassword) {
           formData.append("password", this.form.credenziali.password);
-        }
-        if (this.form.credenziali.oauthCode) {
+        } else if (this.form.credenziali.oauthCode) {
           formData.append("oauthCode", this.form.credenziali.oauthCode);
         }
 
-        // Determina l'endpoint corretto in base al tipo di account
-        const url = this.type === 'ente'
-          ? `${import.meta.env.VITE_BACKEND_URL}/api/enti`
-          : `${import.meta.env.VITE_BACKEND_URL}/api/users`;
+        // Aggiungi user_type al FormData
+        formData.append("user_type", this.type === 'ente' ? 'ente' : 'privato');
 
-        const response = await fetch(url, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || "Impossibile creare l'account");
-        }
+        // Usa la nuova API unificata
+        const responseData = await createUserWithFormData(formData);
         
         // Gestisce login automatico se il backend restituisce token
-        const responseData = await response.json();
-        
         if (responseData.data && responseData.data.token && responseData.data.user) {
           // Salva i dati di login nello store per login automatico
           this.userStore.setToken(responseData.data.token);
@@ -746,9 +740,9 @@ export default {
     redirectToCompleteSignup(data) {
       let nome = data.nome || '';
       let cognome = data.cognome || '';
-      let accountType = this.type;
+      const accountType = this.type;
       
-      if (accountType === 'user') {
+      if (accountType === 'privato') {
         if (!cognome && nome.includes(' ')) {
           const parts = nome.split(' ');
           nome = parts[0];

@@ -6,8 +6,8 @@ import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-// Rotta per ottenere gli ultimi commenti globali
-router.get("/commenti", getUltimiCommenti);
+// Rotta per ottenere gli ultimi commenti globali (solo operatori)
+router.get("/commenti", authMiddleware, requireRole("operatore"), getUltimiCommenti);
 
 // Configura Multer per caricare i file in memoria (memoria temporanea)
 const storage = multer.memoryStorage();
@@ -45,16 +45,16 @@ router.get("/user/:userId", getUserProposte);
 router.get("/pending", authMiddleware, requireRole("operatore"), getPendingProposte as any);
 
 // Rotta per creare una nuova proposta (con upload file)
-router.post("/", authMiddleware, requireRole("user", "ente"), upload.single("foto"), addProposta);
+router.post("/", authMiddleware, requireRole("privato", "ente"), upload.single("foto"), addProposta);
 
 // Rotta per ottenere una singola proposta per ID
 router.get("/:id", getPropostaById);
 
 //Rotta per mettere hype a una proposta
-router.patch("/:id/hyper", authMiddleware, requireRole("user", "ente"), hyperProposta as any);
+router.patch("/:id/hyper", authMiddleware, requireRole("privato", "ente"), hyperProposta as any);
 
-// Rotta per aggiungere un commento a una proposta
-router.post("/:id/commenti", authMiddleware, requireRole("user", "ente", "operatore"), aggiungiCommento as any);
+// Rotta per aggiungere un commento a una proposta (solo privati e enti)
+router.post("/:id/commenti", authMiddleware, requireRole("privato", "ente"), aggiungiCommento as any);
 
 // Aggiorna stato proposta (approva o rifiuta)
 router.patch("/:id/stato", authMiddleware, requireRole("operatore"), updateStatoProposta as any);
@@ -66,6 +66,6 @@ router.get("/:id/commenti", getCommentiProposta as any);
 router.delete("/:propostaId/commenti/:commentoId", authMiddleware, deleteCommento as any);
 
 // Rotta per eliminare una proposta
-router.delete("/:id", authMiddleware, requireRole("user", "ente", "operatore"), deleteProposta as any);
+router.delete("/:id", authMiddleware, requireRole("privato", "ente", "operatore"), deleteProposta as any);
 
 export default router;

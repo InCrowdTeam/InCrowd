@@ -66,8 +66,8 @@
               </div>
             </div>
             
-            <!-- Pulsante follow/unfollow (solo se non è il proprio profilo, è loggato e non è operatore/admin) -->
-            <div v-if="!isOwnProfile && isLoggedIn && !userStore.isOperatore && !userStore.isAdmin" class="follow-actions">
+                          <!-- Pulsante follow/unfollow (solo se non è il proprio profilo, è loggato e non è operatore) -->
+            <div v-if="!isOwnProfile && isLoggedIn && !userStore.isOperatore" class="follow-actions">
               <button 
                 @click="toggleFollow" 
                 :disabled="loadingFollow"
@@ -375,17 +375,17 @@ const fotoProfiloUrl = computed(() => {
 
 // Badge per il tipo di utente
 const getUserTypeClass = () => {
-  if (!userProfile.value?.userType) {
+  if (!userProfile.value?.user_type) {
     return 'type-user'; // fallback per utenti privati
   }
-  return userProfile.value.userType === 'ente' ? 'type-ente' : 'type-user';
+  return userProfile.value.user_type === 'ente' ? 'type-ente' : 'type-user';
 };
 
 const getUserTypeLabel = () => {
-  if (!userProfile.value?.userType) {
+  if (!userProfile.value?.user_type) {
     return 'UTENTE PRIVATO'; // fallback
   }
-  return userProfile.value.userType === 'ente' ? 'ENTE' : 'UTENTE PRIVATO';
+  return userProfile.value.user_type === 'ente' ? 'ENTE' : 'UTENTE PRIVATO';
 };
 
 // Metodi helper
@@ -406,7 +406,8 @@ const loadUserProfile = async () => {
     error.value = '';
     
     // Carica i dati pubblici dell'utente
-    userProfile.value = await getUserById(userId.value);
+    const response = await getUserById(userId.value);
+    userProfile.value = response.data.user;
     
     // Carica gli stats di follow
     await loadFollowStats();
@@ -417,6 +418,7 @@ const loadUserProfile = async () => {
     }
     
   } catch (err: any) {
+    console.error('❌ Errore nel caricamento del profilo:', err);
     error.value = err.message || 'Utente non trovato';
   } finally {
     loading.value = false;
@@ -431,9 +433,11 @@ const loadFollowStats = async () => {
     if (isOwnProfile.value) {
       // Se è il proprio profilo, usa il metodo per i propri stats
       stats = await followStore.loadMyFollowStats(userId.value);
+
     } else {
       // Se è il profilo di un altro utente, usa il metodo generico
       stats = await followStore.loadUserFollowStats(userId.value);
+      
     }
     
     followStats.value = {
@@ -441,6 +445,7 @@ const loadFollowStats = async () => {
       followingCount: stats.followingCount
     };
   } catch (err) {
+    console.error('❌ Errore nel caricamento degli stats di follow:', err);
     followStats.value = { followersCount: 0, followingCount: 0 };
   }
 };
@@ -450,6 +455,7 @@ const loadFollowStatus = async () => {
   try {
     followStatus.value = await followStore.loadFollowStatus(userId.value);
   } catch (err) {
+    console.error('❌ Errore nel caricamento del follow status:', err);
     followStatus.value = { isFollowing: false, followersCount: 0, followingCount: 0 };
   }
 };
@@ -460,6 +466,7 @@ const loadProposteUtente = async () => {
     loadingProposte.value = true;
     proposteUtente.value = await getUserProposte(userId.value);
   } catch (err: any) {
+    console.error('❌ Errore nel caricamento delle proposte utente:', err);
     proposteUtente.value = [];
   } finally {
     loadingProposte.value = false;
@@ -477,6 +484,7 @@ const loadProposteHyped = async () => {
       (p: IProposta) => p.listaHyper?.includes(userId.value)
     );
   } catch (err: any) {
+    console.error('❌ Errore nel caricamento delle proposte hyped:', err);
     proposteHyped.value = [];
   } finally {
     loadingHyped.value = false;
@@ -499,7 +507,9 @@ const loadFollowing = async () => {
     // Aggiorna anche il count dei following con il numero reale caricato
     followStats.value.followingCount = followingList.value.length;
     
+    
   } catch (err: any) {
+    console.error('❌ Errore nel caricamento dei seguiti:', err);
     followingList.value = [];
     await showError('Errore nel caricamento dei seguiti', err.message);
   } finally {
@@ -516,6 +526,10 @@ const toggleFollow = async () => {
   
   try {
     loadingFollow.value = true;
+    
+    // Debug info
+
+    
     await followStore.toggleFollow(userId.value);
     
     // Aggiorna lo status locale
@@ -524,11 +538,19 @@ const toggleFollow = async () => {
     // Aggiorna anche gli stats
     if (followStatus.value.isFollowing) {
       followStats.value.followersCount++;
+      
     } else {
       followStats.value.followersCount = Math.max(0, followStats.value.followersCount - 1);
+      
     }
     
   } catch (err: any) {
+    console.error('❌ Errore nel toggle follow:', err);
+    console.error('❌ Dettagli errore:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
     await showError('Errore', err.message || 'Errore durante l\'operazione');
   } finally {
     loadingFollow.value = false;
@@ -553,6 +575,7 @@ const openFollowingModal = async () => {
   try {
     modalUsersList.value = await followStore.loadFollowing(userId.value);
   } catch (err) {
+    console.error('❌ Errore nel caricamento following per modal:', err);
     modalUsersList.value = [];
   } finally {
     modalLoading.value = false;

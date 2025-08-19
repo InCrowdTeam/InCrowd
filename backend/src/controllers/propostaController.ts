@@ -1,28 +1,9 @@
 
-/**
- * Recupera gli ultimi commenti globali da tutte le proposte
- * @param req - Richiesta HTTP con limit opzionale per numero di commenti
- * @param res - Risposta HTTP con lista degli ultimi commenti
- */
-export const getUltimiCommenti = async (req: Request, res: Response) => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 10;
-    // Popola utente (nome) e proposta (titolo e _id)
-    const commenti = await Commento.find({})
-      .sort({ dataOra: -1 })
-      .limit(limit)
-      .populate('utente', 'nome')
-      .populate('proposta', 'titolo');
-    res.json(apiResponse({ data: { commenti }, message: 'Ultimi commenti' }));
-  } catch (err) {
-    console.error('Errore nel recupero ultimi commenti:', err);
-    res.status(500).json(apiResponse({ message: 'Errore nel recupero ultimi commenti', error: err }));
-  }
-};
+
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
-import User from "../models/User";
+import Privato from "../models/Privato"; // Rinominato da User
 import Ente from "../models/Ente";
 import Operatore from "../models/Operatore";
 import Commento from "../models/Commento";
@@ -39,15 +20,15 @@ const getUserData = async (userId: string, userType?: string) => {
     let userData = null;
     
     // Se conosciamo il userType, andiamo direttamente al modello corretto
-    if (userType === 'user') {
-      userData = await User.findById(userId, 'nome cognome');
+    if (userType === 'privato') { 
+      userData = await Privato.findById(userId, 'nome cognome');
     } else if (userType === 'ente') {
       userData = await Ente.findById(userId, 'nome');
     } else if (userType === 'operatore') {
       userData = await Operatore.findById(userId, 'nome cognome');
     } else {
       // Se non conosciamo il tipo, proviamo tutti i modelli
-      userData = await User.findById(userId, 'nome cognome') ||
+      userData = await Privato.findById(userId, 'nome cognome') ||
                  await Ente.findById(userId, 'nome') ||
                  await Operatore.findById(userId, 'nome cognome');
     }
@@ -56,6 +37,50 @@ const getUserData = async (userId: string, userType?: string) => {
   } catch (error) {
     console.error('Errore nel recupero dati utente:', error);
     return null;
+  }
+};
+
+/**
+ * Recupera tutti i commenti globali da tutte le proposte
+ * @param req - Richiesta HTTP
+ * @param res - Risposta HTTP con lista di tutti i commenti
+ */
+export const getUltimiCommenti = async (req: Request, res: Response) => {
+  try {
+    // Popola proposta (titolo e _id)
+    const commenti = await Commento.find({})
+      .sort({ dataOra: -1 })
+      .populate('proposta', 'titolo');
+      
+    // Popola manualmente i dati utente per ogni commento
+    const commentiConUtente = await Promise.all(
+      commenti.map(async (commento) => {
+        let userData = null;
+        
+        // Prova prima in Privato, poi in Ente
+        userData = await Privato.findById(commento.utente, 'nome cognome');
+        if (!userData) {
+          userData = await Ente.findById(commento.utente, 'nome');
+        }
+        
+        return {
+          ...commento.toObject(),
+          utente: userData ? {
+            _id: userData._id,
+            nome: userData.nome,
+            cognome: (userData as any).cognome || undefined // Solo per Privato
+          } : {
+            _id: commento.utente,
+            nome: 'Utente non trovato'
+          }
+        };
+      })
+    );
+      
+    res.json(apiResponse({ data: { commenti: commentiConUtente }, message: 'Tutti i commenti' }));
+  } catch (err) {
+    console.error('Errore nel recupero commenti:', err);
+    res.status(500).json(apiResponse({ message: 'Errore nel recupero commenti', error: err }));
   }
 };
 
@@ -131,9 +156,7 @@ export const searchProposte = async (req: Request, res: Response) => {
       citta,       // filtro per città
       stato,       // filtro per stato (approvata, in_approvazione, rifiutata)
       sortBy,      // ordinamento (createdAt, listaHyper, titolo)
-      sortOrder,   // direzione ordinamento (asc, desc)
-      limit,       // limite risultati
-      skip         // skip per paginazione
+      sortOrder    // direzione ordinamento (asc, desc)
     } = req.query;
 
     // Costruzione del filtro di ricerca
@@ -189,14 +212,6 @@ export const searchProposte = async (req: Request, res: Response) => {
             },
             { $sort: { hyperCount: sortOrder === 'asc' ? 1 : -1 } }
           ];
-          
-          if (skip && typeof skip === 'string') {
-            pipeline.push({ $skip: parseInt(skip) });
-          }
-          
-          if (limit && typeof limit === 'string') {
-            pipeline.push({ $limit: parseInt(limit) });
-          }
 
           const risultatiAggregazione = await Proposta.aggregate(pipeline);
           const proposteProcessate = risultatiAggregazione.map(p => {
@@ -226,18 +241,8 @@ export const searchProposte = async (req: Request, res: Response) => {
       sort.createdAt = -1; // Default: più recenti prima
     }
 
-    // Query con paginazione
-    let query = Proposta.find(filter).sort(sort);
-    
-    if (skip && typeof skip === 'string') {
-      query = query.skip(parseInt(skip));
-    }
-    
-    if (limit && typeof limit === 'string') {
-      query = query.limit(parseInt(limit));
-    }
-
-    const proposte = await query.exec();
+    // Query senza paginazione
+    const proposte = await Proposta.find(filter).sort(sort).exec();
     const total = await Proposta.countDocuments(filter);
 
     const proposteProcessate = proposte.map(p => {
@@ -252,8 +257,7 @@ export const searchProposte = async (req: Request, res: Response) => {
       apiResponse({
         data: {
           proposte: proposteProcessate,
-          total,
-          hasMore: (parseInt((skip as string) || '0') + proposteProcessate.length) < total,
+          total
         },
         message: "Risultati ricerca",
       })
@@ -473,9 +477,28 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
 
     await nuovoCommento.save();
 
-    // Recupera tutti i commenti della proposta
-    const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
-    res.json(apiResponse({ data: { commenti }, message: "Commento aggiunto" }));
+    // Recupera tutti i commenti della proposta con i dati utente corretti
+    const commenti = await Commento.find({ proposta: proposta._id }).sort({ dataOra: 1 });
+    
+    // Recupera manualmente i dati utente per ogni commento
+    const commentiConUtente = await Promise.all(
+      commenti.map(async (commento) => {
+        const userData = await getUserData(commento.utente.toString());
+        return {
+          ...commento.toObject(),
+          utente: userData ? {
+            _id: userData._id,
+            nome: userData.nome,
+            cognome: (userData as any).cognome || undefined // Solo per Privato e Operatore
+          } : {
+            _id: commento.utente,
+            nome: 'Utente non trovato'
+          }
+        };
+      })
+    );
+    
+    res.json(apiResponse({ data: { commenti: commentiConUtente }, message: "Commento aggiunto" }));
   } catch (err: any) {
     console.error("Errore aggiunta commento:", err);
     res.status(500).json(apiResponse({ message: "Errore nell'aggiunta del commento", error: err }));
@@ -483,9 +506,9 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
 };
 
 /**
- * Recupera tutti i commenti di una specifica proposta
- * @param req - Richiesta HTTP con id proposta
- * @param res - Risposta HTTP con lista dei commenti
+ * Recupera i commenti di una proposta specifica
+ * @param req - Richiesta HTTP con id proposta nel parametro
+ * @param res - Risposta HTTP con lista dei commenti della proposta
  */
 export const getCommentiProposta = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -499,13 +522,20 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
     // Recupera manualmente i dati utente per ogni commento
     const commentiConUtente = await Promise.all(
       commenti.map(async (commento) => {
-        const userData = await getUserData(commento.utente.toString());
+        let userData = null;
+        
+        // Prova prima in Privato, poi in Ente
+        userData = await Privato.findById(commento.utente, 'nome cognome');
+        if (!userData) {
+          userData = await Ente.findById(commento.utente, 'nome');
+        }
+        
         return {
           ...commento.toObject(),
           utente: userData ? {
             _id: userData._id,
             nome: userData.nome,
-            cognome: (userData as any).cognome || undefined // Solo per User e Operatore
+            cognome: (userData as any).cognome || undefined // Solo per Privato
           } : {
             _id: commento.utente,
             nome: 'Utente non trovato'
@@ -632,22 +662,39 @@ export const deleteProposta = async (req: AuthenticatedRequest, res: Response) =
 
 /**
  * Elimina un commento specifico (solo autore del commento o operatori)
- * @param req - Richiesta HTTP autenticata con commentoId nel parametro
+ * @param req - Richiesta HTTP autenticata con propostaId e commentoId nei parametri
  * @param res - Risposta HTTP di conferma eliminazione
  */
 export const deleteCommento = async (req: AuthenticatedRequest, res: Response) => {
-  const { commentoId } = req.params;
+  const { propostaId, commentoId } = req.params;
   const userId = req.user?.userId;
   const userType = req.user?.userType;
 
   try {
-    const commento = await Commento.findById(commentoId).populate("utente", "_id");
+    // Verifica che i parametri siano validi
+    if (!propostaId || !commentoId) {
+      return res.status(400).json(apiResponse({ message: "Parametri mancanti" }));
+    }
+
+    // Verifica che la proposta esista
+    const proposta = await Proposta.findById(propostaId);
+    if (!proposta) {
+      return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
+    }
+
+    const commento = await Commento.findById(commentoId);
     if (!commento) {
       return res.status(404).json(apiResponse({ message: "Commento non trovato" }));
     }
 
+    // Verifica che il commento appartenga alla proposta specificata
+    const commentoPropostaId = commento.proposta.toString();
+    if (commentoPropostaId !== propostaId) {
+      return res.status(400).json(apiResponse({ message: "Il commento non appartiene alla proposta specificata" }));
+    }
+
     // Controlla i permessi: solo l'autore del commento o gli operatori possono eliminarlo
-    const autorId = commento.utente?._id?.toString();
+    const autorId = commento.utente.toString();
     if (autorId !== userId && userType !== "operatore") {
       return res.status(403).json(apiResponse({ message: "Non hai i permessi per eliminare questo commento" }));
     }
@@ -747,7 +794,7 @@ export const getFollowedUsersProposte = async (req: AuthenticatedRequest, res: R
     
     res.json(apiResponse({ 
       data: proposteProcessate, 
-      message: `Proposte degli utenti seguiti` 
+      message: `Proposte degli utenti seguiti`
     }));
   } catch (error) {
     console.error("Errore nel recupero proposte utenti seguiti:", error);
