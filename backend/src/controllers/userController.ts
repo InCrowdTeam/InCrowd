@@ -17,21 +17,30 @@ interface AuthenticatedRequest extends Request {
  * Crea dati utente pubblici unificati per la visualizzazione
  * @param user - Oggetto utente dal database
  * @param userType - Tipo utente ('privato' | 'ente') 
+ * @param requestUser - Utente autenticato che fa la richiesta (opzionale)
  * @returns Oggetto con dati pubblici unificati con user_type
  */
 const createPublicUser = (
   user: any, 
-  userType: 'privato' | 'ente'
+  userType: 'privato' | 'ente',
+  requestUser?: any
 ) => {
+  const isOperator = requestUser && requestUser.userType === 'operatore';
+  
   const publicData: any = {
     _id: user._id,
     user_type: userType, // Sempre presente e valorizzato
     nome: user.nome,
     biografia: user.biografia,
     fotoProfilo: user.fotoProfilo,
-    createdAt: user.createdAt,
-    email: user.credenziali?.email // Espone solo la mail pubblica
+    createdAt: user.createdAt
   };
+
+  // Email e dati sensibili solo per operatori
+  if (isOperator) {
+    publicData.email = user.credenziali?.email;
+    publicData.codiceFiscale = user.codiceFiscale;
+  }
 
   // Campi specifici per tipo utente
   if (userType === 'privato') {
@@ -87,8 +96,8 @@ export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
 
     // Unifica i risultati con user_type
     const allUsers = [
-      ...privati.map(user => createPublicUser(user, 'privato')),
-      ...enti.map(ente => createPublicUser(ente, 'ente'))
+      ...privati.map(user => createPublicUser(user, 'privato', req.user)),
+      ...enti.map(ente => createPublicUser(ente, 'ente', req.user))
     ];
 
     res.json(
@@ -226,7 +235,7 @@ export const createUser = async (req: Request, res: Response) => {
     await newUser.save();
 
     // Risposta con dati pubblici
-    const publicUser = createPublicUser(newUser, user_type);
+    const publicUser = createPublicUser(newUser, user_type, undefined); // Nessun utente autenticato per la creazione
     
     res.status(201).json(
       apiResponse({
@@ -258,7 +267,9 @@ export const getUserById = async (req: Request, res: Response) => {
 
     const { user, userType } = result;
     
-    const publicUser = createPublicUser(user, userType);
+    // Estrai utente autenticato se presente (per autenticazione opzionale)
+    const authenticatedUser = (req as any).user;
+    const publicUser = createPublicUser(user, userType, authenticatedUser);
     
     res.json(
       apiResponse({
@@ -440,19 +451,22 @@ export const deleteAccount = async (req: any, res: Response) => {
 };
 
 /**
- * GET /api/user/search - Cerca utenti
+ * GET /api/user/search - Ricerca utenti
  */
 export const searchUsers = async (req: Request, res: Response) => {
   try {
-    const { q, user_type } = req.query;
+    const { q, user_type, limit = 10, page = 1 } = req.query;
+    
+    // Estrai utente autenticato se presente (per autenticazione opzionale)
+    const authenticatedUser = (req as any).user;
 
-    if (!q || typeof q !== 'string' || q.trim().length < 2) {
+    if (!q || q.toString().trim().length < 2) {
       return res.status(400).json(
         apiResponse({ message: "Query di ricerca richiesta (minimo 2 caratteri)" })
       );
     }
 
-    const searchRegex = new RegExp(q.trim(), 'i');
+    const searchRegex = new RegExp(q.toString().trim(), 'i');
 
     // Query per privati
     const privateQuery = {
@@ -481,7 +495,7 @@ export const searchUsers = async (req: Request, res: Response) => {
         .select('nome cognome biografia fotoProfilo createdAt')
         .sort({ createdAt: -1 });
 
-      const privateResults = privati.map(user => createPublicUser(user, 'privato'));
+      const privateResults = privati.map(user => createPublicUser(user, 'privato', authenticatedUser));
       results = results.concat(privateResults);
 
       if (!user_type) {
@@ -494,7 +508,7 @@ export const searchUsers = async (req: Request, res: Response) => {
         .select('nome_org nome biografia fotoProfilo createdAt')
         .sort({ createdAt: -1 });
 
-      const enteResults = enti.map(ente => createPublicUser(ente, 'ente'));
+      const enteResults = enti.map(ente => createPublicUser(ente, 'ente', authenticatedUser));
       results = results.concat(enteResults);
 
       if (!user_type) {

@@ -17,14 +17,33 @@ info:
     
     ## Autenticazione e Sicurezza
     
-    L'API utilizza autenticazione JWT (JSON Web Token):
+    L'API utilizza autenticazione JWT (JSON Web Token) con flusso completo:
     
-    1. **Login**: Ottieni il token tramite `POST /api/auth/login`
+    ### Flusso di Autenticazione
+    
+    1. **Login**: Ottieni il token tramite `POST /api/auth/login` o `POST /api/auth/google`
     2. **Utilizzo**: Includi il token nell'header di ogni richiesta:
        ```
        Authorization: Bearer <your-jwt-token>
        ```
-    3. **Token Structure**: Il JWT contiene `userId`, `email`, `userType`
+    3. **Validazione**: Il token viene validato ad ogni richiesta tramite middleware
+    4. **Scadenza**: Token validi per 7 giorni (configurabile)
+    
+    ### Struttura JWT
+    
+    Il JWT contiene i seguenti claim:
+    - `userId`: ID univoco dell'utente nel database
+    - `email`: Email dell'utente per identificazione
+    - `userType`: Tipo utente (`privato`, `ente`, `operatore`, `admin`)
+    - `iat`: Timestamp di emissione
+    - `exp`: Timestamp di scadenza
+    
+    ### Gestione Token
+    
+    - **Refresh**: Non implementato - richiedere nuovo login alla scadenza
+    - **Revoca**: Token invalidati automaticamente alla logout
+    - **Sicurezza**: Token firmati con `JWT_SECRET` configurabile
+    - **Admin Speciale**: Credenziali admin hardcoded per accesso privilegiato
     
     ### Sicurezza Password
     
@@ -68,21 +87,90 @@ info:
     - `"privato"`: Cittadino privato
     - `"ente"`: Ente/organizzazione
     
-    **Nota implementativa**: Nel database esistono due collezioni distinte 
-    (`Privato` e `Ente`), ma l'API le unifica tramite il campo `user_type`.
+    **Architettura Backend**: 
+    - Nel database esistono due collezioni distinte (`Privato` e `Ente`)
+    - Ogni collezione ha il proprio modello con campi specifici
+    - L'API unifica le risposte tramite il campo `user_type`
+    - L'autenticazione è gestita tramite il modello `Credenziali` condiviso
     
-    ### Campi Dinamici
+    ### Schemi Utente Disponibili
     
-    Alcuni campi sono calcolati a runtime:
-    - `followersCount`: Numero di follower
-    - `followingCount`: Numero di utenti seguiti
-    - `hype`: Per le proposte, equivale alla lunghezza di `listaHyper`
+    L'API fornisce diversi schemi utente in base al contesto d'uso:
+    
+    | Schema | Utilizzo | Dati Inclusi | Accesso |
+    |--------|----------|---------------|---------|
+    | `UserBase` | Schema base comune | Dati pubblici essenziali | Tutti |
+    | `UserSearchResult` | Ricerche e profili pubblici | Dati base + email condizionale | Pubblico/Operatori |
+    | `UserComplete` | Profilo personale | Dati completi + credenziali sicure | Solo proprietario |
+    | `UserForOperators` | Gestione amministrativa | Dati completi + sensibili | Solo operatori |
+    | `UserFollowInfo` | Liste follow | Dati base senza contatori | Pubblico |
+    
+    **Sicurezza dei Dati**:
+    - **Dati pubblici**: Nome, biografia, foto profilo, data creazione (sempre visibili)
+    - **Dati sensibili**: Email, codice fiscale (visibili solo agli operatori autenticati)
+    - **Endpoint pubblici**: Ricerca e visualizzazione utenti senza autenticazione
+    - **Controllo accesso**: Gli operatori vedono tutti i dati, gli altri utenti solo dati pubblici
+    
+    ### Modello Credenziali
+    
+    Il modello `Credenziali` gestisce l'autenticazione per tutti i tipi di utente:
+    - **Password**: Autenticazione tradizionale (obbligatoria per signup classico)
+    - **OAuth**: Autenticazione Google (obbligatoria per signup Google)
+    - **Email**: Campo unico per identificazione
+    
+    **Intercambiabilità**: Password e OAuth sono intercambiabili:
+    - Un utente può registrarsi con password e poi collegare Google
+    - Un utente può registrarsi con Google e poi impostare una password
+    - Entrambi i metodi sono validi per l'autenticazione
+    
+    ### Campi Calcolati Lato Frontend
+    
+    **IMPORTANTE**: I seguenti campi NON sono calcolati lato server ma dal frontend:
+    - `followersCount`: Numero di follower (calcolato da `followers.length`)
+    - `followingCount`: Numero di utenti seguiti (calcolato da `following.length`)
+    - `hype`: Per le proposte, equivale alla lunghezza di `listaHyper` (calcolato da `listaHyper.length`)
+    
+    **Nota**: Il backend fornisce solo gli array completi, i contatori sono calcolati lato client tramite `array.length`.
+    
+    ### Sicurezza e Visibilità Dati
+    
+    **Dati sempre visibili** (pubblici):
+    - Nome, cognome/nome_org, biografia, foto profilo, data creazione
+    
+    **Dati visibili solo agli operatori** (autenticati):
+    - Email, codice fiscale
+    
+    **Endpoint pubblici** (senza autenticazione):
+    - Ricerca utenti (`/api/user/search`)
+    - Visualizzazione profilo utente (`/api/user/{id}`)
+    - Lista proposte (`/api/proposte`)
+    
+    **Nota**: Gli endpoint pubblici restituiscono dati diversi in base al ruolo dell'utente autenticato.
+    
+    ### Visibilità Condizionale dei Dati Utente
+    
+    La visibilità dei dati utente varia in base al ruolo dell'utente che fa la richiesta:
+    
+    | Campo | Pubblico | Autenticato | Operatore |
+    |-------|----------|-------------|-----------|
+    | `nome`, `biografia`, `fotoProfilo`, `createdAt` | ✅ Sempre | ✅ Sempre | ✅ Sempre |
+    | `cognome` (privati) | ✅ Sempre | ✅ Sempre | ✅ Sempre |
+    | `nome_org` (enti) | ✅ Sempre | ✅ Sempre | ✅ Sempre |
+    | `email` | ❌ Mai | ❌ Mai | ✅ Sempre |
+    | `codiceFiscale` | ❌ Mai | ❌ Mai | ✅ Sempre |
+    
+    **Esempi di utilizzo**:
+    - **Endpoint pubblici** (`/api/user/search`, `/api/user/{id}`): Dati base senza email/codice fiscale
+    - **Profilo personale** (`/api/user/me`): Dati completi con credenziali sicure
+    - **Gestione operatori** (`/api/user`): Dati completi con email e codice fiscale
     
     ## Upload e Limiti
     
     - **Immagini profilo**: Limite 5MB
-    - **Immagini proposte**: Limite 5MB
+    - **Immagini proposte**: Limite 5MB (specifico per le proposte)
     - Formati supportati: JPEG, PNG, GIF, WebP
+    
+    **Nota**: I limiti sono applicati separatamente per profilo e proposte, ma entrambi sono 5MB.
 
 servers:
   - url: http://localhost:3000
@@ -95,7 +183,18 @@ paths:
       tags:
         - System
       summary: Welcome message
-      description: Messaggio di benvenuto dell'API
+      description: |
+        Messaggio di benvenuto dell'API con controlli di sicurezza configurabili.
+        
+        **Controlli Configurabili**:
+        - `ENABLE_SECURITY_CONTROLS`: Abilita/disabilita controlli password (default: true)
+        - `JWT_SECRET`: Chiave segreta per firma JWT (obbligatoria)
+        - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: Credenziali admin speciali
+        
+        **Funzionalità**:
+        - Endpoint pubblico accessibile senza autenticazione
+        - Verifica stato server e configurazione
+        - Messaggio di benvenuto personalizzabile
       responses:
         '200':
           description: Messaggio di benvenuto
@@ -107,6 +206,22 @@ paths:
                   message:
                     type: string
                     example: "Benvenuti nelle API di InCrowd"
+        '500':
+          description: Errore configurazione server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Errore configurazione server"
+                  error:
+                    type: object
+                    properties:
+                      details:
+                        type: string
+                        example: "JWT_SECRET non definito"
 
   /ping:
     get:
@@ -184,6 +299,144 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /api/auth/google:
+    post:
+      tags:
+        - Authentication
+      summary: Login Google OAuth
+      description: |
+        Autentica un utente tramite Google OAuth e restituisce JWT token.
+        
+        **Flusso**:
+        1. Frontend ottiene `idToken` da Google Sign-In
+        2. Frontend invia `idToken` a questo endpoint
+        3. Backend verifica il token con Google
+        4. Se l'utente esiste, restituisce JWT
+        5. Se l'utente non esiste, restituisce `needsRegistration: true`
+        
+        **Casi d'uso**:
+        - Login utente esistente con Google
+        - Verifica utente per registrazione Google
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - idToken
+              properties:
+                idToken:
+                  type: string
+                  example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFiYzFm..."
+                  description: "ID token ottenuto da Google Sign-In"
+      responses:
+        '200':
+          description: Login Google completato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIs..."
+                      user:
+                        $ref: '#/components/schemas/UserComplete'
+                  message:
+                    type: string
+                    example: "Login Google completato con successo"
+        '404':
+          description: Utente non trovato - registrazione necessaria
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  needsRegistration:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Registrazione necessaria per questo account Google"
+                  googleData:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        example: "mario.rossi@gmail.com"
+                      nome:
+                        type: string
+                        example: "Mario"
+                      cognome:
+                        type: string
+                        example: "Rossi"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/auth/link-google:
+    post:
+      tags:
+        - Authentication
+      summary: Collega account Google
+      description: |
+        Collega un account Google esistente all'utente autenticato.
+        
+        **Requisiti**:
+        - Utente deve essere autenticato
+        - Account Google non deve essere già collegato ad altri utenti
+        
+        **Flusso**:
+        1. Utente autenticato ottiene `idToken` da Google
+        2. Frontend invia `idToken` a questo endpoint
+        3. Backend verifica e collega l'account
+        4. Utente può ora fare login con Google o password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - idToken
+              properties:
+                idToken:
+                  type: string
+                  example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFiYzFm..."
+                  description: "ID token ottenuto da Google Sign-In"
+      responses:
+        '200':
+          description: Account Google collegato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account Google collegato con successo"
+        '409':
+          description: Account Google già collegato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account Google già collegato ad un altro utente"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /api/auth/password:
     patch:
       tags:
@@ -247,7 +500,13 @@ paths:
       tags:
         - Users
       summary: Lista tutti gli utenti
-      description: Recupera tutti gli utenti (solo per operatori/admin)
+      description: |
+        Recupera tutti gli utenti (solo per operatori/admin).
+        
+        **Accesso**: Solo operatori e admin autenticati
+        **Dati inclusi**: Nome, biografia, foto profilo, email, codice fiscale
+        **Sicurezza**: Include dati sensibili non visibili agli utenti pubblici
+        **Utilizzo**: Per gestione amministrativa e moderazione
       security:
         - bearerAuth: []
       responses:
@@ -264,7 +523,7 @@ paths:
                       users:
                         type: array
                         items:
-                          $ref: '#/components/schemas/UserPublic'
+                          $ref: '#/components/schemas/UserForOperators'
                       total:
                         type: integer
                         example: 150
@@ -351,7 +610,7 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/UserPublic'
+                        $ref: '#/components/schemas/UserSearchResult'
                   message:
                     type: string
                     example: "Utente creato con successo"
@@ -439,7 +698,7 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/UserPublic'
+                        $ref: '#/components/schemas/UserComplete'
                   message:
                     type: string
                     example: "Profilo aggiornato con successo"
@@ -475,6 +734,11 @@ paths:
       summary: Cerca utenti
       description: |
         Cerca utenti per nome, cognome, nome_org o biografia.
+        
+        **Sicurezza**: 
+        - Endpoint pubblico accessibile senza autenticazione
+        - Email e dati sensibili sono visibili solo agli operatori autenticati
+        - Utenti non autenticati vedono solo dati pubblici (nome, biografia, foto)
         
         **Esempi di ricerca:**
         - `?q=Mario` - Cerca "Mario" in tutti i campi
@@ -525,7 +789,7 @@ paths:
                       users:
                         type: array
                         items:
-                          $ref: '#/components/schemas/UserPublic'
+                          $ref: '#/components/schemas/UserSearchResult'
                       total:
                         type: integer
                         example: 25
@@ -549,15 +813,13 @@ paths:
                           nome: "Mario"
                           cognome: "Rossi"
                           biografia: "Sviluppatore"
-                          followersCount: 15
-                          followingCount: 8
+                          email: "mario.rossi@email.com"
                         - _id: "64a1b2c3d4e5f678901235"
                           user_type: "ente"
                           nome_org: "Comune di Roma"
                           nome: "Mario"
                           biografia: "Amministrazione comunale"
-                          followersCount: 150
-                          followingCount: 5
+                          email: "mario.bianchi@comune.roma.it"
                       total: 2
                     message: "Ricerca completata"
         '400':
@@ -570,6 +832,11 @@ paths:
       summary: Dettagli utente
       description: |
         Recupera i dettagli di un utente specifico.
+        
+        **Sicurezza**:
+        - Endpoint pubblico accessibile senza autenticazione
+        - Email e dati sensibili sono visibili solo agli operatori autenticati
+        - Utenti non autenticati vedono solo dati pubblici (nome, biografia, foto)
         
         **Esempi di risposta per diversi tipi:**
       parameters:
@@ -591,13 +858,31 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/UserPublic'
+                        $ref: '#/components/schemas/UserSearchResult'
                   message:
                     type: string
                     example: "Utente recuperato con successo"
               examples:
                 user_privato:
-                  summary: Esempio utente privato
+                  summary: Esempio utente privato (operatore autenticato)
+                  description: "Nota: email è visibile solo agli operatori"
+                  value:
+                    data:
+                      user:
+                        _id: "64a1b2c3d4e5f678901234"
+                        user_type: "privato"
+                        nome: "Mario"
+                        cognome: "Rossi"
+                        biografia: "Sviluppatore software"
+                        email: "mario.rossi@email.com"
+                        fotoProfilo:
+                          data: "iVBORw0KGgoAAAANSUhEUgAA..."
+                          contentType: "image/jpeg"
+                        createdAt: "2024-01-15T10:30:00.000Z"
+                    message: "Utente recuperato con successo"
+                user_privato_public:
+                  summary: Esempio utente privato (utente non autenticato)
+                  description: "Nota: email non è presente per utenti non operatori"
                   value:
                     data:
                       user:
@@ -609,12 +894,27 @@ paths:
                         fotoProfilo:
                           data: "iVBORw0KGgoAAAANSUhEUgAA..."
                           contentType: "image/jpeg"
-                        followersCount: 15
-                        followingCount: 8
                         createdAt: "2024-01-15T10:30:00.000Z"
                     message: "Utente recuperato con successo"
                 user_ente:
                   summary: Esempio ente
+                  description: "Nota: email è sempre presente per profili pubblici"
+                  value:
+                    data:
+                      user:
+                        _id: "64a1b2c3d4e5f678901235"
+                        user_type: "ente"
+                        nome_org: "Comune di Roma"
+                        nome: "Mario Bianchi"
+                        biografia: "Amministrazione comunale"
+                        email: "mario.bianchi@comune.roma.it"
+                        fotoProfilo:
+                          data: "image/png"
+                        createdAt: "2024-02-20T14:15:00.000Z"
+                    message: "Utente recuperato con successo"
+                user_ente_public:
+                  summary: Esempio ente (utente non autenticato)
+                  description: "Nota: email non è presente per utenti non operatori"
                   value:
                     data:
                       user:
@@ -624,10 +924,7 @@ paths:
                         nome: "Mario Bianchi"
                         biografia: "Amministrazione comunale"
                         fotoProfilo:
-                          data: "iVBORw0KGgoAAAANSUhEUgAA..."
-                          contentType: "image/png"
-                        followersCount: 150
-                        followingCount: 5
+                          data: "image/png"
                         createdAt: "2024-02-20T14:15:00.000Z"
                     message: "Utente recuperato con successo"
         '404':
@@ -662,6 +959,1006 @@ paths:
                   message:
                     type: string
                     example: "Avatar recuperato"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # PROPOSTE
+  /api/proposte:
+    get:
+      tags:
+        - Proposte
+      summary: Lista proposte approvate
+      description: |
+        Recupera tutte le proposte approvate pubblicamente.
+        
+        **Filtri applicati**:
+        - Solo proposte con stato "approvata"
+        - Ordinate per data di creazione (più recenti prima)
+        - Accesso pubblico senza autenticazione
+        
+        **Campi inclusi**:
+        - Dati base della proposta
+        - Proponente (ID e tipo)
+        - Contatori calcolati (hype = listaHyper.length)
+      responses:
+        '200':
+          description: Lista proposte recuperata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposte:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Proposta'
+                      total:
+                        type: integer
+                        example: 50
+                  message:
+                    type: string
+                    example: "Proposte recuperate con successo"
+        '500':
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Errore nel recupero proposte"
+                  error:
+                    type: object
+
+  /api/proposte/commenti:
+    get:
+      tags:
+        - Proposte
+      summary: Ultimi commenti globali
+      description: |
+        Recupera tutti i commenti da tutte le proposte (solo operatori).
+        
+        **Accesso**: Solo operatori e admin
+        **Ordinamento**: Per data commento (più recenti prima)
+        **Dati inclusi**: Proposta (titolo, ID) e utente (nome, cognome)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Commenti recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      commenti:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            contenuto:
+                              type: string
+                            dataOra:
+                              type: string
+                              format: date-time
+                            proposta:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                titolo:
+                                  type: string
+                            utente:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                nome:
+                                  type: string
+                                cognome:
+                                  type: string
+                  message:
+                    type: string
+                    example: "Tutti i commenti"
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/proposte/my:
+    get:
+      tags:
+        - Proposte
+      summary: Proposte utente corrente
+      description: |
+        Recupera tutte le proposte dell'utente autenticato.
+        
+        **Accesso**: Solo utenti autenticati (privati ed enti)
+        **Filtri**: Tutti gli stati (bozza, pubblicata, in_corso, completata, respinta)
+        **Ordinamento**: Per data di creazione (più recenti prima)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Proposte utente recuperate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposte:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Proposta'
+                      total:
+                        type: integer
+                        example: 15
+                  message:
+                    type: string
+                    example: "Proposte utente recuperate"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/proposte/followed:
+    get:
+      tags:
+        - Proposte
+      summary: Proposte utenti seguiti
+      description: |
+        Recupera le proposte approvate degli utenti seguiti dall'utente corrente.
+        
+        **Accesso**: Solo utenti autenticati
+        **Filtri**: Solo proposte approvate
+        **Ordinamento**: Per data di creazione (più recenti prima)
+        **Limitazioni**: Solo proposte di utenti attualmente seguiti
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Proposte utenti seguiti recuperate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposte:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Proposta'
+                      total:
+                        type: integer
+                        example: 25
+                  message:
+                    type: string
+                    example: "Proposte utenti seguiti recuperate"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/proposte/search:
+    get:
+      tags:
+        - Proposte
+      summary: Ricerca proposte
+      description: |
+        Cerca proposte per testo, categoria, città o stato.
+        
+        **Parametri di ricerca**:
+        - `q`: Testo libero (titolo, descrizione)
+        - `categoria`: Filtra per categoria specifica
+        - `citta`: Filtra per città
+        - `stato`: Filtra per stato (bozza, pubblicata, in_corso, completata, respinta)
+        - `sortBy`: Ordinamento (createdAt, listaHyper, titolo)
+        - `sortOrder`: Direzione ordinamento (asc, desc)
+        
+        **Accesso**: Pubblico senza autenticazione
+        **Filtri**: Solo proposte approvate
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          example: "parco"
+          description: "Testo di ricerca libera"
+        - name: categoria
+          in: query
+          schema:
+            type: string
+          example: "Ambiente"
+          description: "Categoria specifica"
+        - name: citta
+          in: query
+          schema:
+            type: string
+          example: "Roma"
+          description: "Città specifica"
+        - name: stato
+          in: query
+          schema:
+            type: string
+            enum: [bozza, pubblicata, in_corso, completata, respinta]
+          example: "pubblicata"
+          description: "Stato della proposta"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, listaHyper, titolo]
+          example: "createdAt"
+          description: "Campo per ordinamento"
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+          example: "desc"
+          description: "Direzione ordinamento"
+      responses:
+        '200':
+          description: Risultati ricerca
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposte:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Proposta'
+                      total:
+                        type: integer
+                        example: 12
+                  message:
+                    type: string
+                    example: "Ricerca completata"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/proposte/user/{userId}:
+    get:
+      tags:
+        - Proposte
+      summary: Proposte utente specifico
+      description: |
+        Recupera le proposte approvate di un utente specifico.
+        
+        **Accesso**: Pubblico senza autenticazione
+        **Filtri**: Solo proposte approvate
+        **Ordinamento**: Per data di creazione (più recenti prima)
+        **Utente**: Può essere privato o ente (identificato automaticamente)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID dell'utente (privato o ente)"
+      responses:
+        '200':
+          description: Proposte utente recuperate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposte:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Proposta'
+                      total:
+                        type: integer
+                        example: 8
+                  message:
+                    type: string
+                    example: "Proposte utente recuperate"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/proposte/pending:
+    get:
+      tags:
+        - Proposte
+      summary: Proposte in attesa di moderazione
+      description: |
+        Recupera le proposte in attesa di approvazione (solo operatori).
+        
+        **Accesso**: Solo operatori e admin
+        **Stato**: Solo proposte con stato "bozza"
+        **Ordinamento**: Per data di creazione (più recenti prima)
+        **Utilizzo**: Per moderazione e revisione proposte
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Proposte in attesa recuperate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposte:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Proposta'
+                      total:
+                        type: integer
+                        example: 5
+                  message:
+                    type: string
+                    example: "Proposte in attesa recuperate"
+        '403':
+          $ref: '#/components/responses/Unauthorized'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/proposte:
+    post:
+      tags:
+        - Proposte
+      summary: Crea nuova proposta
+      description: |
+        Crea una nuova proposta con upload immagine opzionale.
+        
+        **Accesso**: Solo utenti autenticati (privati ed enti)
+        **Upload**: Immagine opzionale (max 5MB, formati: JPEG, PNG, GIF, WebP)
+        **Stato iniziale**: "bozza" (richiede approvazione operatore)
+        **Validazioni**: Titolo e descrizione obbligatori
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - titolo
+                - descrizione
+              properties:
+                titolo:
+                  type: string
+                  example: "Nuovo parco cittadino"
+                  description: "Titolo della proposta"
+                descrizione:
+                  type: string
+                  example: "Creazione di un parco pubblico"
+                  description: "Descrizione dettagliata"
+                categoria:
+                  type: string
+                  example: "Ambiente"
+                  description: "Categoria della proposta"
+                luogo:
+                  type: object
+                  properties:
+                    via:
+                      type: string
+                      example: "Via Roma, 123"
+                    citta:
+                      type: string
+                      example: "Roma"
+                    cap:
+                      type: string
+                      example: "00100"
+                    provincia:
+                      type: string
+                      example: "RM"
+                dataIpotetica:
+                  type: string
+                  format: date-time
+                  example: "2024-06-15T10:00:00.000Z"
+                  description: "Data ipotetica di realizzazione"
+                foto:
+                  type: string
+                  format: binary
+                  description: "Immagine della proposta (max 5MB, JPEG/PNG/GIF/WebP)"
+      responses:
+        '201':
+          description: Proposta creata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposta:
+                        $ref: '#/components/schemas/Proposta'
+                  message:
+                    type: string
+                    example: "Proposta creata con successo"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/proposte/{id}:
+    get:
+      tags:
+        - Proposte
+      summary: Dettagli proposta
+      description: |
+        Recupera i dettagli completi di una proposta specifica.
+        
+        **Accesso**: Pubblico senza autenticazione
+        **Dati inclusi**: Tutti i campi della proposta, proponente, commenti
+        **Stato**: Solo proposte approvate sono visibili pubblicamente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      responses:
+        '200':
+          description: Dettagli proposta recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposta:
+                        $ref: '#/components/schemas/Proposta'
+                  message:
+                    type: string
+                    example: "Proposta recuperata con successo"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/proposte/{id}/hyper:
+    patch:
+      tags:
+        - Proposte
+      summary: Toggle hype proposta
+      description: |
+        Aggiunge o rimuove l'utente corrente dalla lista hype della proposta.
+        
+        **Accesso**: Solo utenti autenticati (privati ed enti)
+        **Funzionamento**: Se l'utente è già nella lista, viene rimosso; altrimenti viene aggiunto
+        **Risultato**: Lista hype aggiornata (il contatore è calcolato lato frontend)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      responses:
+        '200':
+          description: Hype aggiornato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      listaHyper:
+                        type: array
+                        items:
+                          type: string
+                        example: ["64a1b2c3d4e5f678901236", "64a1b2c3d4e5f678901237"]
+                      message:
+                        type: string
+                        example: "Hype aggiornato"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/proposte/{id}/commenti:
+    get:
+      tags:
+        - Proposte
+      summary: Lista commenti proposta
+      description: |
+        Recupera tutti i commenti di una proposta specifica.
+        
+        **Accesso**: Pubblico senza autenticazione
+        **Ordinamento**: Per data commento (più recenti prima)
+        **Dati inclusi**: Contenuto, data, utente (nome, cognome)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      responses:
+        '200':
+          description: Commenti recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      commenti:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            contenuto:
+                              type: string
+                            dataOra:
+                              type: string
+                              format: date-time
+                            utente:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                nome:
+                                  type: string
+                                cognome:
+                                  type: string
+                      total:
+                        type: integer
+                        example: 8
+                  message:
+                    type: string
+                    example: "Commenti recuperati"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags:
+        - Proposte
+      summary: Aggiungi commento
+      description: |
+        Aggiunge un nuovo commento a una proposta.
+        
+        **Accesso**: Solo utenti autenticati (privati ed enti)
+        **Validazioni**: Contenuto obbligatorio e non vuoto
+        **Stato**: Solo proposte approvate possono ricevere commenti
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contenuto
+              properties:
+                contenuto:
+                  type: string
+                  example: "Ottima idea! Sostengo questa proposta"
+                  description: "Testo del commento"
+      responses:
+        '201':
+          description: Commento aggiunto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      commento:
+                        type: object
+                        properties:
+                          _id:
+                            type: string
+                          contenuto:
+                            type: string
+                          dataOra:
+                            type: string
+                            format: date-time
+                  message:
+                    type: string
+                    example: "Commento aggiunto con successo"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/proposte/{id}/stato:
+    patch:
+      tags:
+        - Proposte
+      summary: Aggiorna stato proposta
+      description: |
+        Aggiorna lo stato di una proposta (moderazione).
+        
+        **Accesso**: Solo operatori e admin
+        **Stati possibili**: bozza, pubblicata, in_corso, completata, respinta
+        **Commento**: Opzionale per spiegare il cambio di stato
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - stato
+              properties:
+                stato:
+                  type: string
+                  enum: [bozza, pubblicata, in_corso, completata, respinta]
+                  example: "pubblicata"
+                  description: "Nuovo stato della proposta"
+                commento:
+                  type: string
+                  example: "Proposta approvata e pubblicata"
+                  description: "Commento opzionale per il cambio di stato"
+      responses:
+        '200':
+          description: Stato aggiornato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposta:
+                        $ref: '#/components/schemas/Proposta'
+                  message:
+                    type: string
+                    example: "Stato proposta aggiornato"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/proposte/{propostaId}/commenti/{commentoId}:
+    delete:
+      tags:
+        - Proposte
+      summary: Elimina commento
+      description: |
+        Elimina un commento specifico da una proposta.
+        
+        **Accesso**: Solo il creatore del commento o operatori/admin
+        **Validazioni**: Commento deve esistere e appartenere alla proposta
+        **Sicurezza**: Solo il proprietario può eliminare i propri commenti
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: propostaId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+        - name: commentoId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901235"
+          description: "ID del commento"
+      responses:
+        '200':
+          description: Commento eliminato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Commento eliminato con successo"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/proposte/{id}:
+    delete:
+      tags:
+        - Proposte
+      summary: Elimina proposta
+      description: |
+        Elimina una proposta e tutti i suoi commenti.
+        
+        **Accesso**: Solo il proponente, operatori o admin
+        **Validazioni**: Proposta deve esistere e appartenere all'utente
+        **Sicurezza**: Solo il proprietario può eliminare le proprie proposte
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      responses:
+        '200':
+          description: Proposta eliminata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Proposta eliminata con successo"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # FOLLOW
+  /api/follow/{userId}:
+    post:
+      tags:
+        - Follow
+      summary: Segui utente
+      description: |
+        Segue un utente specifico (privato o ente).
+        
+        **Accesso**: Solo utenti autenticati (privati ed enti)
+        **Validazioni**: Utente da seguire deve esistere e non essere già seguito
+        **Risultato**: Relazione di follow creata (il contatore è calcolato lato frontend)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID dell'utente da seguire"
+      responses:
+        '200':
+          description: Utente seguito con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Utente seguito con successo"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Follow
+      summary: Smetti di seguire utente
+      description: |
+        Smette di seguire un utente specifico.
+        
+        **Accesso**: Solo utenti autenticati
+        **Validazioni**: Relazione di follow deve esistere
+        **Risultato**: Relazione di follow rimossa (il contatore è calcolato lato frontend)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID dell'utente da smettere di seguire"
+      responses:
+        '200':
+          description: Follow rimosso con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Follow rimosso con successo"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/follow/followers/{userId}:
+    get:
+      tags:
+        - Follow
+      summary: Lista followers
+      description: |
+        Recupera la lista dei follower di un utente specifico.
+        
+        **Accesso**: Pubblico senza autenticazione
+        **Dati inclusi**: ID e dati base degli utenti follower
+        **Ordinamento**: Per data di follow (più recenti prima)
+        **Nota**: I contatori followersCount e followingCount sono calcolati lato frontend tramite array.length
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID dell'utente"
+      responses:
+        '200':
+          description: Followers recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      followers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserFollowInfo'
+                      total:
+                        type: integer
+                        example: 15
+                        description: "Numero totale di followers (calcolato lato server per paginazione)"
+                  message:
+                    type: string
+                    example: "Followers recuperati"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/follow/following/{userId}:
+    get:
+      tags:
+        - Follow
+      summary: Lista following
+      description: |
+        Recupera la lista degli utenti seguiti da un utente specifico.
+        
+        **Accesso**: Pubblico senza autenticazione
+        **Dati inclusi**: ID e dati base degli utenti seguiti
+        **Ordinamento**: Per data di follow (più recenti prima)
+        **Nota**: I contatori followersCount e followingCount sono calcolati lato frontend tramite array.length
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID dell'utente"
+      responses:
+        '200':
+          description: Following recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      following:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserFollowInfo'
+                      total:
+                        type: integer
+                        example: 8
+                        description: "Numero totale di following (calcolato lato server per paginazione)"
+                  message:
+                    type: string
+                    example: "Following recuperati"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/follow/status/{userId}:
+    get:
+      tags:
+        - Follow
+      summary: Status follow
+      description: |
+        Verifica se l'utente corrente segue un utente specifico.
+        
+        **Accesso**: Solo utenti autenticati
+        **Risultato**: Boolean che indica se l'utente è seguito
+        **Utilizzo**: Per mostrare stato pulsante follow/unfollow
+        **Nota**: I contatori followersCount e followingCount sono calcolati lato frontend tramite array.length
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID dell'utente da verificare"
+      responses:
+        '200':
+          description: Status follow verificato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      isFollowing:
+                        type: boolean
+                        example: true
+                        description: "Indica se l'utente corrente segue l'utente target"
+                  message:
+                    type: string
+                    example: "Status follow verificato"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -723,7 +2020,7 @@ paths:
               properties:
                 nome:
                   type: string
-                  example: "Luigi Verdi"
+                  example: "Luigi"
                 email:
                   type: string
                   format: email
@@ -839,9 +2136,9 @@ components:
         - `userType`: Tipo utente (privato/ente/operatore/admin)
 
   schemas:
-    UserPublic:
+    # Schema base per tutti gli utenti
+    UserBase:
       type: object
-      description: Dati pubblici di un utente (privato o ente)
       required:
         - _id
         - user_type
@@ -855,58 +2152,138 @@ components:
           type: string
           enum: [privato, ente]
           example: "privato"
-          description: "Sempre presente e valorizzato"
+          description: |
+            Tipo utente unificato (campo principale):
+            - `"privato"`: Cittadino privato
+            - `"ente"`: Ente/organizzazione
         nome:
           type: string
           example: "Mario"
-        cognome:
-          type: string
-          example: "Rossi"
-          description: "Presente solo per user_type='privato'"
-        nome_org:
-          type: string
-          example: "Comune di Roma" 
-          description: "Presente solo per user_type='ente'"
         biografia:
           type: string
           example: "Descrizione del profilo"
         fotoProfilo:
           $ref: '#/components/schemas/Allegato'
-        followersCount:
-          type: integer
-          example: 15
-          description: "Campo calcolato dinamicamente"
-        followingCount:
-          type: integer
-          example: 8
-          description: "Campo calcolato dinamicamente"
         createdAt:
           type: string
           format: date-time
           example: "2024-01-15T10:30:00.000Z"
 
+    # Utente per ricerche e profili pubblici (con visibilità condizionale email)
+    UserSearchResult:
+      allOf:
+        - $ref: '#/components/schemas/UserBase'
+        - type: object
+          properties:
+            cognome:
+              type: string
+              example: "Rossi"
+              description: "Cognome dell'utente. Presente solo per user_type='privato'"
+            nome_org:
+              type: string
+              example: "Comune di Roma" 
+              description: "Nome dell'organizzazione. Presente solo per user_type='ente'"
+            email:
+              type: string
+              format: email
+              example: "mario.rossi@email.com"
+              description: |
+                Email dell'utente. Visibilità condizionale:
+                - **Sempre presente** per operatori autenticati
+                - **Mai presente** per utenti non autenticati o non operatori
+                - **Campo opzionale** per compatibilità API
+              nullable: true
+              x-visibility: "operatori-only"
+
+    # Utente per profilo personale (con credenziali sicure e dati completi)
     UserComplete:
       allOf:
-        - $ref: '#/components/schemas/UserPublic'
+        - $ref: '#/components/schemas/UserSearchResult'
         - type: object
+          required:
+            - codiceFiscale
+            - credenziali
+            - updatedAt
+          properties:
+            codiceFiscale:
+              type: string
+              example: "RSSMRA80A01H501U"
+              description: "Codice fiscale dell'utente (sempre presente per profilo personale)"
+            credenziali:
+              type: object
+              required:
+                - email
+                - hasPassword
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "mario.rossi@email.com"
+                  description: "Email dell'utente (sempre presente per profilo personale)"
+                hasPassword:
+                  type: boolean
+                  example: true
+                  description: |
+                    Indica se l'utente ha impostato una password:
+                    - `true`: L'utente ha una password tradizionale
+                    - `false`: L'utente usa solo OAuth (es. Google)
+            updatedAt:
+              type: string
+              format: date-time
+              example: "2024-01-20T15:45:00.000Z"
+              description: "Data dell'ultimo aggiornamento del profilo"
+
+    # Utente per gestione operatori (con email e dati sensibili sempre presenti)
+    UserForOperators:
+      allOf:
+        - $ref: '#/components/schemas/UserSearchResult'
+        - type: object
+          required:
+            - email
+            - codiceFiscale
           properties:
             email:
               type: string
               format: email
               example: "mario.rossi@email.com"
+              description: "Email dell'utente (sempre presente per operatori)"
             codiceFiscale:
               type: string
               example: "RSSMRA80A01H501U"
-            updatedAt:
-              type: string
-              format: date-time
-              example: "2024-01-20T15:45:00.000Z"
+              description: "Codice fiscale dell'utente (sempre presente per operatori)"
 
+    # Utente per liste follow (senza contatori, solo dati base)
+    UserFollowInfo:
+      allOf:
+        - $ref: '#/components/schemas/UserBase'
+        - type: object
+          properties:
+            cognome:
+              type: string
+              example: "Rossi"
+              description: "Cognome dell'utente. Presente solo per user_type='privato'"
+            nome_org:
+              type: string
+              example: "Comune di Roma" 
+              description: "Nome dell'organizzazione. Presente solo per user_type='ente'"
+            userType:
+              type: string
+              enum: [privato, ente]
+              example: "privato"
+              description: |
+                Tipo utente (campo legacy per compatibilità):
+                - `privato`: Cittadino privato
+                - `ente`: Ente/organizzazione
+                
+                **Nota**: Preferire sempre il campo `user_type` per nuove implementazioni
+
+    # Operatore per gestione admin
     Operatore:
       type: object
       required:
         - _id
         - nome
+        - cognome
         - email
       properties:
         _id:
@@ -914,7 +2291,10 @@ components:
           example: "64a1b2c3d4e5f678901234"
         nome:
           type: string
-          example: "Luigi Verdi"
+          example: "Luigi"
+        cognome:
+          type: string
+          example: "Verdi"
         email:
           type: string
           format: email
@@ -927,9 +2307,9 @@ components:
     Proposta:
       type: object
       description: |
-        Proposta con campo calcolato `hype`.
+        Proposta con array `listaHyper` per gestione hype.
         
-        **Nota**: `hype` equivale alla lunghezza dell'array `listaHyper`
+        **Nota**: Il campo `hype` (numero di hype) è calcolato lato frontend tramite `listaHyper.length`
       required:
         - _id
         - titolo
@@ -961,11 +2341,7 @@ components:
           items:
             type: string
           example: ["64a1b2c3d4e5f678901236", "64a1b2c3d4e5f678901237"]
-          description: "Array di ID utenti che hanno dato hype"
-        hype:
-          type: integer
-          example: 2
-          description: "Campo calcolato = lunghezza di listaHyper"
+          description: "Array di ID utenti che hanno dato hype (il contatore hype è calcolato lato frontend tramite listaHyper.length)"
         stato:
           $ref: '#/components/schemas/StatoProposta'
         luogo:
@@ -1064,3 +2440,20 @@ components:
               message:
                 type: string
                 example: "Risorsa non trovata"
+
+    InternalServerError:
+      description: Errore interno del server
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Errore interno del server"
+              error:
+                type: object
+                properties:
+                  details:
+                    type: string
+                    example: "Errore database"

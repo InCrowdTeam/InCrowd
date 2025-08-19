@@ -4,7 +4,6 @@ import Privato from '../models/Privato'; // Rinominato da User
 import Ente from "../models/Ente";
 import { apiResponse } from "../utils/responseFormatter";
 import { AppError } from '../utils/error';
-import { FollowCountService } from '../utils/followCountService';
 
 /**
  * Trova un utente/ente per ID e determina il tipo
@@ -119,24 +118,19 @@ export const getFollowers = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followerInfo = await findUserOrEnte(follow.followerId.toString());
       if (followerInfo) {
-        // Ottieni i contatori dinamicamente per ogni follower
-        const followCounts = await FollowCountService.getBothCounts(followerInfo.entity._id.toString());
-        
         const followerData = {
           _id: followerInfo.entity._id,
           nome: followerInfo.entity.nome,
           cognome: followerInfo.entity.cognome,
           biografia: followerInfo.entity.biografia,
           fotoProfilo: followerInfo.entity.fotoProfilo,
-          userType: followerInfo.type,
-          followersCount: followCounts.followersCount,
-          followingCount: followCounts.followingCount
+          userType: followerInfo.type
         };
         followers.push(followerData);
       }
     }
 
-    res.json(apiResponse({ data: followers, message: 'Followers recuperati' }));
+    res.json(apiResponse({ data: { followers, total: followers.length }, message: 'Followers recuperati' }));
   } catch (error: any) {
     res.status(500).json(apiResponse({ message: error.message, error }));
   }
@@ -159,24 +153,19 @@ export const getFollowing = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followingInfo = await findUserOrEnte(follow.followingId.toString());
       if (followingInfo) {
-        // Ottieni i contatori dinamicamente per ogni following
-        const followCounts = await FollowCountService.getBothCounts(followingInfo.entity._id.toString());
-        
         const followingData = {
           _id: followingInfo.entity._id,
           nome: followingInfo.entity.nome,
           cognome: followingInfo.entity.cognome,
           biografia: followingInfo.entity.biografia,
           fotoProfilo: followingInfo.entity.fotoProfilo,
-          userType: followingInfo.type,
-          followersCount: followCounts.followersCount,
-          followingCount: followCounts.followingCount
+          userType: followingInfo.type
         };
         following.push(followingData);
       }
     }
 
-    res.json(apiResponse({ data: following, message: 'Following recuperati' }));
+    res.json(apiResponse({ data: { following, total: following.length }, message: 'Following recuperati' }));
   } catch (error: any) {
     res.status(500).json(apiResponse({ message: error.message, error }));
   }
@@ -185,7 +174,7 @@ export const getFollowing = async (req: Request, res: Response) => {
 /**
  * Verifica lo stato di follow tra l'utente autenticato e un altro utente o ente
  * @param req - Richiesta HTTP autenticata con userId nel parametro
- * @param res - Risposta HTTP con stato del follow e contatori
+ * @param res - Risposta HTTP con stato del follow
  */
 export const getFollowStatus = async (req: Request, res: Response) => {
   try {
@@ -202,18 +191,16 @@ export const getFollowStatus = async (req: Request, res: Response) => {
       throw new AppError('Utente non trovato', 404);
     }
 
-    // Ottieni informazioni complete sui follow
-    const followInfo = await FollowCountService.getFullFollowInfo(followingId, followerId);
+    // Verifica se l'utente corrente segue l'utente target
+    const isFollowing = await Follow.findOne({ followerId, followingId });
     
     res.json(apiResponse({ 
       data: {
-        isFollowing: followInfo.isFollowedByCurrentUser || false,
-        followersCount: followInfo.followersCount,
-        followingCount: followInfo.followingCount
+        isFollowing: !!isFollowing
       }, 
-      message: 'Status recuperato' 
+      message: 'Status follow verificato' 
     }));
   } catch (error: any) {
-    res.status(500).json(apiResponse({ message: error.message, error }));
+    res.status(error.status || 500).json(apiResponse({ message: error.message, error }));
   }
 };
