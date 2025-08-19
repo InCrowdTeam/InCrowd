@@ -171,7 +171,6 @@ const handleHyper = async () => {
     selectedProposta.value = updatedProposta
     
   } catch (error: any) {
-    console.error('Errore hyper:', error)
     if (error.response?.status === 401) {
       showError('Sessione scaduta', 'Effettua nuovamente il login.');
     } else if (error.response?.status === 403) {

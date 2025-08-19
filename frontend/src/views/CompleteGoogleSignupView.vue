@@ -359,7 +359,6 @@ async function handleSignUp() {
     }
   } catch (err: any) {
     errorMessage.value = err.message || "Errore di connessione. Verifica la tua connessione internet.";
-    console.error('Errore registrazione:', err);
   } finally {
     isSubmitting.value = false;
   }

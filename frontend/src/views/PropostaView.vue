@@ -354,7 +354,6 @@ async function loadCommentAvatars() {
         // Questo eviterà richieste ripetute e il v-if funzionerà correttamente
         commentUserAvatars.value.set(commento.utente._id, avatarUrl || '');
       } catch (error) {
-        console.error('❌ Errore nel caricamento avatar per', commento.utente._id, ':', error);
         // Salviamo stringa vuota in caso di errore
         commentUserAvatars.value.set(commento.utente._id, '');
       }
@@ -370,7 +369,6 @@ async function loadProponenteAvatar() {
       // Impostiamo sempre il valore - se vuoto, il v-if mostrerà il placeholder
       proponenteAvatar.value = avatarUrl || null;
     } catch (error) {
-      console.error('❌ Errore nel caricamento avatar proponente:', error);
       proponenteAvatar.value = null;
     }
   }
@@ -395,14 +393,12 @@ async function loadHyperUsers() {
             const avatarUrl = await UserService.loadUserAvatar(userId);
             hyperUserAvatars.value.set(userId, avatarUrl || '');
           } catch (avatarError) {
-            console.error('❌ Errore nel caricamento avatar hyper user:', avatarError);
             hyperUserAvatars.value.set(userId, '');
           }
           return userData;
         }
         return null;
       } catch (error) {
-        console.error('❌ Errore nel caricamento dati utente hyper:', error);
         return null;
       }
     });
@@ -410,7 +406,6 @@ async function loadHyperUsers() {
     const results = await Promise.all(userPromises);
     hyperUsers.value = results.filter(user => user !== null);
   } catch (error) {
-    console.error('❌ Errore nel caricamento utenti hyper:', error);
     hyperUsers.value = [];
   } finally {
     hyperUsersLoading.value = false;
@@ -585,7 +580,6 @@ async function caricaCommenti() {
     // Carica gli avatar dei commentatori in modo asincrono
     await loadCommentAvatars();
   } catch (err: any) {
-    console.error("Errore nel caricamento commenti:", err);
     commentiProposta.value = [];
     // Mostra messaggio di errore user-friendly
     showError("Errore nel caricamento dei commenti", err.message);
@@ -611,7 +605,6 @@ async function inviaCommento() {
     // Ricarica i commenti per mostrare il nuovo commento
     await caricaCommenti();
   } catch (err: any) {
-    console.error("Errore commento:", err);
     nuovoCommento.value = commentoTemp; // Ripristina il commento in caso di errore
     showError("Errore nell'invio del commento", err.message);
   } finally {
@@ -640,7 +633,6 @@ async function eliminaCommento(commentoId: string) {
     // Ricarica i commenti per aggiornare la lista
     await caricaCommenti();
   } catch (err: any) {
-    console.error("Errore eliminazione commento:", err);
     showError("Errore nell'eliminazione del commento", err.message);
   }
 }
@@ -664,7 +656,6 @@ async function handleHyper() {
     await loadHyperUsers();
     
   } catch (err: any) {
-    console.error("Errore hyper:", err);
     showError("Errore nell'aggiunta dell'hyper", err.message);
   } finally {
     isHyperLoading.value = false;

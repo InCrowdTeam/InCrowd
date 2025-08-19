@@ -723,7 +723,6 @@ export default {
 
         this.$router.push('/');
       } catch (err) {
-        console.error('Errore Google registrazione:', err);
         if (err.response?.status === 404 && err.response?.data?.needsRegistration) {
           this.googleSignInCompleted = true;
           this.redirectToCompleteSignup(err.response.data.data);
