@@ -41,7 +41,7 @@
       <div class="filters-container">
         <select v-model="filterType" class="filter-select">
           <option value="all">Tutti gli utenti ed enti</option>
-          <option value="user">Solo utenti normali</option>
+          <option value="privato">Solo utenti normali</option>
           <option value="ente">Solo enti</option>
         </select>
         
@@ -89,7 +89,7 @@
               </div>
             </div>
 
-            <p class="user-email">{{ user.credenziali.email }}</p>
+            <p class="user-email">{{ user.email || 'Email non disponibile' }}</p>
 
             <!-- Dettagli -->
             <div class="user-details">
@@ -191,7 +191,7 @@
             </div>
             <div class="user-summary-info">
               <h4>{{ selectedUser.nome }}{{ selectedUser.cognome ? ` ${selectedUser.cognome}` : '' }}</h4>
-              <p class="user-email-large">{{ selectedUser.credenziali.email }}</p>
+              <p class="user-email-large">{{ selectedUser.email || 'Email non disponibile' }}</p>
               <div class="user-type-badge large" :class="getUserTypeClass(selectedUser)">
                 {{ getUserTypeLabel(selectedUser) }}
               </div>
@@ -211,7 +211,7 @@
               </div>
               <div class="detail-item">
                 <span class="label">Email:</span>
-                <span class="value">{{ selectedUser.credenziali.email }}</span>
+                <span class="value">{{ selectedUser.email || 'Email non disponibile' }}</span>
               </div>
               <div class="detail-item" v-if="selectedUser.biografia">
                 <span class="label">Biografia:</span>
@@ -271,9 +271,7 @@ interface User {
   _id: string
   nome: string
   cognome?: string // Opzionale per gli enti
-  credenziali: {
-    email: string
-  }
+  email: string
   biografia?: string
   createdAt?: string
   indirizzo?: {
@@ -329,10 +327,10 @@ const filteredUsers = computed(() => {
   if (search.value) {
     const searchLower = search.value.toLowerCase()
     filtered = filtered.filter(user =>
-      user.nome.toLowerCase().includes(searchLower) ||
-      (user.cognome && user.cognome.toLowerCase().includes(searchLower)) ||
-      user.credenziali.email.toLowerCase().includes(searchLower) ||
-      (user.biografia && user.biografia.toLowerCase().includes(searchLower))
+  user.nome.toLowerCase().includes(searchLower) ||
+  (user.cognome && user.cognome.toLowerCase().includes(searchLower)) ||
+  user.email.toLowerCase().includes(searchLower) ||
+  (user.biografia && user.biografia.toLowerCase().includes(searchLower))
     )
   }
 
@@ -342,11 +340,12 @@ const filteredUsers = computed(() => {
       case 'name':
         return `${a.nome} ${a.cognome || ''}`.localeCompare(`${b.nome} ${b.cognome || ''}`)
       case 'email':
-        return a.credenziali.email.localeCompare(b.credenziali.email)
-      case 'date':
+        return a.email.localeCompare(b.email)
+      case 'date': {
         const dateA = new Date(a.createdAt || 0).getTime()
         const dateB = new Date(b.createdAt || 0).getTime()
         return dateB - dateA
+      }
       default:
         return 0
     }
@@ -404,7 +403,8 @@ const loadUsers = async () => {
     if (usersResponse.data && usersResponse.data.users) {
       allUsers = usersResponse.data.users.map((user: any) => ({
         ...user,
-        userType: user.user_type || 'privato' // Mappa il campo unificato
+        userType: user.user_type || 'privato',
+        email: user.email || user.credenziali?.email || '' // fallback legacy
       }))
     }
     
@@ -512,7 +512,11 @@ const closeUserModal = () => {
 const contactUser = (user: User) => {
   const subject = encodeURIComponent('Contatto dalla piattaforma InCrowd')
   const body = encodeURIComponent(`Ciao ${user.nome},\n\n`)
-  window.open(`mailto:${user.credenziali.email}?subject=${subject}&body=${body}`)
+  if (user.email) {
+    window.open(`mailto:${user.email}?subject=${subject}&body=${body}`)
+  } else {
+    console.warn('Email non disponibile per questo utente:', user)
+  }
 }
 
 // Lifecycle

@@ -31,7 +31,8 @@ const createPublicUser = (
     nome: user.nome,
     biografia: user.biografia,
     fotoProfilo: user.fotoProfilo,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    email: user.credenziali?.email // Espone solo la mail pubblica
   };
 
   // Campi specifici per tipo utente
@@ -55,7 +56,7 @@ const createPublicUser = (
  * @param requestUser - Oggetto utente dalla richiesta autenticata
  */
 const canViewFullUserData = (requestUser: any) => {
-  return requestUser && (requestUser.userType === 'operatore' || requestUser.userType === 'admin');
+  return requestUser && requestUser.userType === 'operatore';
 };
 
 /**
@@ -78,7 +79,7 @@ const findUserById = async (userId: string) => {
 };
 
 /**
- * GET /api/user - Recupera tutti gli utenti (solo per operatori/admin)
+ * GET /api/user - Recupera tutti gli utenti (solo per operatori)
  */
 export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -89,8 +90,8 @@ export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // Recupera entrambi i tipi di utente
-    const privati = await Privato.find();
-    const enti = await Ente.find();
+  const privati = await Privato.find().select('nome cognome biografia fotoProfilo createdAt credenziali');
+  const enti = await Ente.find().select('nome_org nome biografia fotoProfilo createdAt credenziali');
 
     // Unifica i risultati con user_type
     const allUsers = [

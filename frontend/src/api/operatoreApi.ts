@@ -33,9 +33,10 @@ export async function getOperatoreStats(token: string) {
   return body.data ?? body;
 }
 
-// API Admin per operatori
+
+// API Operatori (admin)
 export async function getAllOperatori(token: string) {
-  const res = await fetch(`${BASE_URL}/admin/operatori`, {
+  const res = await fetch(`${BASE_URL}/operatori`, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -52,7 +53,7 @@ export async function getAllOperatori(token: string) {
 }
 
 export async function createOperatoreAdmin(operatoreData: any, token: string) {
-  const res = await fetch(`${BASE_URL}/admin/operatori`, {
+  const res = await fetch(`${BASE_URL}/operatori`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -71,7 +72,7 @@ export async function createOperatoreAdmin(operatoreData: any, token: string) {
 }
 
 export async function deleteOperatore(operatoreId: string, token: string) {
-  const res = await fetch(`${BASE_URL}/admin/operatori/${operatoreId}`, {
+  const res = await fetch(`${BASE_URL}/operatori/${operatoreId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,

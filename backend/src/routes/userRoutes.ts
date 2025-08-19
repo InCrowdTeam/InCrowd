@@ -62,8 +62,8 @@ const handleMulterError = (err: any, req: any, res: any, next: any) => {
 
 // === ROUTE UNIFICATE PER USER (privati ed enti) === //
 
-// Rotta per ottenere tutti gli utenti - SOLO operatori e admin
-router.get("/", authMiddleware, requireRole('operatore', 'admin'), getAllUsers);
+// Rotta per ottenere tutti gli utenti - SOLO operatori
+router.get("/", authMiddleware, requireRole('operatore'), getAllUsers);
 
 // Rotta per creare un nuovo utente (privato o ente) con foto del profilo
 // Richiede user_type nel body: 'privato' | 'ente'

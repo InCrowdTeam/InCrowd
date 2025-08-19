@@ -325,11 +325,15 @@ const create = async () => {
     
     fetchOperatori()
   } catch (err: any) {
-    const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nella creazione dell\'operatore';
-    errorMessage.value = errorMessage;
+    let msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Errore nella creazione dell\'operatore';
+    // Se msg è un oggetto, estrai il messaggio principale
+    if (typeof msg === 'object' && msg !== null) {
+      msg = msg.message || JSON.stringify(msg);
+    }
+    errorMessage.value = msg;
     showError(
       'Errore nella creazione dell\'operatore',
-      errorMessage,
+      msg,
       'Errore'
     )
   } finally {
