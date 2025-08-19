@@ -1,12 +1,19 @@
 import axios from 'axios';
 import { useUserStore } from '@/stores/userStore';
 
-export async function getUltimiCommenti(limit = 10) {
-  const userStore = useUserStore();
-  const token = userStore.token;
-  const res = await axios.get(
-    `${import.meta.env.VITE_BACKEND_URL}/api/proposte/commenti?limit=${limit}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+export async function getUltimiCommenti() {
+  const res = await fetch(
+    `${import.meta.env.VITE_BACKEND_URL}/api/proposte/commenti`
   );
-  return res.data.data.commenti;
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || 'Errore nel recupero commenti');
+  }
+
+  const body = await res.json();
+  return body.data.commenti;
 }
+
+// Alias per compatibilità - ora entrambe le funzioni fanno la stessa cosa
+export const getAllCommenti = getUltimiCommenti;
