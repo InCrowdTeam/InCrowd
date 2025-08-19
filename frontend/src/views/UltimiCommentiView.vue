@@ -4,13 +4,28 @@ import { getAllCommenti } from '@/api/commentiApi'
 import { deleteCommento } from '@/api/propostaApi'
 import { useUserStore } from '@/stores/userStore'
 import { useModal } from '@/composables/useModal'
+import { useRouter } from 'vue-router'
 
 const loading = ref(true)
 const error = ref('')
 const commenti = ref<any[]>([])
 const search = ref('')
 const userStore = useUserStore()
+const router = useRouter()
 const { showConfirm, showError } = useModal()
+
+// Verifica che l'utente sia operatore
+const isOperatore = computed(() => userStore.isOperatore)
+
+// Reindirizza se l'utente non ha i permessi
+onMounted(() => {
+  if (!isOperatore.value) {
+    showError('Accesso Negato', 'Solo gli operatori possono accedere a questa sezione')
+    router.push('/')
+    return
+  }
+  caricaCommenti()
+})
 
 // Filtra commenti in base alla ricerca
 const filteredCommenti = computed(() => {
@@ -49,8 +64,6 @@ async function caricaCommenti() {
     loading.value = false
   }
 }
-
-onMounted(caricaCommenti)
 </script>
 
 <template>

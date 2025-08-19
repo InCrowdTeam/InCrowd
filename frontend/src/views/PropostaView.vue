@@ -540,7 +540,7 @@ function canDeleteComment(commento: any): boolean {
   if (commento.utente?._id === userStore.user._id) return true;
   
   // Gli operatori e admin possono cancellare qualsiasi commento
-  if (userStore.isOperatore || userStore.isAdmin) return true;
+      if (userStore.isOperatore) return true;
   
   return false;
 }

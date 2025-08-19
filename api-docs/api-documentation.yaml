@@ -80,6 +80,27 @@ info:
     - **404 Not Found**: Risorsa non trovata
     - **409 Conflict**: Conflitto (es. email già esistente)
     - **500 Internal Server Error**: Errore interno del server
+
+    ## Ruoli e Permessi
+    
+    ### Admin
+    Gli amministratori hanno accesso esclusivo alla gestione degli account operatori:
+    - ✅ **Gestione Operatori**: Creare, eliminare e gestire account operatori (`/api/operatori`)
+    - ❌ **NON possono**: Moderare proposte, vedere commenti globali, accedere ai dati utente
+    
+    ### Operatori  
+    Gli operatori gestiscono la moderazione e la gestione utenti:
+    - ✅ **Moderazione**: Approvare/rifiutare proposte (`/api/proposte/pending`)
+    - ✅ **Commenti**: Vedere tutti i commenti globali (`/api/proposte/commenti`)
+    - ✅ **Utenti**: Vedere tutti i dati utente inclusi email e codice fiscale (`/api/user`)
+    - ❌ **NON possono**: Gestire altri operatori
+    
+    ### Utenti Privati ed Enti
+    Gli utenti normali gestiscono solo i propri contenuti:
+    - ✅ **Proposte**: Creare e gestire le proprie proposte
+    - ✅ **Commenti**: Commentare proposte approvate
+    - ✅ **Follow**: Seguire altri utenti
+    - ❌ **NON possono**: Moderare, vedere dati sensibili di altri utenti
     
     ## Modello Utente Unificato
     
@@ -501,9 +522,9 @@ paths:
         - Users
       summary: Lista tutti gli utenti
       description: |
-        Recupera tutti gli utenti (solo per operatori/admin).
+        Recupera tutti gli utenti (solo per operatori).
         
-        **Accesso**: Solo operatori e admin autenticati
+        **Accesso**: Solo operatori autenticati (NO admin)
         **Dati inclusi**: Nome, biografia, foto profilo, email, codice fiscale
         **Sicurezza**: Include dati sensibili non visibili agli utenti pubblici
         **Utilizzo**: Per gestione amministrativa e moderazione
@@ -531,7 +552,27 @@ paths:
                     type: string
                     example: "Utenti recuperati con successo"
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Accesso negato - solo gli operatori possono vedere i dati utente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Accesso negato - solo gli operatori possono vedere i dati utente"
+                  error:
+                    type: string
+                    example: "FORBIDDEN"
+                  details:
+                    type: object
+                    properties:
+                      requiredRole:
+                        type: string
+                        example: "operatore"
+                      currentRole:
+                        type: string
+                        example: "admin"
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1022,7 +1063,7 @@ paths:
       description: |
         Recupera tutti i commenti da tutte le proposte (solo operatori).
         
-        **Accesso**: Solo operatori e admin
+        **Accesso**: Solo operatori
         **Ordinamento**: Per data commento (più recenti prima)
         **Dati inclusi**: Proposta (titolo, ID) e utente (nome, cognome)
       security:
@@ -1070,7 +1111,27 @@ paths:
                     type: string
                     example: "Tutti i commenti"
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Accesso negato - solo gli operatori possono vedere i commenti globali
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Accesso negato - solo gli operatori possono vedere i commenti globali"
+                  error:
+                    type: string
+                    example: "FORBIDDEN"
+                  details:
+                    type: object
+                    properties:
+                      requiredRole:
+                        type: string
+                        example: "operatore"
+                      currentRole:
+                        type: string
+                        example: "admin"
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1283,10 +1344,13 @@ paths:
       description: |
         Recupera le proposte in attesa di approvazione (solo operatori).
         
-        **Accesso**: Solo operatori e admin
+        **Accesso**: Solo operatori (NO admin)
         **Stato**: Solo proposte con stato "bozza"
         **Ordinamento**: Per data di creazione (più recenti prima)
         **Utilizzo**: Per moderazione e revisione proposte
+        
+        **Nota**: Gli admin non possono accedere a questo endpoint per moderare proposte.
+        Gli admin possono solo gestire gli account operatori.
       security:
         - bearerAuth: []
       responses:
@@ -1311,7 +1375,27 @@ paths:
                     type: string
                     example: "Proposte in attesa recuperate"
         '403':
-          $ref: '#/components/responses/Unauthorized'
+          description: Accesso negato - solo gli operatori possono moderare le proposte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Accesso negato - solo gli operatori possono moderare le proposte"
+                  error:
+                    type: string
+                    example: "FORBIDDEN"
+                  details:
+                    type: object
+                    properties:
+                      requiredRole:
+                        type: string
+                        example: "operatore"
+                      currentRole:
+                        type: string
+                        example: "admin"
         '401':
           $ref: '#/components/responses/Unauthorized'
 

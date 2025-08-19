@@ -66,8 +66,8 @@
               </div>
             </div>
             
-            <!-- Pulsante follow/unfollow (solo se non è il proprio profilo, è loggato e non è operatore/admin) -->
-            <div v-if="!isOwnProfile && isLoggedIn && !userStore.isOperatore && !userStore.isAdmin" class="follow-actions">
+                          <!-- Pulsante follow/unfollow (solo se non è il proprio profilo, è loggato e non è operatore) -->
+            <div v-if="!isOwnProfile && isLoggedIn && !userStore.isOperatore" class="follow-actions">
               <button 
                 @click="toggleFollow" 
                 :disabled="loadingFollow"

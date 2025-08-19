@@ -132,7 +132,7 @@ const classificaProposte = computed(() => {
 
 // Controlli per tipo utente (ora utilizzano i getter dello store)
 // const isOperatore = computed(() => userStore.isOperatore)
-// const isAmministratore = computed(() => userStore.isAdmin)
+// const isAmministratore = computed(() => userStore.isAdmin) // Admin non gestisce moderazione
 // const canHype = computed(() => userStore.canHype)
 
 // LOGICA PER I COMMENTI - RIMOSSA
@@ -220,7 +220,7 @@ const executeSearch = async () => {
         searchResults.value = []
 
         // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato e non è operatore/admin
-        if (userStore.user && !userStore.isOperatore && !userStore.isAdmin) {
+        if (userStore.user && !userStore.isOperatore) {
           const followPromises = filteredUsers
             .filter(user => user._id !== userStore.user?._id)
             .map(user => followStore.loadFollowStatus(user._id))
@@ -269,8 +269,8 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
     return
   }
   
-  // Controlla se l'utente è operatore o amministratore
-  if (userStore.isOperatore || userStore.isAdmin) {
+  // Controlla se l'utente è operatore
+  if (userStore.isOperatore) {
     
     return
   }
@@ -286,12 +286,11 @@ const toggleFollowInCard = async (userId: string, event: Event) => {
   }
 }
 
-// Computed per verificare se l'utente può seguire (è loggato, non è se stesso, e non è operatore/admin)
+// Computed per verificare se l'utente può seguire (è loggato, non è se stesso, e non è operatore)
 const canFollowUser = (userId: string) => {
   return userStore.user && 
          userStore.user._id !== userId && 
-         !userStore.isOperatore && 
-         !userStore.isAdmin
+         !userStore.isOperatore
 }
 
 // Funzione per gestire l'immagine del profilo utente
@@ -325,8 +324,8 @@ const loadSeguiti = async () => {
     return
   }
 
-  // Operatori e amministratori non possono avere seguiti
-  if (userStore.isOperatore || userStore.isAdmin) {
+  // Operatori non possono avere seguiti
+  if (userStore.isOperatore) {
     seguitiProposte.value = []
     return
   }
@@ -370,8 +369,8 @@ watch(() => userStore.user, (newUser) => {
 })
 
 // Watcher per reindirizzare operatori/admin da "seguiti" a "esplora"
-watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.value], ([isOp, isAdmin, selectedValue]) => {
-  if ((isOp || isAdmin) && selectedValue === 'seguiti') {
+watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue]) => {
+  if (isOp && selectedValue === 'seguiti') {
     selected.value = 'esplora'
   }
 })
@@ -539,10 +538,10 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
       <div class="main-toggle-switch">
         <div class="main-toggle-background">
           <div class="main-toggle-slider" :class="{ 
-            'slide-center': selected === 'seguiti' && !userStore.isOperatore && !userStore.isAdmin,
-            'slide-right': selected === 'classifica' && (!userStore.isOperatore && !userStore.isAdmin),
-            'slide-right-two': selected === 'classifica' && (userStore.isOperatore || userStore.isAdmin),
-            'slide-left-two': selected === 'esplora' && (userStore.isOperatore || userStore.isAdmin)
+                    'slide-center': selected === 'seguiti' && !userStore.isOperatore,
+        'slide-right': selected === 'classifica' && !userStore.isOperatore,
+        'slide-right-two': selected === 'classifica' && userStore.isOperatore,
+        'slide-left-two': selected === 'esplora' && userStore.isOperatore
           }"></div>
         </div>
         <button
@@ -553,7 +552,7 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
           <span class="toggle-text">Esplora</span>
         </button>
         <button
-          v-if="!userStore.isOperatore && !userStore.isAdmin"
+                          v-if="!userStore.isOperatore"
           class="main-toggle-option"
           :class="{ active: selected === 'seguiti' }"
           @click="selected = 'seguiti'"
@@ -657,10 +656,10 @@ watch([() => userStore.isOperatore, () => userStore.isAdmin, () => selected.valu
             </div>
           </div>
           
-          <div v-else-if="userStore.isOperatore || userStore.isAdmin" class="empty-state">
+          <div v-else-if="userStore.isOperatore" class="empty-state">
             <div class="empty-icon">👮‍♀️</div>
-            <h3>Funzione non disponibile per operatori e amministratori</h3>
-            <p>Gli operatori e amministratori non possono seguire altri utenti</p>
+                          <h3>Funzione non disponibile per operatori</h3>
+                          <p>Gli operatori non possono seguire altri utenti</p>
             <button @click="selected = 'esplora'" class="cta-button">
               Torna a Esplora
             </button>
