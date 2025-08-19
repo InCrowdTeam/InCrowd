@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { apiResponse } from '../utils/responseFormatter'
 
 const JWT_SECRET = process.env.JWT_SECRET as string
 if (!JWT_SECRET) {
@@ -34,7 +35,33 @@ export function requireRole(...roles: string[]) {
   }
 }
 
+// Helper functions per verificare il tipo di utente
 export const isUtente = (req: AuthenticatedRequest) => req.user?.userType === 'privato'
 export const isEnte = (req: AuthenticatedRequest) => req.user?.userType === 'ente'
 export const isOperatore = (req: AuthenticatedRequest) => req.user?.userType === 'operatore'
 export const isAmministratore = (req: AuthenticatedRequest) => req.user?.userType === 'admin'
+
+// Middleware combinato per accesso admin
+export const adminOnly = [authMiddleware, requireRole('admin')] as unknown as (
+  (req: Request, res: Response, next: NextFunction) => void
+)
+
+// Middleware combinato per accesso operatore
+export const operatoreOnly = [authMiddleware, requireRole('operatore')] as unknown as (
+  (req: Request, res: Response, next: NextFunction) => void
+)
+
+// Middleware combinato per accesso operatore o admin
+export const operatoreOrAdmin = [authMiddleware, requireRole('operatore', 'admin')] as unknown as (
+  (req: Request, res: Response, next: NextFunction) => void
+)
+
+// Middleware combinato per accesso privato o ente
+export const privatoOrEnte = [authMiddleware, requireRole('privato', 'ente')] as unknown as (
+  (req: Request, res: Response, next: NextFunction) => void
+)
+
+// Middleware combinato per qualsiasi utente autenticato
+export const anyAuth = [authMiddleware] as unknown as (
+  (req: Request, res: Response, next: NextFunction) => void
+)
