@@ -473,9 +473,28 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
 
     await nuovoCommento.save();
 
-    // Recupera tutti i commenti della proposta
-    const commenti = await Commento.find({ proposta: proposta._id }).populate("utente", "nome");
-    res.json(apiResponse({ data: { commenti }, message: "Commento aggiunto" }));
+    // Recupera tutti i commenti della proposta con i dati utente corretti
+    const commenti = await Commento.find({ proposta: proposta._id }).sort({ dataOra: 1 });
+    
+    // Recupera manualmente i dati utente per ogni commento
+    const commentiConUtente = await Promise.all(
+      commenti.map(async (commento) => {
+        const userData = await getUserData(commento.utente.toString());
+        return {
+          ...commento.toObject(),
+          utente: userData ? {
+            _id: userData._id,
+            nome: userData.nome,
+            cognome: (userData as any).cognome || undefined // Solo per Privato e Operatore
+          } : {
+            _id: commento.utente,
+            nome: 'Utente non trovato'
+          }
+        };
+      })
+    );
+    
+    res.json(apiResponse({ data: { commenti: commentiConUtente }, message: "Commento aggiunto" }));
   } catch (err: any) {
     console.error("Errore aggiunta commento:", err);
     res.status(500).json(apiResponse({ message: "Errore nell'aggiunta del commento", error: err }));

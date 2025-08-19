@@ -53,8 +53,8 @@ router.get("/:id", getPropostaById);
 //Rotta per mettere hype a una proposta
 router.patch("/:id/hyper", authMiddleware, requireRole("privato", "ente"), hyperProposta as any);
 
-// Rotta per aggiungere un commento a una proposta
-router.post("/:id/commenti", authMiddleware, requireRole("privato", "ente", "operatore"), aggiungiCommento as any);
+// Rotta per aggiungere un commento a una proposta (solo privati e enti)
+router.post("/:id/commenti", authMiddleware, requireRole("privato", "ente"), aggiungiCommento as any);
 
 // Aggiorna stato proposta (approva o rifiuta)
 router.patch("/:id/stato", authMiddleware, requireRole("operatore"), updateStatoProposta as any);
