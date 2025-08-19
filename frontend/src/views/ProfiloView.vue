@@ -73,6 +73,12 @@ const fotoProfiloUrl = computed(() => {
   return userStore.user?.fotoProfiloUrl || null;
 });
 
+// Computed per preview dell'immagine selezionata
+const previewUrl = ref<string | null>(null);
+const currentPhotoUrl = computed(() => {
+  return previewUrl.value || fotoProfiloUrl.value;
+});
+
 onMounted(async () => {
   try {
     loading.value = true;
@@ -415,9 +421,9 @@ const handleFileUpload = (event: Event) => {
   
   if (file) {
     // Validazione del file
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      showMessage('Seleziona un file immagine valido', 'error');
+      showMessage('Seleziona un file immagine valido (JPEG, JPG, PNG, GIF, WebP)', 'error');
       return;
     }
     
@@ -426,8 +432,56 @@ const handleFileUpload = (event: Event) => {
       return;
     }
     
+    // Crea preview dell'immagine
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewUrl.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    
     profileForm.value.fotoProfilo = file;
+    showMessage('Immagine selezionata. Salva le modifiche per applicarla.', 'success');
   }
+};
+
+const removeAvatar = async () => {
+  const confirmed = await showConfirm(
+    'Sei sicuro di voler rimuovere la tua foto profilo?',
+    'Rimuovi foto profilo'
+  );
+  
+  if (confirmed) {
+    try {
+      saving.value = true;
+      clearMessage();
+      
+      const formData = new FormData();
+      formData.append('removeFotoProfilo', 'true');
+      
+      const result = await updateProfile(formData, userStore.token);
+      
+      if (result.data) {
+        const userData = result.data.user;
+        userStore.setUser(userData);
+        showMessage('Foto profilo rimossa con successo!');
+        previewUrl.value = null; // Pulisce anche la preview
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Errore durante la rimozione della foto profilo';
+      showMessage(errorMessage, 'error');
+    } finally {
+      saving.value = false;
+    }
+  }
+};
+
+const cancelImageSelection = () => {
+  profileForm.value.fotoProfilo = null;
+  previewUrl.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+  showMessage('Selezione immagine annullata', 'success');
 };
 
 const loadProfileData = () => {
@@ -494,6 +548,7 @@ const saveProfileChanges = async () => {
       userStore.setUser(userData);
       showMessage('Profilo aggiornato con successo!');
       profileForm.value.fotoProfilo = null;
+      previewUrl.value = null; // Pulisce la preview
       
       // Aggiorna il form con i nuovi dati per sincronizzarlo con lo store
       profileForm.value.nome = userData.nome || '';
@@ -1068,18 +1123,39 @@ const getUserTypeLabel = (): string => {
               <div class="photo-container">
                 <div class="current-photo">
                   <img
-                    v-if="fotoProfiloUrl"
-                    :src="fotoProfiloUrl"
-                    alt="Foto profilo attuale"
+                    v-if="currentPhotoUrl"
+                    :src="currentPhotoUrl"
+                    alt="Foto profilo"
                     class="profile-photo"
                   />
                   <div v-else class="photo-placeholder">
                     <span>{{ (profileForm.nome[0] || '?').toUpperCase() }}</span>
                   </div>
+                  <div v-if="previewUrl" class="preview-badge">
+                    Anteprima
+                  </div>
                 </div>
                 <div class="photo-actions">
                   <button type="button" @click="triggerFileUpload" class="photo-button">
                     📷 Cambia foto
+                  </button>
+                  <button 
+                    v-if="fotoProfiloUrl" 
+                    type="button" 
+                    @click="removeAvatar" 
+                    class="photo-button remove-button"
+                    :disabled="saving"
+                  >
+                    🗑️ Rimuovi
+                  </button>
+                  <button 
+                    v-if="previewUrl" 
+                    type="button" 
+                    @click="cancelImageSelection" 
+                    class="photo-button cancel-button"
+                    :disabled="saving"
+                  >
+                    ✖️ Annulla
                   </button>
                   <input
                     ref="fileInput"
@@ -2390,6 +2466,57 @@ const getUserTypeLabel = (): string => {
   color: white;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(254, 70, 84, 0.3);
+}
+
+.photo-button.remove-button {
+  border-color: #dc3545;
+  color: #dc3545;
+  margin-left: 0.5rem;
+}
+
+.photo-button.remove-button:hover {
+  background: #dc3545;
+  color: white;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.photo-button.cancel-button {
+  border-color: #6c757d;
+  color: #6c757d;
+  margin-left: 0.5rem;
+}
+
+.photo-button.cancel-button:hover {
+  background: #6c757d;
+  color: white;
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.current-photo {
+  position: relative;
+  display: inline-block;
+}
+
+.preview-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #fe4654;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(254, 70, 84, 0.3);
+  z-index: 2;
 }
 
 /* Auth status styles */

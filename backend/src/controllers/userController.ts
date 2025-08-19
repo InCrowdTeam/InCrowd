@@ -369,15 +369,51 @@ export const updateProfile = async (req: any, res: Response) => {
       });
     }
 
+    // Gestione upload foto profilo
+    if (req.file) {
+      // Validazione dimensione file (già gestita da multer ma aggiungiamo controllo)
+      if (req.file.size > 5 * 1024 * 1024) {
+        return res.status(400).json(
+          apiResponse({ message: "Il file immagine è troppo grande (max 5MB)" })
+        );
+      }
+
+      // Validazione tipo file
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json(
+          apiResponse({ message: "Formato file non supportato. Usa JPEG, PNG, GIF o WebP" })
+        );
+      }
+
+      const fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype
+      };
+      (user as any).fotoProfilo = fotoProfilo;
+    }
+    
+    // Gestione rimozione foto profilo (se viene inviato un campo removeFotoProfilo)
+    if (updates.removeFotoProfilo === 'true' || updates.removeFotoProfilo === true) {
+      (user as any).fotoProfilo = undefined;
+    }
+
     await user.save();
 
-    // Risposta con dati aggiornati
-    const publicUser = createPublicUser(user, userType);
+    // Risposta con dati completi dell'utente (come getCurrentUser)
+    const followCounts = await FollowCountService.getBothCounts(userId);
+    const safeUser = createSafeCredentials(user);
+    const completeUser = {
+      ...safeUser,
+      user_type: userType,
+      followersCount: followCounts.followersCount,
+      followingCount: followCounts.followingCount
+    };
     
     res.json(
       apiResponse({
         message: "Profilo aggiornato con successo",
-        data: { user: publicUser }
+        data: { user: completeUser }
       })
     );
 
