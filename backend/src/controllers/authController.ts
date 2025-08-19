@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { Request, Response } from "express";
-import User from "../models/User";
+import Privato from "../models/Privato"; // Rinominato da User
 import Ente from "../models/Ente";
 import Operatore from "../models/Operatore";
 import bcrypt from "bcrypt";
@@ -9,6 +9,7 @@ import { OAuth2Client } from "google-auth-library";
 import { findAccountByEmail, createSafeCredentials } from "../utils/emailHelper";
 import fetch from 'node-fetch';
 import { apiResponse } from "../utils/responseFormatter";
+import { validatePassword } from "../utils/passwordValidator";
 
 // Configurazione JWT e Google OAuth
 
@@ -65,14 +66,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.json({ ...apiResponse({ data, message: "Login effettuato" }), ...data });
     }
 
-    // Cerca account per email (user, ente, operatore)
+    // Cerca account per email (privato, ente, operatore)
     const { user, ente, operatore, count } = await findAccountByEmail(email);
     if (count > 1) {
       return res.status(409).json(apiResponse({ message: "Email duplicata" }));
     }
 
     const account: any = user || ente || operatore;
-    let userType = "user";
+    let userType = "privato"; // Cambiato da "user" a "privato"
     if (ente) userType = "ente";
     if (operatore) userType = "operatore";
 
@@ -113,7 +114,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       { expiresIn: "7d" }
     );
 
-    const data = { token, user: createSafeCredentials(account), userType };
+    const data = { 
+      token, 
+      user: {
+        ...createSafeCredentials(account),
+        user_type: userType // Add user_type to the user object
+      }, 
+      userType 
+    };
     return res.json({ ...apiResponse({ data, message: "Login effettuato" }), ...data });
   } catch (err) {
     return res.status(500).json(apiResponse({ message: "Errore del server", error: err }));
@@ -149,7 +157,7 @@ export const googleLogin = async (req: Request, res: Response) => {
     }
 
     let account: any = user || ente || operatore;
-    let userType = "user";
+    let userType = "privato"; // Cambiato da "user" a "privato"
     if (ente) userType = "ente";
     if (operatore) userType = "operatore";
 
@@ -190,7 +198,14 @@ export const googleLogin = async (req: Request, res: Response) => {
       { expiresIn: "7d" }
     );
 
-    const data = { token, user: createSafeCredentials(account), userType };
+    const data = { 
+      token, 
+      user: {
+        ...createSafeCredentials(account),
+        user_type: userType // Add user_type to the user object
+      }, 
+      userType 
+    };
     res.json({ ...apiResponse({ data, message: "Login Google effettuato" }), ...data });
   } catch (err: any) {
     const message = err?.message || err.toString();
@@ -226,14 +241,12 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     let user: any;
     let Model: any;
     
-    if (userType === 'user') {
-      const User = (await import("../models/User")).default;
-      Model = User;
-      user = await User.findById(userId);
+    if (userType === 'privato') { // Cambiato da 'user' a 'privato'
+      user = await Privato.findById(userId);
+      Model = Privato;
     } else if (userType === 'ente') {
-      const Ente = (await import("../models/Ente")).default;
-      Model = Ente;
       user = await Ente.findById(userId);
+      Model = Ente;
     } else {
       return res.status(400).json(apiResponse({ message: "Tipo utente non supportato per il collegamento Google" }));
     }
@@ -249,11 +262,9 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     }
 
     // Verifica che l'account Google non sia già collegato a un altro utente
-    // Controlla in entrambi i modelli (User ed Ente) per evitare duplicati
-    const User = (await import("../models/User")).default;
-    const Ente = (await import("../models/Ente")).default;
+    // Controlla in entrambi i modelli (Privato ed Ente) per evitare duplicati
     
-    const existingUser = await User.findOne({
+    const existingPrivato = await Privato.findOne({
       "credenziali.oauthCode": payload.sub,
       _id: { $ne: userId }
     });
@@ -263,7 +274,7 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
       _id: { $ne: userId }
     });
 
-    if (existingUser || existingEnte) {
+    if (existingPrivato || existingEnte) {
       return res.status(409).json(apiResponse({ 
         message: "Questo account Google è già collegato a un altro profilo" 
       }));
@@ -298,5 +309,70 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
   } catch (err: any) {
     const message = err?.message || err.toString();
     res.status(500).json(apiResponse({ message: `Errore collegamento Google: ${message}` }));
+  }
+};
+
+/**
+ * Cambia password per utenti (privati ed enti)
+ */
+export const updatePassword = async (req: any, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const { userId, userType } = req.user;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json(
+        apiResponse({ message: "Password attuale e nuova password sono obbligatorie" })
+      );
+    }
+
+    // Validazione nuova password
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      return res.status(400).json(
+        apiResponse({ 
+          message: "Password non valida", 
+          error: { details: validation.errors }
+        })
+      );
+    }
+
+    // Trova utente in base al tipo
+    let user: any;
+    if (userType === 'ente') {
+      user = await Ente.findById(userId);
+    } else {
+      user = await Privato.findById(userId);
+    }
+
+    if (!user) {
+      return res.status(404).json(
+        apiResponse({ message: "Utente non trovato" })
+      );
+    }
+
+    // Verifica password attuale
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.credenziali.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json(
+        apiResponse({ message: "Password attuale non corretta" })
+      );
+    }
+
+    // Hash e salva nuova password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    user.credenziali.password = hashedPassword;
+    await user.save();
+
+    res.json(
+      apiResponse({ message: "Password aggiornata con successo" })
+    );
+
+  } catch (err: any) {
+    const message = err?.message || err.toString();
+    res.status(500).json(
+      apiResponse({ message: `Errore aggiornamento password: ${message}` })
+    );
   }
 };

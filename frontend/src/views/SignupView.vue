@@ -361,6 +361,7 @@
 import axios from 'axios';
 import { useModal } from '@/composables/useModal';
 import { useUserStore } from '@/stores/userStore';
+import { createUserWithFormData } from '@/api/userApi';
 
 export default {
   setup() {
@@ -601,24 +602,13 @@ export default {
           formData.append("oauthCode", this.form.credenziali.oauthCode);
         }
 
-        // Determina l'endpoint corretto in base al tipo di account
-        const url = this.type === 'ente'
-          ? `${import.meta.env.VITE_BACKEND_URL}/api/enti`
-          : `${import.meta.env.VITE_BACKEND_URL}/api/users`;
+        // Aggiungi user_type al FormData
+        formData.append("user_type", this.type === 'ente' ? 'ente' : 'privato');
 
-        const response = await fetch(url, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || "Impossibile creare l'account");
-        }
+        // Usa la nuova API unificata
+        const responseData = await createUserWithFormData(formData);
         
         // Gestisce login automatico se il backend restituisce token
-        const responseData = await response.json();
-        
         if (responseData.data && responseData.data.token && responseData.data.user) {
           // Salva i dati di login nello store per login automatico
           this.userStore.setToken(responseData.data.token);

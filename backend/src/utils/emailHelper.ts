@@ -1,4 +1,4 @@
-import User from '../models/User';
+import Privato from '../models/Privato'; // Rinominato da User
 import Ente from '../models/Ente';
 import Operatore from '../models/Operatore';
 
@@ -8,7 +8,7 @@ import Operatore from '../models/Operatore';
  * @returns Oggetto con user, ente, operatore e conteggio totale
  */
 export async function findAccountByEmail(email: string) {
-  const user = await User.findOne({ 'credenziali.email': email });
+  const user = await Privato.findOne({ 'credenziali.email': email });
   const ente = !user ? await Ente.findOne({ 'credenziali.email': email }) : null;
   const operatore = !user && !ente ? await Operatore.findOne({ 'credenziali.email': email }) : null;
   const results = [user, ente, operatore].filter(Boolean);

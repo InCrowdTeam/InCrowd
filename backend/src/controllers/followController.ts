@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
-import Follow from '../models/Follow';
-import User from '../models/User';
-import Ente from '../models/Ente';
-import { apiResponse } from '../utils/responseFormatter';
+import { Request, Response } from "express";
+import Follow from "../models/Follow";
+import Privato from '../models/Privato'; // Rinominato da User
+import Ente from "../models/Ente";
+import { apiResponse } from "../utils/responseFormatter";
 import { AppError } from '../utils/error';
 import { FollowCountService } from '../utils/followCountService';
 
@@ -11,14 +11,14 @@ import { FollowCountService } from '../utils/followCountService';
  * @param id - ID dell'utente/ente da cercare
  * @returns Oggetto con user/ente e tipo, o null se non trovato
  */
-const findUserOrEnte = async (id: string): Promise<{ entity: any; type: 'user' | 'ente' } | null> => {
-  // Prima cerca negli utenti
-  let entity = await User.findById(id);
+const findUserOrEnte = async (id: string): Promise<{ entity: any; type: 'privato' | 'ente' } | null> => {
+  // Prima cerca nei privati
+  let entity = await Privato.findById(id);
   if (entity) {
-    return { entity, type: 'user' };
+    return { entity, type: 'privato' };
   }
   
-  // Se non trovato negli utenti, cerca negli enti
+  // Se non trovato nei privati, cerca negli enti
   entity = await Ente.findById(id);
   if (entity) {
     return { entity, type: 'ente' };

@@ -21,10 +21,10 @@ export class UserService {
    */
   static async loadUser(userId: string): Promise<IUser | null> {
     try {
-      const userData = await getUserById(userId);
-      // Ora tutte le API restituiscono sempre data, ma manteniamo compatibilità
-      if (userData && typeof userData === 'object') {
-        return userData as IUser;
+      const response = await getUserById(userId);
+      // getUserById returns { data: { user: IUser }, message: string }
+      if (response && response.data && response.data.user) {
+        return response.data.user;
       }
       return null;
     } catch (error) {
@@ -46,21 +46,25 @@ export class UserService {
     }
 
     try {
-      const avatarUrl = await getUserAvatar(userId);
+      const response = await getUserAvatar(userId);
       
-      // Solo se c'è effettivamente un avatar, lo salviamo in cache
-      if (avatarUrl && avatarUrl.trim() !== '') {
-        this.avatarCache.set(userId, avatarUrl);
-        return avatarUrl;
-      } else {
-        // Per evitare richieste ripetute per utenti senza avatar,
-        // salviamo comunque in cache ma con valore speciale
-        this.avatarCache.set(userId, 'NO_AVATAR');
-        return '';
+      // Controlla se c'è un avatar nella risposta
+      if (response && response.data && response.data.fotoProfilo) {
+        const avatarData = response.data.fotoProfilo;
+        // Se è un oggetto con data e contentType, costruisci l'URL base64
+        if (avatarData.data && avatarData.contentType) {
+          const avatarUrl = `data:${avatarData.contentType};base64,${avatarData.data}`;
+          this.avatarCache.set(userId, avatarUrl);
+          return avatarUrl;
+        }
       }
+      
+      // Nessun avatar trovato
+      this.avatarCache.set(userId, 'NO_AVATAR');
+      return '';
     } catch (error) {
-      console.error('Errore nel caricamento avatar:', error);
-      // Salva risultato di errore in cache per evitare richieste ripetute
+      console.error('Errore nel caricamento dell\'avatar:', error);
+      // Salva in cache per evitare richieste ripetute
       this.avatarCache.set(userId, 'NO_AVATAR');
       return '';
     }

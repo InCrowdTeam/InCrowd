@@ -10,7 +10,7 @@ export const useUserStore = defineStore('user', {
     isAdmin: (state) => state.userType === 'admin',
     isOperatore: (state) => state.userType === 'operatore',
     isEnte: (state) => state.userType === 'ente',
-    isUser: (state) => state.userType === 'user',
+    isUser: (state) => state.userType === 'privato', // Changed from 'user' to 'privato'
     canHype: (state) => state.user && state.userType !== 'operatore',
   },
   actions: {

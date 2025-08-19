@@ -44,6 +44,9 @@ export const useFollowStore = defineStore('follow', {
         this.loading = true;
         this.error = null;
         
+        console.log('🔄 [followStore] Tentativo di follow utente:', userId);
+        console.log('🔄 [followStore] Token presente:', !!localStorage.getItem('token'));
+        
         await followApi.followUser(userId);
         
         // Aggiorna lo stato locale immediatamente
@@ -59,11 +62,16 @@ export const useFollowStore = defineStore('follow', {
           });
         }
         
-        console.log(`✅ Utente ${userId} seguito con successo`);
+        console.log(`✅ [followStore] Utente ${userId} seguito con successo`);
         
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore durante il follow';
-        console.error('❌ Errore follow:', error);
+        console.error('❌ [followStore] Errore follow:', error);
+        console.error('❌ [followStore] Dettagli errore follow:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         throw error;
       } finally {
         this.loading = false;
@@ -75,6 +83,9 @@ export const useFollowStore = defineStore('follow', {
       try {
         this.loading = true;
         this.error = null;
+        
+        console.log('🔄 [followStore] Tentativo di unfollow utente:', userId);
+        console.log('🔄 [followStore] Token presente:', !!localStorage.getItem('token'));
         
         await followApi.unfollowUser(userId);
         
@@ -91,11 +102,16 @@ export const useFollowStore = defineStore('follow', {
           });
         }
         
-        console.log(`✅ Utente ${userId} unfollowato con successo`);
+        console.log(`✅ [followStore] Utente ${userId} unfollowato con successo`);
         
       } catch (error: any) {
         this.error = error.response?.data?.message || 'Errore durante l\'unfollow';
-        console.error('❌ Errore unfollow:', error);
+        console.error('❌ [followStore] Errore unfollow:', error);
+        console.error('❌ [followStore] Dettagli errore unfollow:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         throw error;
       } finally {
         this.loading = false;

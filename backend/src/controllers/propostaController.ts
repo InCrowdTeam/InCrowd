@@ -22,7 +22,7 @@ export const getUltimiCommenti = async (req: Request, res: Response) => {
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
-import User from "../models/User";
+import Privato from "../models/Privato"; // Rinominato da User
 import Ente from "../models/Ente";
 import Operatore from "../models/Operatore";
 import Commento from "../models/Commento";
@@ -39,15 +39,15 @@ const getUserData = async (userId: string, userType?: string) => {
     let userData = null;
     
     // Se conosciamo il userType, andiamo direttamente al modello corretto
-    if (userType === 'user') {
-      userData = await User.findById(userId, 'nome cognome');
+    if (userType === 'privato') { // Cambiato da 'user' a 'privato'
+      userData = await Privato.findById(userId, 'nome cognome');
     } else if (userType === 'ente') {
       userData = await Ente.findById(userId, 'nome');
     } else if (userType === 'operatore') {
       userData = await Operatore.findById(userId, 'nome cognome');
     } else {
       // Se non conosciamo il tipo, proviamo tutti i modelli
-      userData = await User.findById(userId, 'nome cognome') ||
+      userData = await Privato.findById(userId, 'nome cognome') ||
                  await Ente.findById(userId, 'nome') ||
                  await Operatore.findById(userId, 'nome cognome');
     }

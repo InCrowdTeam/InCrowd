@@ -8,8 +8,8 @@ import { useFollowStore } from "@/stores/followStore";
 import { linkGoogleAccount } from "@/api/authApi";
 import { validatePassword, areSecurityControlsEnabled, validatePasswordSimple } from "@/utils/passwordValidator";
 import { useModal } from '@/composables/useModal';
-import { updateEnteProfile, updateEntePassword } from "@/api/enteApi";
-import { deleteAccount } from "@/api/userApi";
+import { getUserById, updateProfile, getCurrentUser, deleteAccount } from "@/api/userApi";
+import { changePassword } from "@/api/authApi";
 import axios from "axios";
 
 // Dichiarazione globale per Google Sign-In
@@ -138,8 +138,8 @@ onMounted(async () => {
     const userId = userStore.user?._id;
     if (userId && !userStore.user?.biografia) {
       promises.push(
-        axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`).then(response => {
-          const userData = response.data?.data || response.data;
+        getUserById(userId, userStore.token).then(result => {
+          const userData = result.data?.user;
           userStore.setUser({ ...userStore.user, ...userData });
         }).catch(err => {
           console.error("Errore nel caricamento dati utente:", err);
@@ -485,28 +485,12 @@ const saveProfileChanges = async () => {
     
     let response;
     
-    // Usa l'API corretta in base al tipo di utente
-    if (isUser.value) {
-      response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${userStore.token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-    } else if (isEnte.value) {
-      const result = await updateEnteProfile(userStore.token, formData);
-      response = { data: result };
-    } else {
-      showMessage('Tipo utente non supportato per la modifica del profilo', 'error');
-      return;
-    }
+    // Usa il nuovo endpoint unificato per tutti gli utenti
+    const result = await updateProfile(formData, userStore.token);
+    response = result;
     
-    if (response.data.data || response.data) {
-      const userData = response.data.data || response.data;
+    if (result.data) {
+      const userData = result.data.user;
       userStore.setUser(userData);
       showMessage('Profilo aggiornato con successo!');
       profileForm.value.fotoProfilo = null;
@@ -565,39 +549,19 @@ const setPassword = async () => {
     
     let response;
     
-    // Usa l'API corretta in base al tipo di utente
-    if (isUser.value) {
-      response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/users/password`,
-        {
-          newPassword: credentialsForm.value.newPassword
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${userStore.token}`
-          }
-        }
-      );
-    } else if (isEnte.value) {
-      const result = await updateEntePassword(userStore.token, credentialsForm.value.newPassword);
-      response = { data: result };
-    } else {
-      showMessage('Tipo utente non supportato per la modifica della password', 'error');
-      return;
-    }
+    // Usa il nuovo endpoint unificato per l'impostazione/cambio password
+    const result = await changePassword({
+      currentPassword: '', // Password vuota per indicare impostazione iniziale
+      newPassword: credentialsForm.value.newPassword
+    }, userStore.token);
+    response = { message: result.message };
     
     showMessage('Password impostata con successo!');
     credentialsForm.value.newPassword = '';
     credentialsForm.value.confirmPassword = '';
     
-    // Aggiorna l'utente con i dati ricevuti dal server
-    if (response.data.data || response.data) {
-      const userData = response.data.data || response.data;
-      userStore.setUser(userData);
-    } else {
-      // Fallback: ricarica i dati utente
-      await loadUserData();
-    }
+    // Fallback: ricarica i dati utente per sincronizzare lo stato
+    await loadUserData();
     
     // Torna alla sezione credenziali se era in setup
     if (activeSection.value === 'setup-password') {
@@ -715,17 +679,10 @@ const getCategoryLabel = (categoria: string): string => {
 
 const loadUserData = async () => {
   try {
-    const response = await axios.get(
-      `${import.meta.env.VITE_BACKEND_URL}/api/users/me`,
-      {
-        headers: {
-          'Authorization': `Bearer ${userStore.token}`
-        }
-      }
-    );
+    const result = await getCurrentUser(userStore.token);
     
-    if (response.data.data) {
-      userStore.setUser(response.data.data);
+    if (result.data) {
+      userStore.setUser(result.data.user);
     }
   } catch (error) {
     console.error('Errore nel caricamento dati utente:', error);

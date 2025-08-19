@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Operatore from "../models/Operatore";
 import Proposta from "../models/Proposta";
-import User from "../models/User";
+import Privato from "../models/Privato"; // Rinominato da User
 import Ente from "../models/Ente";
 import Commento from "../models/Commento";
 import bcrypt from "bcrypt";
@@ -125,10 +125,10 @@ export const deleteOperatore = async (req: Request, res: Response): Promise<void
  */
 export const getOperatorStats = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // Conta utenti e enti separatamente
-    const utentiCount = await User.countDocuments();
+    // Conta utenti privati ed enti separatamente
+    const privatiCount = await Privato.countDocuments();
     const entiCount = await Ente.countDocuments();
-    const utentiTotali = utentiCount + entiCount;
+    const utentiTotali = privatiCount + entiCount;
     
     // Conta proposte per stato
     const proposteInAttesa = await Proposta.countDocuments({ "stato.stato": 'in_approvazione' });
@@ -142,7 +142,7 @@ export const getOperatorStats = async (_req: Request, res: Response): Promise<vo
       proposteInAttesa,
       proposteApprovate,
       proposteRifiutate,
-      utentiRegistrati: utentiCount,
+      utentiRegistrati: privatiCount, // Aggiornato il nome della variabile
       entiRegistrati: entiCount,
       commentiTotali,
       utentiTotali

@@ -192,9 +192,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
-import { login, completeGoogleSignup } from '@/api/authApi';
+import { login } from '@/api/authApi';
 import { createUserWithFormData } from '@/api/userApi';
-import { createEnteWithFormData } from '@/api/enteApi';
 
 const route = useRoute();
 const router = useRouter();
@@ -319,15 +318,14 @@ async function handleSignUp() {
       formData.append('fotoProfiloGoogle', route.query.fotoProfilo as string);
     }
     
+    // Aggiungi user_type al FormData
+    formData.append('user_type', showCognome.value ? 'privato' : 'ente');
+    
     formData.append('email', form.value.credenziali.email);
     formData.append('oauthCode', form.value.credenziali.oauthCode);
 
-    // Usa le nuove API
-    if (showCognome.value) {
-      await createUserWithFormData(formData);
-    } else {
-      await createEnteWithFormData(formData);
-    }
+    // Usa il nuovo endpoint unificato
+    await createUserWithFormData(formData);
 
     successMessage.value = "✅ Registrazione completata! Accesso in corso...";
     
@@ -338,14 +336,14 @@ async function handleSignUp() {
         oauthCode: form.value.credenziali.oauthCode,
       });
 
-      userStore.setUser(loginData.user);
-      userStore.setToken(loginData.token);
-      userStore.setUserType(loginData.userType);
+      userStore.setUser(loginData.data.user);
+      userStore.setToken(loginData.data.token);
+      userStore.setUserType(loginData.data.userType);
 
       setTimeout(() => {
-        if (loginData.userType === 'admin') {
+        if (loginData.data.userType === 'admin') {
           router.push('/admin/operatori');
-        } else if (loginData.userType === 'operatore') {
+        } else if (loginData.data.userType === 'operatore') {
           router.push('/pannello-operatore');
         } else {
           router.push('/');

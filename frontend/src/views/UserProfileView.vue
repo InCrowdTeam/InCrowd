@@ -375,17 +375,17 @@ const fotoProfiloUrl = computed(() => {
 
 // Badge per il tipo di utente
 const getUserTypeClass = () => {
-  if (!userProfile.value?.userType) {
+  if (!userProfile.value?.user_type) {
     return 'type-user'; // fallback per utenti privati
   }
-  return userProfile.value.userType === 'ente' ? 'type-ente' : 'type-user';
+  return userProfile.value.user_type === 'ente' ? 'type-ente' : 'type-user';
 };
 
 const getUserTypeLabel = () => {
-  if (!userProfile.value?.userType) {
+  if (!userProfile.value?.user_type) {
     return 'UTENTE PRIVATO'; // fallback
   }
-  return userProfile.value.userType === 'ente' ? 'ENTE' : 'UTENTE PRIVATO';
+  return userProfile.value.user_type === 'ente' ? 'ENTE' : 'UTENTE PRIVATO';
 };
 
 // Metodi helper
@@ -406,7 +406,8 @@ const loadUserProfile = async () => {
     error.value = '';
     
     // Carica i dati pubblici dell'utente
-    userProfile.value = await getUserById(userId.value);
+    const response = await getUserById(userId.value);
+    userProfile.value = response.data.user;
     
     // Carica gli stats di follow
     await loadFollowStats();
@@ -525,6 +526,12 @@ const toggleFollow = async () => {
   
   try {
     loadingFollow.value = true;
+    
+    // Debug info
+    console.log('🔄 Tentativo di toggle follow per utente:', userId.value);
+    console.log('🔄 Stato follow attuale:', followStatus.value.isFollowing);
+    console.log('🔄 Token presente:', !!localStorage.getItem('token'));
+    
     await followStore.toggleFollow(userId.value);
     
     // Aggiorna lo status locale
@@ -533,12 +540,19 @@ const toggleFollow = async () => {
     // Aggiorna anche gli stats
     if (followStatus.value.isFollowing) {
       followStats.value.followersCount++;
+      console.log('✅ Follow effettuato, followers count:', followStats.value.followersCount);
     } else {
       followStats.value.followersCount = Math.max(0, followStats.value.followersCount - 1);
+      console.log('✅ Unfollow effettuato, followers count:', followStats.value.followersCount);
     }
     
   } catch (err: any) {
     console.error('❌ Errore nel toggle follow:', err);
+    console.error('❌ Dettagli errore:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
     await showError('Errore', err.message || 'Errore durante l\'operazione');
   } finally {
     loadingFollow.value = false;

@@ -262,7 +262,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
-import { getAllEnti } from '@/api/enteApi'
+import { getAllUsers } from '@/api/userApi'
 import { useModal } from '@/composables/useModal'
 import axios from 'axios'
 
@@ -395,41 +395,17 @@ const loadUsers = async () => {
   try {
     loading.value = true
     
-    // Carica sia utenti che enti in parallelo
-    const [usersResponse, entiResponse] = await Promise.allSettled([
-      axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users`, {
-        headers: {
-          'Authorization': `Bearer ${store.token}`
-        },
-        timeout: 10000
-      }),
-      getAllEnti(store.token)
-    ])
+    // Usa il nuovo endpoint unificato per tutti gli utenti
+    const usersResponse = await getAllUsers(store.token);
     
     let allUsers: User[] = []
     
-    // Processa utenti
-    if (usersResponse.status === 'fulfilled') {
-      const userData = usersResponse.value.data?.data || usersResponse.value.data || []
-      allUsers = allUsers.concat(userData.map((user: any) => ({
+    // Processa tutti gli utenti (privati ed enti insieme)
+    if (usersResponse.data && usersResponse.data.users) {
+      allUsers = usersResponse.data.users.map((user: any) => ({
         ...user,
-        userType: 'user'
-      })))
-    } else {
-      console.error('Errore nel caricamento utenti:', usersResponse.reason)
-    }
-    
-    // Processa enti
-    if (entiResponse.status === 'fulfilled') {
-      const entiData = entiResponse.value?.data || entiResponse.value || []
-      allUsers = allUsers.concat(entiData.map((ente: any) => ({
-        ...ente,
-        userType: 'ente',
-        // Per gli enti, assicuriamoci che cognome sia undefined invece di stringa vuota
-        cognome: undefined
-      })))
-    } else {
-      console.error('Errore nel caricamento enti:', entiResponse.reason)
+        userType: user.user_type || 'user' // Mappa il campo unificato
+      }))
     }
     
     users.value = allUsers
@@ -437,24 +413,20 @@ const loadUsers = async () => {
     console.error('Errore nel caricamento degli utenti:', error)
     
     // Gestisci l'errore più elegantemente
-    if (axios.isAxiosError(error)) {
-      if (error.code === 'ECONNABORTED') {
+    if (error instanceof Error) {
+      if (error.message.includes('timeout')) {
         showError('Timeout nel caricamento degli utenti', 'Il server potrebbe essere lento. Riprova.');
-      } else if (error.response?.status === 401) {
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         showError('Sessione scaduta', 'Effettua nuovamente il login.');
-        // Eventualmente reindirizza al login
-      } else if (error.response?.status === 403) {
+      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
         showError('Permessi insufficienti', 'Non hai i permessi per visualizzare gli utenti.');
-      } else if (error.response?.status === 500) {
+      } else if (error.message.includes('500')) {
         showError('Errore del server', 'Riprova più tardi.');
       } else {
-        const errorData = error.response?.data;
-        const errorMessage = errorData?.message || errorData?.error || error.message || 'Errore sconosciuto';
-        showError('Errore nel caricamento degli utenti', errorMessage);
+        showError('Errore nel caricamento degli utenti', error.message || 'Errore sconosciuto');
       }
     } else {
-      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
-      showError('Errore nel caricamento degli utenti', errorMessage);
+      showError('Errore nel caricamento degli utenti', 'Errore sconosciuto');
     }
     
     users.value = []

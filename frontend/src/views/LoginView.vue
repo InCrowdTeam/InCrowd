@@ -61,24 +61,24 @@ const login = async () => {
       password: password.value,
     });
 
-    userStore.setToken(res.token);
-    userStore.setUserType(res.userType);
+    userStore.setToken(res.data.token);
+    userStore.setUserType(res.data.userType);
     
     // Per l'admin creiamo un oggetto user specifico
-    if (res.userType === 'admin') {
+    if (res.data.userType === 'admin') {
       userStore.setUser({ 
         email: email.value,
         nome: 'Admin',
         cognome: 'Sistema'
       });
     } else {
-      userStore.setUser(res.user);
+      userStore.setUser(res.data.user);
     }
 
     // Navigazione post-login in base al tipo utente
-    if (res.userType === 'admin') {
+    if (res.data.userType === 'admin') {
       router.push('/admin/operatori'); // Pannello admin
-    } else if (res.userType === 'operatore') {
+    } else if (res.data.userType === 'operatore') {
       router.push('/pannello-operatore'); // Pannello operatori
     } else {
       router.push('/'); // Home per Enti e Utenti
@@ -149,14 +149,14 @@ const handleGoogleResponse = async (response: any) => {
     }
 
     // Login riuscito - imposta i dati nello store
-    userStore.setUser(res.user);
-    userStore.setToken(res.token);
-    userStore.setUserType(res.userType);
+    userStore.setUser(res.data.user);
+    userStore.setToken(res.data.token);
+    userStore.setUserType(res.data.userType);
 
     // Navigazione post-login in base al tipo utente
-    if (res.userType === 'admin') {
+    if (res.data.userType === 'admin') {
       router.push('/admin/operatori'); // Pannello admin
-    } else if (res.userType === 'operatore') {
+    } else if (res.data.userType === 'operatore') {
       router.push('/pannello-operatore'); // Pannello operatori
     } else {
       router.push('/'); // Home per Enti e Utenti
