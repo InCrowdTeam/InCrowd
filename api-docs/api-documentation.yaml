@@ -2,6 +2,9 @@ openapi: 3.0.0
 info:
   title: InCrowd API
   version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   description: |
     # InCrowd API - Documentazione Completa
     
@@ -194,6 +197,8 @@ info:
     **Nota**: I limiti sono applicati separatamente per profilo e proposte, ma entrambi sono 5MB.
 
 servers:
+  - url: https://api.incrowd.com
+    description: Server di produzione
   - url: http://localhost:3000
     description: Server di sviluppo locale
 
@@ -203,6 +208,7 @@ paths:
     get:
       tags:
         - System
+      operationId: getWelcomeMessage
       summary: Welcome message
       description: |
         Messaggio di benvenuto dell'API con controlli di sicurezza configurabili.
@@ -216,6 +222,7 @@ paths:
         - Endpoint pubblico accessibile senza autenticazione
         - Verifica stato server e configurazione
         - Messaggio di benvenuto personalizzabile
+      security: []
       responses:
         '200':
           description: Messaggio di benvenuto
@@ -243,13 +250,25 @@ paths:
                       details:
                         type: string
                         example: "JWT_SECRET non definito"
+        '400':
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Parametri richiesta non validi"
 
   /ping:
     get:
       tags:
         - System
+      operationId: getHealthCheck
       summary: Health check
       description: Verifica lo stato del server
+      security: []
       responses:
         '200':
           description: Server operativo
@@ -271,14 +290,26 @@ paths:
                   message:
                     type: string
                     example: "Server is running"
+        '400':
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Parametri richiesta non validi"
 
   # AUTH
   /api/auth/login:
     post:
       tags:
         - Authentication
+      operationId: loginUser
       summary: Login utente
       description: Autentica un utente e restituisce JWT token
+      security: []
       requestBody:
         required: true
         content:
@@ -324,6 +355,7 @@ paths:
     post:
       tags:
         - Authentication
+      operationId: loginGoogleOAuth
       summary: Login Google OAuth
       description: |
         Autentica un utente tramite Google OAuth e restituisce JWT token.
@@ -338,6 +370,7 @@ paths:
         **Casi d'uso**:
         - Login utente esistente con Google
         - Verifica utente per registrazione Google
+      security: []
       requestBody:
         required: true
         content:
@@ -404,6 +437,7 @@ paths:
     post:
       tags:
         - Authentication
+      operationId: linkGoogleAccount
       summary: Collega account Google
       description: |
         Collega un account Google esistente all'utente autenticato.
@@ -462,6 +496,7 @@ paths:
     patch:
       tags:
         - Authentication
+      operationId: changePassword
       summary: Cambia password
       description: Cambia la password per utenti privati ed enti
       security:
@@ -520,6 +555,7 @@ paths:
     get:
       tags:
         - Users
+      operationId: getAllUsers
       summary: Lista tutti gli utenti
       description: |
         Recupera tutti gli utenti (solo per operatori).
@@ -579,6 +615,7 @@ paths:
     post:
       tags:
         - Users
+      operationId: createUser
       summary: Crea nuovo utente
       description: |
         Crea un nuovo utente (privato o ente) con validazione dei dati.
@@ -593,6 +630,7 @@ paths:
         **Campi specifici per enti:**
         - nome_org (obbligatorio)
         - nome (opzionale, referente)
+      security: []
       requestBody:
         required: true
         content:
@@ -672,6 +710,7 @@ paths:
     get:
       tags:
         - Users
+      operationId: getCurrentUserProfile
       summary: Profilo utente corrente
       description: Recupera il profilo completo dell'utente autenticato
       security:
@@ -699,6 +738,7 @@ paths:
     patch:
       tags:
         - Users
+      operationId: updateUserProfile
       summary: Aggiorna profilo
       description: Aggiorna il profilo dell'utente autenticato
       security:
@@ -750,6 +790,7 @@ paths:
     delete:
       tags:
         - Users
+      operationId: deleteUserAccount
       summary: Elimina account
       description: Elimina l'account dell'utente autenticato
       security:
@@ -772,6 +813,7 @@ paths:
     get:
       tags:
         - Users
+      operationId: searchUsers
       summary: Cerca utenti
       description: |
         Cerca utenti per nome, cognome, nome_org o biografia.
@@ -785,6 +827,7 @@ paths:
         - `?q=Mario` - Cerca "Mario" in tutti i campi
         - `?q=Comune&user_type=ente` - Cerca "Comune" solo negli enti
         - `?q=sviluppatore&limit=20` - Cerca "sviluppatore" con limite 20 risultati
+      security: []
       parameters:
         - name: q
           in: query
@@ -870,6 +913,7 @@ paths:
     get:
       tags:
         - Users
+      operationId: getUserById
       summary: Dettagli utente
       description: |
         Recupera i dettagli di un utente specifico.
@@ -880,6 +924,7 @@ paths:
         - Utenti non autenticati vedono solo dati pubblici (nome, biografia, foto)
         
         **Esempi di risposta per diversi tipi:**
+      security: []
       parameters:
         - name: id
           in: path
@@ -975,8 +1020,10 @@ paths:
     get:
       tags:
         - Users
+      operationId: getUserAvatar
       summary: Avatar utente
       description: Recupera solo l'avatar di un utente
+      security: []
       parameters:
         - name: id
           in: path
@@ -1008,6 +1055,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: getApprovedProposte
       summary: Lista proposte approvate
       description: |
         Recupera tutte le proposte approvate pubblicamente.
@@ -1021,6 +1069,7 @@ paths:
         - Dati base della proposta
         - Proponente (ID e tipo)
         - Contatori calcolati (hype = listaHyper.length)
+      security: []
       responses:
         '200':
           description: Lista proposte recuperata
@@ -1042,6 +1091,16 @@ paths:
                   message:
                     type: string
                     example: "Proposte recuperate con successo"
+        '400':
+          description: Parametri richiesta non validi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Parametri richiesta non validi"
         '500':
           description: Errore interno del server
           content:
@@ -1054,11 +1113,92 @@ paths:
                     example: "Errore nel recupero proposte"
                   error:
                     type: object
+    post:
+      tags:
+        - Proposte
+      operationId: createProposta
+      summary: Crea nuova proposta
+      description: |
+        Crea una nuova proposta con upload immagine opzionale.
+        
+        **Accesso**: Solo utenti autenticati (privati ed enti)
+        **Upload**: Immagine opzionale (max 5MB, formati: JPEG, PNG, GIF, WebP)
+        **Stato iniziale**: "bozza" (richiede approvazione operatore)
+        **Validazioni**: Titolo e descrizione obbligatori
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - titolo
+                - descrizione
+              properties:
+                titolo:
+                  type: string
+                  example: "Nuovo parco cittadino"
+                  description: "Titolo della proposta"
+                descrizione:
+                  type: string
+                  example: "Creazione di un parco pubblico"
+                  description: "Descrizione dettagliata"
+                categoria:
+                  type: string
+                  example: "Ambiente"
+                  description: "Categoria della proposta"
+                luogo:
+                  type: object
+                  properties:
+                    via:
+                      type: string
+                      example: "Via Roma, 123"
+                    citta:
+                      type: string
+                      example: "Roma"
+                    cap:
+                      type: string
+                      example: "00100"
+                    provincia:
+                      type: string
+                      example: "RM"
+                dataIpotetica:
+                  type: string
+                  format: date-time
+                  example: "2024-06-15T10:00:00.000Z"
+                  description: "Data ipotetica di realizzazione"
+                foto:
+                  type: string
+                  format: binary
+                  description: "Immagine della proposta (max 5MB, JPEG/PNG/GIF/WebP)"
+      responses:
+        '201':
+          description: Proposta creata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      proposta:
+                        $ref: '#/components/schemas/Proposta'
+                  message:
+                    type: string
+                    example: "Proposta creata con successo"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/proposte/commenti:
     get:
       tags:
         - Proposte
+      operationId: getGlobalCommenti
       summary: Ultimi commenti globali
       description: |
         Recupera tutti i commenti da tutte le proposte (solo operatori).
@@ -1139,6 +1279,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: getMyProposte
       summary: Proposte utente corrente
       description: |
         Recupera tutte le proposte dell'utente autenticato.
@@ -1176,6 +1317,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: getFollowedProposte
       summary: Proposte utenti seguiti
       description: |
         Recupera le proposte approvate degli utenti seguiti dall'utente corrente.
@@ -1214,6 +1356,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: searchProposte
       summary: Ricerca proposte
       description: |
         Cerca proposte per testo, categoria, città o stato.
@@ -1228,6 +1371,7 @@ paths:
         
         **Accesso**: Pubblico senza autenticazione
         **Filtri**: Solo proposte approvate
+      security: []
       parameters:
         - name: q
           in: query
@@ -1296,6 +1440,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: getProposteByUser
       summary: Proposte utente specifico
       description: |
         Recupera le proposte approvate di un utente specifico.
@@ -1304,6 +1449,7 @@ paths:
         **Filtri**: Solo proposte approvate
         **Ordinamento**: Per data di creazione (più recenti prima)
         **Utente**: Può essere privato o ente (identificato automaticamente)
+      security: []
       parameters:
         - name: userId
           in: path
@@ -1340,6 +1486,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: getPendingProposte
       summary: Proposte in attesa di moderazione
       description: |
         Recupera le proposte in attesa di approvazione (solo operatori).
@@ -1399,91 +1546,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/proposte:
-    post:
-      tags:
-        - Proposte
-      summary: Crea nuova proposta
-      description: |
-        Crea una nuova proposta con upload immagine opzionale.
-        
-        **Accesso**: Solo utenti autenticati (privati ed enti)
-        **Upload**: Immagine opzionale (max 5MB, formati: JPEG, PNG, GIF, WebP)
-        **Stato iniziale**: "bozza" (richiede approvazione operatore)
-        **Validazioni**: Titolo e descrizione obbligatori
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - titolo
-                - descrizione
-              properties:
-                titolo:
-                  type: string
-                  example: "Nuovo parco cittadino"
-                  description: "Titolo della proposta"
-                descrizione:
-                  type: string
-                  example: "Creazione di un parco pubblico"
-                  description: "Descrizione dettagliata"
-                categoria:
-                  type: string
-                  example: "Ambiente"
-                  description: "Categoria della proposta"
-                luogo:
-                  type: object
-                  properties:
-                    via:
-                      type: string
-                      example: "Via Roma, 123"
-                    citta:
-                      type: string
-                      example: "Roma"
-                    cap:
-                      type: string
-                      example: "00100"
-                    provincia:
-                      type: string
-                      example: "RM"
-                dataIpotetica:
-                  type: string
-                  format: date-time
-                  example: "2024-06-15T10:00:00.000Z"
-                  description: "Data ipotetica di realizzazione"
-                foto:
-                  type: string
-                  format: binary
-                  description: "Immagine della proposta (max 5MB, JPEG/PNG/GIF/WebP)"
-      responses:
-        '201':
-          description: Proposta creata con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      proposta:
-                        $ref: '#/components/schemas/Proposta'
-                  message:
-                    type: string
-                    example: "Proposta creata con successo"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   /api/proposte/{id}:
     get:
       tags:
         - Proposte
+      operationId: getPropostaById
       summary: Dettagli proposta
       description: |
         Recupera i dettagli completi di una proposta specifica.
@@ -1491,6 +1558,7 @@ paths:
         **Accesso**: Pubblico senza autenticazione
         **Dati inclusi**: Tutti i campi della proposta, proponente, commenti
         **Stato**: Solo proposte approvate sono visibili pubblicamente
+      security: []
       parameters:
         - name: id
           in: path
@@ -1517,11 +1585,50 @@ paths:
                     example: "Proposta recuperata con successo"
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Proposte
+      operationId: deleteProposta
+      summary: Elimina proposta
+      description: |
+        Elimina una proposta e tutti i suoi commenti.
+        
+        **Accesso**: Solo il proponente, operatori o admin
+        **Validazioni**: Proposta deve esistere e appartenere all'utente
+        **Sicurezza**: Solo il proprietario può eliminare le proprie proposte
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64a1b2c3d4e5f678901234"
+          description: "ID della proposta"
+      responses:
+        '200':
+          description: Proposta eliminata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Proposta eliminata con successo"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/proposte/{id}/hyper:
     patch:
       tags:
         - Proposte
+      operationId: togglePropostaHype
       summary: Toggle hype proposta
       description: |
         Aggiunge o rimuove l'utente corrente dalla lista hype della proposta.
@@ -1567,6 +1674,7 @@ paths:
     get:
       tags:
         - Proposte
+      operationId: getPropostaCommenti
       summary: Lista commenti proposta
       description: |
         Recupera tutti i commenti di una proposta specifica.
@@ -1574,6 +1682,7 @@ paths:
         **Accesso**: Pubblico senza autenticazione
         **Ordinamento**: Per data commento (più recenti prima)
         **Dati inclusi**: Contenuto, data, utente (nome, cognome)
+      security: []
       parameters:
         - name: id
           in: path
@@ -1626,6 +1735,7 @@ paths:
     post:
       tags:
         - Proposte
+      operationId: addPropostaCommento
       summary: Aggiungi commento
       description: |
         Aggiunge un nuovo commento a una proposta.
@@ -1691,6 +1801,7 @@ paths:
     patch:
       tags:
         - Proposte
+      operationId: updatePropostaStato
       summary: Aggiorna stato proposta
       description: |
         Aggiorna lo stato di una proposta (moderazione).
@@ -1754,6 +1865,7 @@ paths:
     delete:
       tags:
         - Proposte
+      operationId: deletePropostaCommento
       summary: Elimina commento
       description: |
         Elimina un commento specifico da una proposta.
@@ -1796,50 +1908,12 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/proposte/{id}:
-    delete:
-      tags:
-        - Proposte
-      summary: Elimina proposta
-      description: |
-        Elimina una proposta e tutti i suoi commenti.
-        
-        **Accesso**: Solo il proponente, operatori o admin
-        **Validazioni**: Proposta deve esistere e appartenere all'utente
-        **Sicurezza**: Solo il proprietario può eliminare le proprie proposte
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          example: "64a1b2c3d4e5f678901234"
-          description: "ID della proposta"
-      responses:
-        '200':
-          description: Proposta eliminata
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Proposta eliminata con successo"
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   # FOLLOW
   /api/follow/{userId}:
     post:
       tags:
         - Follow
+      operationId: followUser
       summary: Segui utente
       description: |
         Segue un utente specifico (privato o ente).
@@ -1878,6 +1952,7 @@ paths:
     delete:
       tags:
         - Follow
+      operationId: unfollowUser
       summary: Smetti di seguire utente
       description: |
         Smette di seguire un utente specifico.
@@ -1915,6 +1990,7 @@ paths:
     get:
       tags:
         - Follow
+      operationId: getUserFollowers
       summary: Lista followers
       description: |
         Recupera la lista dei follower di un utente specifico.
@@ -1923,6 +1999,7 @@ paths:
         **Dati inclusi**: ID e dati base degli utenti follower
         **Ordinamento**: Per data di follow (più recenti prima)
         **Nota**: I contatori followersCount e followingCount sono calcolati lato frontend tramite array.length
+      security: []
       parameters:
         - name: userId
           in: path
@@ -1960,6 +2037,7 @@ paths:
     get:
       tags:
         - Follow
+      operationId: getUserFollowing
       summary: Lista following
       description: |
         Recupera la lista degli utenti seguiti da un utente specifico.
@@ -1968,6 +2046,7 @@ paths:
         **Dati inclusi**: ID e dati base degli utenti seguiti
         **Ordinamento**: Per data di follow (più recenti prima)
         **Nota**: I contatori followersCount e followingCount sono calcolati lato frontend tramite array.length
+      security: []
       parameters:
         - name: userId
           in: path
@@ -2005,6 +2084,7 @@ paths:
     get:
       tags:
         - Follow
+      operationId: getFollowStatus
       summary: Status follow
       description: |
         Verifica se l'utente corrente segue un utente specifico.
@@ -2051,6 +2131,7 @@ paths:
     get:
       tags:
         - Operatori
+      operationId: getAllOperatori
       summary: Lista operatori
       description: Recupera tutti gli operatori (solo admin)
       security:
@@ -2087,6 +2168,7 @@ paths:
     post:
       tags:
         - Operatori
+      operationId: createOperatore
       summary: Crea operatore
       description: Crea un nuovo operatore (solo admin)
       security:
@@ -2135,6 +2217,7 @@ paths:
     delete:
       tags:
         - Operatori
+      operationId: deleteOperatore
       summary: Elimina operatore
       description: Elimina un operatore (solo admin)
       security:
@@ -2166,6 +2249,7 @@ paths:
     get:
       tags:
         - Operatori
+      operationId: getOperatoreStats
       summary: Statistiche operatore
       description: Recupera le statistiche dell'operatore autenticato
       security:

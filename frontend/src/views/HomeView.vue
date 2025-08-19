@@ -378,22 +378,6 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
 
 <template>
   <div class="home-container">
-    <!-- Banner per utenti non loggati -->
-    <div v-if="!userStore.user && showBanner" class="welcome-banner">
-      <button class="banner-close-btn" @click="closeBanner">×</button>
-      <div class="banner-content" @click="$router.push('/not-logged')">
-        <div class="banner-icon">🎪</div>
-        <div class="banner-text">
-          <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
-          <div class="banner-bottom-row">
-            <p>Registrati gratis e unisciti alla community</p>
-            <div class="banner-cta">
-              <span class="cta-text">Scopri di più →</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Barra di ricerca -->
     <div class="search-container">
@@ -726,6 +710,9 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
               </div>
             </div>
           </div>
+
+
+          
         </div>
       </div>
 
@@ -911,6 +898,25 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
             </div>
           </div>
         </div>
+
+            <!-- Banner per utenti non loggati -->
+    <div v-if="!userStore.user && showBanner" class="welcome-banner">
+      <button class="banner-close-btn" @click="closeBanner">×</button>
+      <div class="banner-content" @click="$router.push('/not-logged')">
+        <div class="banner-icon">🎪</div>
+        <div class="banner-text">
+          <h3>Scopri tutto quello che InCrowd ha da offrire!</h3>
+          <div class="banner-bottom-row">
+            <p>Registrati gratis e unisciti alla community</p>
+            <div class="banner-cta">
+              <span class="cta-text">Scopri di più →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
       </div>
     </div>
   </div>
