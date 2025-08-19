@@ -6,8 +6,8 @@ import { authMiddleware, requireRole } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-// Rotta per ottenere gli ultimi commenti globali
-router.get("/commenti", getUltimiCommenti);
+// Rotta per ottenere gli ultimi commenti globali (solo operatori)
+router.get("/commenti", authMiddleware, requireRole("operatore"), getUltimiCommenti);
 
 // Configura Multer per caricare i file in memoria (memoria temporanea)
 const storage = multer.memoryStorage();
