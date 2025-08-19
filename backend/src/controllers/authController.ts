@@ -41,7 +41,7 @@ const downloadImageAsBase64 = async (imageUrl: string): Promise<{ data: string, 
       contentType
     };
   } catch (error) {
-    res.status(500).json(apiResponse({ message: 'Errore download immagine' }));
+    console.error('Errore download immagine:', error);
     return null;
   }
 };
