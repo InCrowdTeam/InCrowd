@@ -3,6 +3,6 @@ module.exports = {
   testTimeout: 30000,
   moduleDirectories: [
     'node_modules',
-    '../backend/node_modules'
+    '../node_modules'
   ]
 };

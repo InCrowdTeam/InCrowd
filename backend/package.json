@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "jest --config ../test/jest.config.js",
+    "test": "jest --config tests/jest.config.js",
     "dev": "nodemon src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js"
