@@ -54,8 +54,7 @@ export const useFollowStore = defineStore('follow', {
         if (currentStatus) {
           this.followStatusCache.set(userId, {
             ...currentStatus,
-            isFollowing: true,
-            followersCount: currentStatus.followersCount + 1
+            isFollowing: true
           });
         }
         
@@ -89,8 +88,7 @@ export const useFollowStore = defineStore('follow', {
         if (currentStatus) {
           this.followStatusCache.set(userId, {
             ...currentStatus,
-            isFollowing: false,
-            followersCount: Math.max(0, currentStatus.followersCount - 1)
+            isFollowing: false
           });
         }
         

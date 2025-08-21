@@ -51,8 +51,10 @@ export const followApi = {
       throw new Error(error.error || error.message || 'Errore nel recupero dei followers');
     }
 
-    const response = await res.json();
-    return response.data;
+    const payload = await res.json();
+    const data = payload?.data;
+    const followers = Array.isArray(data) ? data : data?.followers;
+    return followers || [];
   },
 
   // Ottenere gli utenti seguiti
@@ -64,8 +66,10 @@ export const followApi = {
       throw new Error(error.error || error.message || 'Errore nel recupero degli utenti seguiti');
     }
 
-    const response = await res.json();
-    return response.data;
+    const payload = await res.json();
+    const data = payload?.data;
+    const following = Array.isArray(data) ? data : data?.following;
+    return following || [];
   },
 
   // Verificare lo status di follow
