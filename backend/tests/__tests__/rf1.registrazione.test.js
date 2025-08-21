@@ -18,8 +18,7 @@ describe('RF1 - Registrazione', () => {
   test('Creazione ente con oauthCode (senza password)', async () => {
     const res = await makeRequest('POST', '/user', {
       user_type: 'ente',
-      nome_org: 'Comune Test',
-      nome: 'Comune',
+      nome: 'Comune Test', // nome is now the organization name
       codiceFiscale: 'RSSMRA85C03H501U',
       email: uniqueEmail(),
       oauthCode: 'fake-oauth-code'

@@ -1,13 +1,20 @@
+import 'dotenv/config'
 import { Request, Response } from "express";
 import Privato from "../models/Privato";
 import Ente from "../models/Ente";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import fetch from 'node-fetch';
 import { isValidCodiceFiscale } from "../utils/codiceFiscale";
 import { emailExists, createSafeCredentials } from "../utils/emailHelper";
 import { validatePassword, sanitizeInput, validateEmail } from "../utils/passwordValidator";
 import { apiResponse } from "../utils/responseFormatter";
 
+// Configurazione JWT
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined");
+}
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -45,9 +52,8 @@ const createPublicUser = (
   // Campi specifici per tipo utente
   if (userType === 'privato') {
     publicData.cognome = user.cognome;
-  } else if (userType === 'ente') {
-    publicData.nome_org = user.nome_org;
   }
+  // nome is now common for both user types
 
   return publicData;
 };
@@ -92,7 +98,7 @@ export const getAllUsers = async (req: AuthenticatedRequest, res: Response) => {
 
     // Recupera entrambi i tipi di utente
   const privati = await Privato.find().select('nome cognome biografia fotoProfilo createdAt credenziali');
-  const enti = await Ente.find().select('nome_org nome biografia fotoProfilo createdAt credenziali');
+  const enti = await Ente.find().select('nome biografia fotoProfilo createdAt credenziali');
 
     // Unifica i risultati con user_type
     const allUsers = [
@@ -122,7 +128,6 @@ export const createUser = async (req: Request, res: Response) => {
       user_type, // Obbligatorio: 'privato' | 'ente'
       nome,
       cognome, // Solo per privati
-      nome_org, // Solo per enti  
       codiceFiscale,
       biografia,
       email,
@@ -162,11 +167,7 @@ export const createUser = async (req: Request, res: Response) => {
       );
     }
 
-    if (user_type === 'ente' && !nome_org) {
-      return res.status(400).json(
-        apiResponse({ message: "nome_org obbligatorio per enti" })
-      );
-    }
+    // nome is now required for enti (it's the organization name)
 
     // Validazioni email e codice fiscale
     if (!validateEmail(email)) {
@@ -202,7 +203,47 @@ export const createUser = async (req: Request, res: Response) => {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
-    // TODO: validazione oauthCode se necessario (es. verifica lato Google)
+    // Gestione foto profilo (file upload o foto Google)
+    let fotoProfilo = undefined;
+    
+    if (req.file) {
+      // Validazione dimensione file
+      if (req.file.size > 5 * 1024 * 1024) {
+        return res.status(400).json(
+          apiResponse({ message: "Il file immagine è troppo grande (max 5MB)" })
+        );
+      }
+
+      // Validazione tipo file
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json(
+          apiResponse({ message: "Formato file non supportato. Usa JPEG, PNG, GIF o WebP" })
+        );
+      }
+
+      fotoProfilo = {
+        data: req.file.buffer.toString('base64'),
+        contentType: req.file.mimetype
+      };
+    } else if (req.body.fotoProfiloGoogle) {
+      // Gestione foto di Google (URL)
+      try {
+        const response = await fetch(req.body.fotoProfiloGoogle);
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || 'image/jpeg';
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          
+          fotoProfilo = {
+            data: base64,
+            contentType
+          };
+        }
+      } catch (error) {
+        console.error('Errore download foto Google:', error);
+      }
+    }
 
     // Crea utente nel modello appropriato
     let newUser: any;
@@ -212,6 +253,7 @@ export const createUser = async (req: Request, res: Response) => {
         cognome: sanitizeInput(cognome),
         codiceFiscale: sanitizeInput(codiceFiscale),
         biografia: biografia ? sanitizeInput(biografia) : "",
+        fotoProfilo: fotoProfilo,
         credenziali: {
           email: email.toLowerCase(),
           password: hashedPassword,
@@ -220,10 +262,10 @@ export const createUser = async (req: Request, res: Response) => {
       });
     } else {
       newUser = new Ente({
-        nome_org: sanitizeInput(nome_org),
-        nome: nome ? sanitizeInput(nome) : undefined,
+        nome: sanitizeInput(nome), // nome is now the organization name
         codiceFiscale: sanitizeInput(codiceFiscale),
         biografia: biografia ? sanitizeInput(biografia) : "",
+        fotoProfilo: fotoProfilo,
         credenziali: {
           email: email.toLowerCase(),
           password: hashedPassword,
@@ -234,13 +276,28 @@ export const createUser = async (req: Request, res: Response) => {
 
     await newUser.save();
 
-    // Risposta con dati pubblici
-    const publicUser = createPublicUser(newUser, user_type, undefined); // Nessun utente autenticato per la creazione
+    // Genera token JWT per login automatico
+    const token = jwt.sign(
+      { 
+        userId: newUser._id, 
+        email: newUser.credenziali.email, 
+        userType: user_type 
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Risposta con dati pubblici e token
+    const publicUser = createPublicUser(newUser, user_type, undefined);
     
     res.status(201).json(
       apiResponse({
         message: "Utente creato con successo",
-        data: { user: publicUser }
+        data: { 
+          user: publicUser,
+          token: token,
+          userType: user_type
+        }
       })
     );
 
@@ -343,7 +400,7 @@ export const updateProfile = async (req: any, res: Response) => {
     // Campi aggiornabili comuni
     const allowedCommonFields = ['nome', 'biografia'];
     const allowedPrivateFields = ['cognome'];
-    const allowedEnteFields = ['nome_org'];
+    // nome is now a common field for both user types
 
     // Applica aggiornamenti sicuri
     allowedCommonFields.forEach(field => {
@@ -359,13 +416,8 @@ export const updateProfile = async (req: any, res: Response) => {
           (user as any)[field] = sanitizeInput(updates[field]);
         }
       });
-    } else if (userType === 'ente') {
-      allowedEnteFields.forEach(field => {
-        if (updates[field] !== undefined) {
-          (user as any)[field] = sanitizeInput(updates[field]);
-        }
-      });
     }
+    // nome is now handled in allowedCommonFields for both user types
 
     // Gestione upload foto profilo
     if (req.file) {
@@ -480,7 +532,6 @@ export const searchUsers = async (req: Request, res: Response) => {
     // Query per enti
     const enteQuery = {
       $or: [
-        { nome_org: searchRegex },
         { nome: searchRegex },
         { biografia: searchRegex }
       ]
@@ -505,7 +556,7 @@ export const searchUsers = async (req: Request, res: Response) => {
 
     if (!user_type || user_type === 'ente') {
       const enti = await Ente.find(enteQuery)
-        .select('nome_org nome biografia fotoProfilo createdAt')
+        .select('nome biografia fotoProfilo createdAt')
         .sort({ createdAt: -1 });
 
       const enteResults = enti.map(ente => createPublicUser(ente, 'ente', authenticatedUser));

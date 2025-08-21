@@ -82,7 +82,7 @@ router.get("/", authMiddleware, requireRole('operatore'), getAllUsers);
  * - user_type: 'privato' | 'ente' (obbligatorio)
  * - nome: string (obbligatorio)
  * - cognome: string (obbligatorio per privati)
- * - nome_org: string (obbligatorio per enti)
+ * - nome: string (obbligatorio per enti, rappresenta il nome dell'organizzazione)
  * - codiceFiscale: string (obbligatorio)
  * - email: string (obbligatorio)
  * - password: string (obbligatorio)
@@ -96,7 +96,7 @@ router.post("/", upload.single("fotoProfilo"), handleMulterError, createUser);
 
 /**
  * GET /api/user/search
- * Cerca utenti per nome, cognome, nome_org o biografia
+ * Cerca utenti per nome, cognome o biografia
  * 
  * Query parameters:
  * - q: string (obbligatorio, min 2 caratteri) - Testo di ricerca
@@ -127,7 +127,7 @@ router.get("/me", authMiddleware, getCurrentUser);
  * Body richiesto (multipart/form-data):
  * - nome: string (opzionale)
  * - cognome: string (opzionale, solo per privati)
- * - nome_org: string (opzionale, solo per enti)
+ * - nome: string (opzionale, rappresenta il nome dell'organizzazione per enti)
  * - biografia: string (opzionale)
  * - fotoProfilo: file (opzionale, max 5MB)
  * 

@@ -118,8 +118,8 @@ export const getFollowers = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followerInfo = await findUserOrEnte(follow.followerId.toString());
       if (followerInfo) {
-        // Normalizza i campi: per gli enti usa nome_org come nome visualizzato
-        const displayName = followerInfo.entity.nome || followerInfo.entity.nome_org || '';
+        // nome is now the organization name for enti
+        const displayName = followerInfo.entity.nome || '';
         const followerData = {
           _id: followerInfo.entity._id,
           nome: displayName,
@@ -155,8 +155,8 @@ export const getFollowing = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followingInfo = await findUserOrEnte(follow.followingId.toString());
       if (followingInfo) {
-        // Normalizza i campi: per gli enti usa nome_org come nome visualizzato
-        const displayName = followingInfo.entity.nome || followingInfo.entity.nome_org || '';
+        // nome is now the organization name for enti
+        const displayName = followingInfo.entity.nome || '';
         const followingData = {
           _id: followingInfo.entity._id,
           nome: displayName,
