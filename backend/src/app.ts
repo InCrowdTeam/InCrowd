@@ -32,6 +32,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+/**
+ * GET /ping
+ * Health check del server
+ * 
+ * Risposta: Stato server con timestamp
+ * Accesso: Pubblico (senza autenticazione)
+ * 
+ * Utilizzato per verificare che il server sia operativo
+ */
 app.get("/ping", (req, res) => {
   res.json({ 
     data: { 
@@ -42,18 +51,59 @@ app.get("/ping", (req, res) => {
   });
 });
 
+// === ROUTE API PRINCIPALI === //
+
+/**
+ * /api/proposte - Gestione proposte cittadine
+ * Include: creazione, moderazione, commenti, hype, ricerca
+ * Accesso: Misto (pubbliche e autenticate)
+ */
 app.use("/api/proposte", propostaRoutes);
-app.use("/api/user", userRoutes); // Unificato users e enti in /api/user
-app.use("/api/operatori", operatoreRoutes); // Tutte le operazioni operatori qui
+
+/**
+ * /api/user - Gestione utenti unificata (privati ed enti)
+ * Include: registrazione, profili, ricerca, gestione account
+ * Accesso: Misto (pubbliche e autenticate)
+ */
+app.use("/api/user", userRoutes);
+
+/**
+ * /api/operatori - Gestione account operatori
+ * Include: creazione, eliminazione, statistiche
+ * Accesso: Solo admin (gestione) e operatori (statistiche)
+ */
+app.use("/api/operatori", operatoreRoutes);
+
+/**
+ * /api/auth - Autenticazione e gestione account
+ * Include: login, OAuth Google, collegamento account, password
+ * Accesso: Misto (login pubblici, operazioni autenticate)
+ */
 app.use("/api/auth", authRoutes);
+
+/**
+ * /api/follow - Sistema di follow tra utenti
+ * Include: seguire, smettere di seguire, liste followers/following
+ * Accesso: Misto (liste pubbliche, azioni autenticate)
+ */
 app.use('/api/follow', followRoutes);
 
-// Base route
+/**
+ * GET /
+ * Endpoint root con messaggio di benvenuto
+ * 
+ * Risposta: Messaggio di benvenuto dell'API
+ * Accesso: Pubblico (senza autenticazione)
+ * 
+ * Utilizzato per verificare che l'API sia accessibile
+ */
 app.get("/", (req, res) => {
   res.json({
     message: "Benvenuti nelle API di InCrowd"
   });
 });
+
+// === MIDDLEWARE GLOBALI === //
 
 // 404 handler for unmatched routes (only for API routes)
 app.use(notFoundMiddleware);

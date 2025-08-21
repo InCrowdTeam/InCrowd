@@ -62,29 +62,118 @@ const handleMulterError = (err: any, req: any, res: any, next: any) => {
 
 // === ROUTE UNIFICATE PER USER (privati ed enti) === //
 
-// Rotta per ottenere tutti gli utenti - SOLO operatori
+/**
+ * GET /api/user
+ * Recupera tutti gli utenti con dati completi (solo per operatori)
+ * 
+ * Risposta: Lista completa di tutti gli utenti con email e codice fiscale
+ * Accesso: Solo operatori autenticati (NO admin)
+ * 
+ * NOTA: Gli admin non possono accedere a questo endpoint per vedere i dati utente.
+ * Gli admin possono solo gestire gli account operatori.
+ */
 router.get("/", authMiddleware, requireRole('operatore'), getAllUsers);
 
-// Rotta per creare un nuovo utente (privato o ente) con foto del profilo
-// Richiede user_type nel body: 'privato' | 'ente'
+/**
+ * POST /api/user
+ * Crea un nuovo utente (privato o ente) con foto del profilo
+ * 
+ * Body richiesto (multipart/form-data):
+ * - user_type: 'privato' | 'ente' (obbligatorio)
+ * - nome: string (obbligatorio)
+ * - cognome: string (obbligatorio per privati)
+ * - nome_org: string (obbligatorio per enti)
+ * - codiceFiscale: string (obbligatorio)
+ * - email: string (obbligatorio)
+ * - password: string (obbligatorio)
+ * - biografia: string (opzionale)
+ * - fotoProfilo: file (opzionale, max 5MB)
+ * 
+ * Risposta: Utente creato con dati pubblici
+ * Accesso: Pubblico (senza autenticazione)
+ */
 router.post("/", upload.single("fotoProfilo"), handleMulterError, createUser);
 
-// Rotta per ricerca utenti (pubblica)
+/**
+ * GET /api/user/search
+ * Cerca utenti per nome, cognome, nome_org o biografia
+ * 
+ * Query parameters:
+ * - q: string (obbligatorio, min 2 caratteri) - Testo di ricerca
+ * - user_type: 'privato' | 'ente' (opzionale) - Filtra per tipo utente
+ * - limit: number (opzionale, default 10, max 50) - Numero risultati per pagina
+ * - page: number (opzionale, default 1) - Numero pagina
+ * 
+ * Risposta: Lista utenti trovati con dati pubblici
+ * Accesso: Pubblico (senza autenticazione)
+ * 
+ * NOTA: Email e codice fiscale sono visibili solo agli operatori autenticati
+ */
 router.get('/search', searchUsers);
 
-// Rotta per ottenere i dati dell'utente corrente (autenticato)
+/**
+ * GET /api/user/me
+ * Recupera il profilo completo dell'utente autenticato
+ * 
+ * Risposta: Dati completi dell'utente con credenziali sicure
+ * Accesso: Solo utenti autenticati (privati ed enti)
+ */
 router.get("/me", authMiddleware, getCurrentUser);
 
-// Rotta per aggiornare il profilo dell'utente corrente
+/**
+ * PATCH /api/user/profile
+ * Aggiorna il profilo dell'utente autenticato
+ * 
+ * Body richiesto (multipart/form-data):
+ * - nome: string (opzionale)
+ * - cognome: string (opzionale, solo per privati)
+ * - nome_org: string (opzionale, solo per enti)
+ * - biografia: string (opzionale)
+ * - fotoProfilo: file (opzionale, max 5MB)
+ * 
+ * Risposta: Profilo aggiornato con dati completi
+ * Accesso: Solo utenti autenticati (privati ed enti)
+ */
 router.patch("/profile", authMiddleware, upload.single("fotoProfilo"), handleMulterError, updateProfile);
 
-// Rotta per eliminare l'account dell'utente corrente e tutti i suoi dati
+/**
+ * DELETE /api/user/account
+ * Elimina l'account dell'utente autenticato e tutti i suoi dati
+ * 
+ * Risposta: Conferma eliminazione account
+ * Accesso: Solo utenti autenticati (privati ed enti)
+ * 
+ * NOTA: Questa operazione è irreversibile e elimina tutte le proposte e commenti
+ */
 router.delete("/account", authMiddleware, deleteAccount);
 
-// Endpoint pubblico per ottenere solo l'avatar di un utente
+/**
+ * GET /api/user/:id/avatar
+ * Recupera solo l'avatar di un utente specifico
+ * 
+ * Path parameters:
+ * - id: string (obbligatorio) - ID dell'utente
+ * 
+ * Risposta: Immagine profilo in base64
+ * Accesso: Pubblico (senza autenticazione)
+ */
 router.get("/:id/avatar", getUserAvatar);
 
-// Rotta per ottenere un utente specifico - con autenticazione opzionale per più dati
+/**
+ * GET /api/user/:id
+ * Recupera i dettagli di un utente specifico
+ * 
+ * Path parameters:
+ * - id: string (obbligatorio) - ID dell'utente
+ * 
+ * Risposta: Dati utente con visibilità condizionale
+ * Accesso: Pubblico con autenticazione opzionale
+ * 
+ * NOTA: 
+ * - Email e codice fiscale sono visibili solo agli operatori autenticati
+ * - Utenti non autenticati vedono solo dati pubblici
+ * - Utenti autenticati vedono dati pubblici (no email/codice fiscale)
+ */
 router.get("/:id", optionalAuth, getUserById);
 
 export default router;

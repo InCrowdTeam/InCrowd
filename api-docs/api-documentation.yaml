@@ -6,7 +6,7 @@ info:
     name: MIT
     url: https://opensource.org/licenses/MIT
   description: |
-    # InCrowd API - Documentazione Completa
+    # InCrowd API
     
     Benvenuto nella documentazione dell'API di InCrowd, una piattaforma innovativa di crowdsourcing per proposte e iniziative cittadine.
     
@@ -16,7 +16,23 @@ info:
     - Gestione utenti unificata (cittadini privati ed enti)
     - Creazione e gestione proposte
     - Sistema di follow/followers
-    - Amministrazione e moderazione
+    - Amministrazione e moderazione con separazione dei ruoli
+    
+    **Funzionalità principali**:
+    - **Autenticazione**: Login tradizionale e Google OAuth
+    - **Gestione utenti**: Registrazione, profili, ricerca
+    - **Proposte**: Creazione, moderazione, commenti, hype
+    - **Follow system**: Relazioni tra utenti
+    - **Gestione operatori**: Creazione e gestione account moderatori
+    
+    **Limitazioni note**:
+    - **Cambio password**: Non implementato per utenti esistenti
+    - **Reset password**: Non implementato automatico
+    - **Separazione ruoli**: Admin limitati alla gestione operatori
+    
+    **Soluzioni alternative**:
+    - Per cambio password: Supporto tecnico o re-registrazione
+    - Per admin che devono moderare: Creare account operatore separato
     
     ## Autenticazione e Sicurezza
     
@@ -48,9 +64,20 @@ info:
     - **Sicurezza**: Token firmati con `JWT_SECRET` configurabile
     - **Admin Speciale**: Credenziali admin hardcoded per accesso privilegiato
     
-    ### Sicurezza Password
+    ### Gestione Password
     
-    I requisiti minimi per le password sono:
+    **IMPORTANTE**: L'API attualmente NON fornisce un endpoint per cambiare password esistenti.
+    
+    **Endpoint disponibili**:
+    - **Impostazione password**: `PATCH /api/auth/password` - Solo per utenti senza password (es. OAuth-only)
+    - **Cambio password**: **NON IMPLEMENTATO** - Richiede nuovo login se password dimenticata
+    
+    **Casi d'uso supportati**:
+    - Utenti con password: Possono fare login con password esistente
+    - Utenti OAuth-only: Possono impostare una password tramite `/api/auth/password`
+    - Utenti che dimenticano password: Devono richiedere reset tramite supporto o re-registrazione
+    
+    **Requisiti minimi per le password sono**:
     - **8 caratteri** minimo
     - **1 lettera maiuscola** 
     - **1 lettera minuscola**
@@ -91,6 +118,9 @@ info:
     - ✅ **Gestione Operatori**: Creare, eliminare e gestire account operatori (`/api/operatori`)
     - ❌ **NON possono**: Moderare proposte, vedere commenti globali, accedere ai dati utente
     
+    **IMPORTANTE**: Gli admin sono limitati alla gestione degli account operatori e non hanno 
+    accesso alle funzionalità di moderazione. Questo è un design di sicurezza intenzionale.
+    
     ### Operatori  
     Gli operatori gestiscono la moderazione e la gestione utenti:
     - ✅ **Moderazione**: Approvare/rifiutare proposte (`/api/proposte/pending`)
@@ -98,12 +128,40 @@ info:
     - ✅ **Utenti**: Vedere tutti i dati utente inclusi email e codice fiscale (`/api/user`)
     - ❌ **NON possono**: Gestire altri operatori
     
+    **IMPORTANTE**: Solo gli operatori possono moderare proposte e vedere commenti globali.
+    Gli admin non hanno accesso a queste funzionalità per mantenere la separazione dei ruoli.
+    
     ### Utenti Privati ed Enti
     Gli utenti normali gestiscono solo i propri contenuti:
     - ✅ **Proposte**: Creare e gestire le proprie proposte
     - ✅ **Commenti**: Commentare proposte approvate
     - ✅ **Follow**: Seguire altri utenti
     - ❌ **NON possono**: Moderare, vedere dati sensibili di altri utenti
+    
+    ## Separazione dei Ruoli e Sicurezza
+    
+    ### Design di Sicurezza Intenzionale
+    
+    **Separazione Admin-Operatori**: Il sistema implementa una separazione intenzionale dei ruoli:
+    
+    - **Admin**: Gestiscono solo gli account operatori, non hanno accesso ai contenuti
+    - **Operatori**: Moderano contenuti e gestiscono utenti, non possono gestire altri operatori
+    - **Utenti**: Creano e gestiscono solo i propri contenuti
+    
+    **Vantaggi di questa separazione**:
+    - **Principio del minimo privilegio**: Ogni ruolo ha solo i permessi necessari
+    - **Controllo degli accessi**: Gli admin non possono abusare dei privilegi di moderazione
+    - **Audit trail**: Separazione chiara delle responsabilità per compliance
+    
+    **Limitazioni intenzionali**:
+    - Gli admin NON possono moderare proposte (endpoint `/api/proposte/pending` bloccato)
+    - Gli admin NON possono vedere commenti globali (endpoint `/api/proposte/commenti` bloccato)
+    - Gli admin NON possono vedere dati utente completi (endpoint `/api/user` bloccato)
+    
+    **Se è necessario un ruolo con privilegi elevati**:
+    - Creare un account operatore con permessi speciali
+    - Utilizzare l'account operatore per le operazioni di moderazione
+    - Mantenere l'account admin solo per la gestione degli operatori
     
     ## Modello Utente Unificato
     
@@ -195,6 +253,52 @@ info:
     - Formati supportati: JPEG, PNG, GIF, WebP
     
     **Nota**: I limiti sono applicati separatamente per profilo e proposte, ma entrambi sono 5MB.
+
+    ## Limitazioni Note e Soluzioni
+    
+    ### Funzionalità Non Implementate
+    
+    **Cambio Password**: L'API non fornisce un endpoint per cambiare password esistenti.
+    
+    **Soluzioni alternative**:
+    1. **Per utenti con password dimenticata**: Richiedere supporto tecnico o re-registrazione
+    2. **Per utenti OAuth**: Possono continuare a usare Google per l'accesso
+    3. **Per implementazione futura**: Aggiungere endpoint `PATCH /api/auth/change-password`
+    
+    **Reset Password**: Non è implementato un sistema di reset password automatico.
+    
+    **Soluzioni alternative**:
+    1. **Supporto manuale**: Contattare l'amministratore per reset
+    2. **Re-registrazione**: Creare nuovo account con stessa email (se supportato)
+    3. **OAuth alternativo**: Utilizzare Google Sign-In se disponibile
+    
+    ### Workaround per Admin
+    
+    **Se un admin deve moderare contenuti**:
+    
+    ```bash
+    # 1. Creare un account operatore
+    POST /api/operatori
+    {
+      "nome": "Admin Moderatore",
+      "email": "admin.moderatore@incrowd.com",
+      "password": "OperatorePass123!"
+    }
+    
+    # 2. Fare login con l'account operatore
+    POST /api/auth/login
+    {
+      "email": "admin.moderatore@incrowd.com",
+      "password": "OperatorePass123!"
+    }
+    
+    # 3. Utilizzare i permessi di operatore per moderare
+    GET /api/proposte/pending    # Vedere proposte in attesa
+    PATCH /api/proposte/:id/stato  # Approvare/rifiutare proposte
+    GET /api/proposte/commenti   # Vedere commenti globali
+    ```
+    
+    **IMPORTANTE**: Mantenere sempre separati gli account admin e operatore per sicurezza.
 
 servers:
   - url: https://api.incrowd.com
@@ -496,9 +600,22 @@ paths:
     patch:
       tags:
         - Authentication
-      operationId: changePassword
-      summary: Cambia password
-      description: Cambia la password per utenti privati ed enti
+      operationId: setPassword
+      summary: Imposta password per utenti senza password
+      description: |
+        Imposta la password per utenti (privati ed enti) che non ne hanno una.
+        
+        **IMPORTANTE**: Questo endpoint NON permette di cambiare una password esistente.
+        È utilizzato solo per impostare una password per utenti che si sono registrati 
+        tramite Google OAuth e non hanno ancora impostato una password tradizionale.
+        
+        **Requisiti**:
+        - Utente deve essere autenticato
+        - Utente non deve avere già una password impostata
+        
+        **Casi d'uso**:
+        - Utenti registrati con Google che vogliono aggiungere una password
+        - Completamento profilo per utenti OAuth-only
       security:
         - bearerAuth: []
       requestBody:
@@ -508,29 +625,30 @@ paths:
             schema:
               type: object
               required:
-                - currentPassword
                 - newPassword
               properties:
-                currentPassword:
-                  type: string
-                  example: "OldPassword123!"
                 newPassword:
                   type: string
                   example: "NewPassword456!"
-                  description: "Deve rispettare i requisiti di sicurezza"
+                  description: "Nuova password da impostare. Deve rispettare i requisiti di sicurezza"
       responses:
         '200':
-          description: Password aggiornata con successo
+          description: Password impostata con successo
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserComplete'
                   message:
                     type: string
-                    example: "Password aggiornata con successo"
+                    example: "Password impostata con successo"
         '400':
-          description: Dati non validi o password non sicura
+          description: Password già esistente o dati non validi
           content:
             application/json:
               schema:
@@ -538,7 +656,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Password non valida"
+                    example: "La password è già stata impostata. Usa la funzione di cambio password."
                   error:
                     type: object
                     properties:
@@ -564,6 +682,15 @@ paths:
         **Dati inclusi**: Nome, biografia, foto profilo, email, codice fiscale
         **Sicurezza**: Include dati sensibili non visibili agli utenti pubblici
         **Utilizzo**: Per gestione amministrativa e moderazione
+        
+        **IMPORTANTE**: Gli admin non possono accedere a questo endpoint per vedere i dati utente.
+        Gli admin possono solo gestire gli account operatori. Questa è una limitazione 
+        di sicurezza intenzionale per mantenere la separazione dei ruoli.
+        
+        **Per vedere i dati utente come admin**:
+        1. Creare un account operatore tramite `/api/operatori`
+        2. Utilizzare l'account operatore per accedere a questo endpoint
+        3. Mantenere l'account admin solo per la gestione degli operatori
       security:
         - bearerAuth: []
       responses:
@@ -1203,9 +1330,18 @@ paths:
       description: |
         Recupera tutti i commenti da tutte le proposte (solo operatori).
         
-        **Accesso**: Solo operatori
+        **Accesso**: Solo operatori autenticati (NO admin)
         **Ordinamento**: Per data commento (più recenti prima)
         **Dati inclusi**: Proposta (titolo, ID) e utente (nome, cognome)
+        
+        **IMPORTANTE**: Gli admin non possono accedere a questo endpoint per vedere commenti globali.
+        Gli admin possono solo gestire gli account operatori. Questa è una limitazione 
+        di sicurezza intenzionale per mantenere la separazione dei ruoli.
+        
+        **Per vedere commenti globali come admin**:
+        1. Creare un account operatore tramite `/api/operatori`
+        2. Utilizzare l'account operatore per accedere a questo endpoint
+        3. Mantenere l'account admin solo per la gestione degli operatori
       security:
         - bearerAuth: []
       responses:
@@ -1491,13 +1627,19 @@ paths:
       description: |
         Recupera le proposte in attesa di approvazione (solo operatori).
         
-        **Accesso**: Solo operatori (NO admin)
+        **Accesso**: Solo operatori autenticati (NO admin)
         **Stato**: Solo proposte con stato "bozza"
         **Ordinamento**: Per data di creazione (più recenti prima)
         **Utilizzo**: Per moderazione e revisione proposte
         
-        **Nota**: Gli admin non possono accedere a questo endpoint per moderare proposte.
-        Gli admin possono solo gestire gli account operatori.
+        **IMPORTANTE**: Gli admin non possono accedere a questo endpoint per moderare proposte.
+        Gli admin possono solo gestire gli account operatori. Questa è una limitazione 
+        di sicurezza intenzionale per mantenere la separazione dei ruoli.
+        
+        **Per moderare proposte come admin**:
+        1. Creare un account operatore tramite `/api/operatori`
+        2. Utilizzare l'account operatore per accedere a questo endpoint
+        3. Mantenere l'account admin solo per la gestione degli operatori
       security:
         - bearerAuth: []
       responses:

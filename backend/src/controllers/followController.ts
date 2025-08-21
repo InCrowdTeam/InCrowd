@@ -118,10 +118,12 @@ export const getFollowers = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followerInfo = await findUserOrEnte(follow.followerId.toString());
       if (followerInfo) {
+        // Normalizza i campi: per gli enti usa nome_org come nome visualizzato
+        const displayName = followerInfo.entity.nome || followerInfo.entity.nome_org || '';
         const followerData = {
           _id: followerInfo.entity._id,
-          nome: followerInfo.entity.nome,
-          cognome: followerInfo.entity.cognome,
+          nome: displayName,
+          cognome: followerInfo.entity.cognome, // undefined per enti
           biografia: followerInfo.entity.biografia,
           fotoProfilo: followerInfo.entity.fotoProfilo,
           userType: followerInfo.type
@@ -153,10 +155,12 @@ export const getFollowing = async (req: Request, res: Response) => {
     for (const follow of follows) {
       const followingInfo = await findUserOrEnte(follow.followingId.toString());
       if (followingInfo) {
+        // Normalizza i campi: per gli enti usa nome_org come nome visualizzato
+        const displayName = followingInfo.entity.nome || followingInfo.entity.nome_org || '';
         const followingData = {
           _id: followingInfo.entity._id,
-          nome: followingInfo.entity.nome,
-          cognome: followingInfo.entity.cognome,
+          nome: displayName,
+          cognome: followingInfo.entity.cognome, // undefined per enti
           biografia: followingInfo.entity.biografia,
           fotoProfilo: followingInfo.entity.fotoProfilo,
           userType: followingInfo.type

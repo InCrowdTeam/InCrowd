@@ -337,9 +337,7 @@ const loadingHyped = ref(false);
 
 // Dati follow
 const followStatus = ref<FollowStatus>({
-  isFollowing: false,
-  followersCount: 0,
-  followingCount: 0
+  isFollowing: false
 });
 const followStats = ref({
   followersCount: 0,
@@ -456,7 +454,7 @@ const loadFollowStatus = async () => {
     followStatus.value = await followStore.loadFollowStatus(userId.value);
   } catch (err) {
     console.error('❌ Errore nel caricamento del follow status:', err);
-    followStatus.value = { isFollowing: false, followersCount: 0, followingCount: 0 };
+    followStatus.value = { isFollowing: false };
   }
 };
 

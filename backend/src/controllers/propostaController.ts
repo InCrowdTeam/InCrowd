@@ -1,6 +1,7 @@
 
 
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
 import Privato from "../models/Privato"; // Rinominato da User
@@ -674,6 +675,13 @@ export const deleteCommento = async (req: AuthenticatedRequest, res: Response) =
     // Verifica che i parametri siano validi
     if (!propostaId || !commentoId) {
       return res.status(400).json(apiResponse({ message: "Parametri mancanti" }));
+    }
+
+    // Valida formato ObjectId per evitare errori 500
+    const validPropostaId = mongoose.Types.ObjectId.isValid(propostaId);
+    const validCommentoId = mongoose.Types.ObjectId.isValid(commentoId);
+    if (!validPropostaId || !validCommentoId) {
+      return res.status(400).json(apiResponse({ message: "ID non valido" }));
     }
 
     // Verifica che la proposta esista
