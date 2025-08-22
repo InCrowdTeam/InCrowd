@@ -407,6 +407,11 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
     const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     
+    // Controllo che la proposta sia approvata prima di permettere hype
+    if (proposta.stato?.stato !== 'approvata') {
+      return res.status(403).json(apiResponse({ message: "Non è possibile hypare proposte non approvate" }));
+    }
+    
     // Inizializza listaHyper se non esiste
     if (!proposta.listaHyper) {
       proposta.listaHyper = [];
@@ -465,12 +470,18 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
       return res.status(400).json(apiResponse({ message: "Il commento non può superare i 500 caratteri" }));
     }
 
-    // Crea il commento
+    // Verifica che la proposta esista e sia approvata
     const proposta = await Proposta.findById(propostaId);
     if (!proposta) {
       return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     }
+    
+    // Controllo che la proposta sia approvata prima di permettere commenti
+    if (proposta.stato?.stato !== 'approvata') {
+      return res.status(403).json(apiResponse({ message: "Non è possibile commentare proposte non approvate" }));
+    }
 
+    // Crea il commento
     const nuovoCommento = new Commento({
       proposta: propostaId,
       utente: req.user.userId,

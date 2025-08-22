@@ -25,7 +25,7 @@ describe('RF8 - Inserimento proposta', () => {
     expect(userId).toBeDefined();
   });
 
-  test('Creazione proposta valida', async () => {
+  test('RF8.1 - Creazione proposta valida', async () => {
     const propostaData = {
       titolo: 'Nuova Proposta Test',
       descrizione: 'Descrizione della proposta di test',
@@ -69,7 +69,7 @@ describe('RF8 - Inserimento proposta', () => {
     expect(getRes.data?.data._id).toBe(createdPropostaId);
   });
 
-  test('Creazione proposta senza descrizione -> 400', async () => {
+  test('RF8.2 - Creazione proposta senza descrizione -> 400', async () => {
     const res = await makeRequest('POST', '/proposte', {
       titolo: 'Senza descrizione',
       proponenteID: userId
@@ -79,7 +79,7 @@ describe('RF8 - Inserimento proposta', () => {
     expect([400, 500]).toContain(res.status);
   });
 
-  test('Non autenticato non può creare proposta', async () => {
+  test('RF8.3 - Non autenticato non può creare proposta', async () => {
     const res = await makeRequest('POST', '/proposte', {
       titolo: 'X',
       descrizione: 'Y',
@@ -91,7 +91,7 @@ describe('RF8 - Inserimento proposta', () => {
     expect(res.status).toBe(401);
   });
 
-  test('Proposta non approvata non è visibile pubblicamente', async () => {
+  test('RF8.4 - Proposta non approvata non è visibile pubblicamente', async () => {
     if (createdPropostaId) {
       // Test senza token (utente non autenticato)
       const res = await makeRequest('GET', `/proposte/${createdPropostaId}`);
