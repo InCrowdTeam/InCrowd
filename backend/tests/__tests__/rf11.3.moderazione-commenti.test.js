@@ -10,13 +10,13 @@ describe('RF11.3 - Moderazione commenti', () => {
     // Crea operatore per i test
     const admin = await makeRequest('POST', '/auth/login', { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD });
     const adminToken = admin.data?.data?.token;
-    const opEmail = `rf113.op.${Date.now()}@test.com`;
+    const opEmail = `rf11.3.op.${Date.now()}@test.com`;
     await makeRequest('POST', '/operatori', { email: opEmail, nome: 'Op', cognome: 'Mod', password: 'Operatore123!' }, adminToken);
     const loginOp = await makeRequest('POST', '/auth/login', { email: opEmail, password: 'Operatore123!' });
     operatorToken = loginOp.data?.data?.token;
 
     // Crea utente e proposta per i test
-    const email = `rf113.user.${Date.now()}@test.com`;
+    const email = `rf11.3.user.${Date.now()}@test.com`;
     await makeRequest('POST', '/user', { user_type: 'privato', nome: 'U', cognome: 'M', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!' });
     const login = await makeRequest('POST', '/auth/login', { email, password: 'Password123!' });
     userToken = login.data?.data?.token;

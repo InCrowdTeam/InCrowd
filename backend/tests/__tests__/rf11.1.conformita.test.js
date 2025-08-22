@@ -8,13 +8,13 @@ describe('RF11.1 - Approvazione conformità', () => {
     // Crea operatore per i test
     const admin = await makeRequest('POST', '/auth/login', { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD });
     const adminToken = admin.data?.data?.token;
-    const opEmail = `rf11.op.${Date.now()}@test.com`;
+    const opEmail = `rf11.1.op.${Date.now()}@test.com`;
     await makeRequest('POST', '/operatori', { email: opEmail, nome: 'Op', cognome: 'Conf', password: 'Operatore123!' }, adminToken);
     const loginOp = await makeRequest('POST', '/auth/login', { email: opEmail, password: 'Operatore123!' });
     operatorToken = loginOp.data?.data?.token;
 
     // Crea utente e proposta per i test
-    const email = `rf11.user.${Date.now()}@test.com`;
+    const email = `rf11.1.user.${Date.now()}@test.com`;
     await makeRequest('POST', '/user', { user_type: 'privato', nome: 'U', cognome: 'C', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!' });
     const login = await makeRequest('POST', '/auth/login', { email, password: 'Password123!' });
     

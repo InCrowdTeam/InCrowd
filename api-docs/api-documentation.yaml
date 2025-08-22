@@ -25,18 +25,9 @@ info:
     - **Follow system**: Relazioni tra utenti
     - **Gestione operatori**: Creazione e gestione account moderatori
     
-    **Limitazioni note**:
-    - **Cambio password**: Non implementato per utenti esistenti
-    - **Reset password**: Non implementato automatico
-    - **Separazione ruoli**: Admin limitati alla gestione operatori
-    
-    **Soluzioni alternative**:
-    - Per cambio password: Supporto tecnico o re-registrazione
-    - Per admin che devono moderare: Creare account operatore separato
-    
     ## Autenticazione e Sicurezza
     
-    L'API utilizza autenticazione JWT (JSON Web Token) con flusso completo:
+    L'API utilizza autenticazione JWT
     
     ### Flusso di Autenticazione
     
@@ -54,28 +45,11 @@ info:
     - `userId`: ID univoco dell'utente nel database
     - `email`: Email dell'utente per identificazione
     - `userType`: Tipo utente (`privato`, `ente`, `operatore`, `admin`)
-    - `iat`: Timestamp di emissione
-    - `exp`: Timestamp di scadenza
     
-    ### Gestione Token
     
-    - **Refresh**: Non implementato - richiedere nuovo login alla scadenza
-    - **Revoca**: Token invalidati automaticamente alla logout
-    - **Sicurezza**: Token firmati con `JWT_SECRET` configurabile
-    - **Admin Speciale**: Credenziali admin hardcoded per accesso privilegiato
+    ### Gestione sicurezza
     
-    ### Gestione Password
-    
-    **IMPORTANTE**: L'API attualmente NON fornisce un endpoint per cambiare password esistenti.
-    
-    **Endpoint disponibili**:
-    - **Impostazione password**: `PATCH /api/auth/password` - Solo per utenti senza password (es. OAuth-only)
-    - **Cambio password**: **NON IMPLEMENTATO** - Richiede nuovo login se password dimenticata
-    
-    **Casi d'uso supportati**:
-    - Utenti con password: Possono fare login con password esistente
-    - Utenti OAuth-only: Possono impostare una password tramite `/api/auth/password`
-    - Utenti che dimenticano password: Devono richiedere reset tramite supporto o re-registrazione
+    **Parametrizzazione**: La sicurezza è parametrizzabile tramite variabile di ambiente `ENABLE_SECURITY_CONTROLS`
     
     **Requisiti minimi per le password sono**:
     - **8 caratteri** minimo
@@ -83,8 +57,6 @@ info:
     - **1 lettera minuscola**
     - **1 carattere speciale** (!@#$%^&*)
     
-    I controlli di sicurezza sono **abilitabili/disabilitabili** tramite 
-    variabile di ambiente `ENABLE_SECURITY_CONTROLS` (default: true).
     
     ## Struttura delle Response
     
@@ -101,15 +73,6 @@ info:
       }
     }
     ```
-    
-    ## Gestione Errori
-    
-    - **400 Bad Request**: Dati non validi o parametri mancanti
-    - **401 Unauthorized**: Token mancante, scaduto o non valido
-    - **403 Forbidden**: Permessi insufficienti per l'operazione
-    - **404 Not Found**: Risorsa non trovata
-    - **409 Conflict**: Conflitto (es. email già esistente)
-    - **500 Internal Server Error**: Errore interno del server
 
     ## Ruoli e Permessi
     
@@ -138,30 +101,6 @@ info:
     - ✅ **Follow**: Seguire altri utenti
     - ❌ **NON possono**: Moderare, vedere dati sensibili di altri utenti
     
-    ## Separazione dei Ruoli e Sicurezza
-    
-    ### Design di Sicurezza Intenzionale
-    
-    **Separazione Admin-Operatori**: Il sistema implementa una separazione intenzionale dei ruoli:
-    
-    - **Admin**: Gestiscono solo gli account operatori, non hanno accesso ai contenuti
-    - **Operatori**: Moderano contenuti e gestiscono utenti, non possono gestire altri operatori
-    - **Utenti**: Creano e gestiscono solo i propri contenuti
-    
-    **Vantaggi di questa separazione**:
-    - **Principio del minimo privilegio**: Ogni ruolo ha solo i permessi necessari
-    - **Controllo degli accessi**: Gli admin non possono abusare dei privilegi di moderazione
-    - **Audit trail**: Separazione chiara delle responsabilità per compliance
-    
-    **Limitazioni intenzionali**:
-    - Gli admin NON possono moderare proposte (endpoint `/api/proposte/pending` bloccato)
-    - Gli admin NON possono vedere commenti globali (endpoint `/api/proposte/commenti` bloccato)
-    - Gli admin NON possono vedere dati utente completi (endpoint `/api/user` bloccato)
-    
-    **Se è necessario un ruolo con privilegi elevati**:
-    - Creare un account operatore con permessi speciali
-    - Utilizzare l'account operatore per le operazioni di moderazione
-    - Mantenere l'account admin solo per la gestione degli operatori
     
     ## Modello Utente Unificato
     
@@ -205,30 +144,6 @@ info:
     - Un utente può registrarsi con Google e poi impostare una password
     - Entrambi i metodi sono validi per l'autenticazione
     
-    ### Campi Calcolati Lato Frontend
-    
-    **IMPORTANTE**: I seguenti campi NON sono calcolati lato server ma dal frontend:
-    - `followersCount`: Numero di follower (calcolato da `followers.length`)
-    - `followingCount`: Numero di utenti seguiti (calcolato da `following.length`)
-    - `hype`: Per le proposte, equivale alla lunghezza di `listaHyper` (calcolato da `listaHyper.length`)
-    
-    **Nota**: Il backend fornisce solo gli array completi, i contatori sono calcolati lato client tramite `array.length`.
-    
-    ### Sicurezza e Visibilità Dati
-    
-    **Dati sempre visibili** (pubblici):
-    - Nome, cognome/nome_org, biografia, foto profilo, data creazione
-    
-    **Dati visibili solo agli operatori** (autenticati):
-    - Email, codice fiscale
-    
-    **Endpoint pubblici** (senza autenticazione):
-    - Ricerca utenti (`/api/user/search`)
-    - Visualizzazione profilo utente (`/api/user/{id}`)
-    - Lista proposte (`/api/proposte`)
-    
-    **Nota**: Gli endpoint pubblici restituiscono dati diversi in base al ruolo dell'utente autenticato.
-    
     ### Visibilità Condizionale dei Dati Utente
     
     La visibilità dei dati utente varia in base al ruolo dell'utente che fa la richiesta:
@@ -254,57 +169,10 @@ info:
     
     **Nota**: I limiti sono applicati separatamente per profilo e proposte, ma entrambi sono 5MB.
 
-    ## Limitazioni Note e Soluzioni
-    
-    ### Funzionalità Non Implementate
-    
-    **Cambio Password**: L'API non fornisce un endpoint per cambiare password esistenti.
-    
-    **Soluzioni alternative**:
-    1. **Per utenti con password dimenticata**: Richiedere supporto tecnico o re-registrazione
-    2. **Per utenti OAuth**: Possono continuare a usare Google per l'accesso
-    3. **Per implementazione futura**: Aggiungere endpoint `PATCH /api/auth/change-password`
-    
-    **Reset Password**: Non è implementato un sistema di reset password automatico.
-    
-    **Soluzioni alternative**:
-    1. **Supporto manuale**: Contattare l'amministratore per reset
-    2. **Re-registrazione**: Creare nuovo account con stessa email (se supportato)
-    3. **OAuth alternativo**: Utilizzare Google Sign-In se disponibile
-    
-    ### Workaround per Admin
-    
-    **Se un admin deve moderare contenuti**:
-    
-    ```bash
-    # 1. Creare un account operatore
-    POST /api/operatori
-    {
-      "nome": "Admin Moderatore",
-      "email": "admin.moderatore@incrowd.com",
-      "password": "OperatorePass123!"
-    }
-    
-    # 2. Fare login con l'account operatore
-    POST /api/auth/login
-    {
-      "email": "admin.moderatore@incrowd.com",
-      "password": "OperatorePass123!"
-    }
-    
-    # 3. Utilizzare i permessi di operatore per moderare
-    GET /api/proposte/pending    # Vedere proposte in attesa
-    PATCH /api/proposte/:id/stato  # Approvare/rifiutare proposte
-    GET /api/proposte/commenti   # Vedere commenti globali
-    ```
-    
-    **IMPORTANTE**: Mantenere sempre separati gli account admin e operatore per sicurezza.
 
 servers:
-  - url: https://api.incrowd.com
+  - url: https://incrowd-api.giacomoberti.com
     description: Server di produzione
-  - url: http://localhost:3000
-    description: Server di sviluppo locale
 
 paths:
   # ROOT E PING
@@ -754,9 +622,6 @@ paths:
         **Campi specifici per privati:**
         - cognome (obbligatorio)
         
-        **Campi specifici per enti:**
-        - nome_org (obbligatorio)
-        - nome (opzionale, referente)
       security: []
       requestBody:
         required: true
@@ -777,15 +642,12 @@ paths:
                   example: "privato"
                 nome:
                   type: string
-                  example: "Mario"
+                  example: "Mario -- Comune di Trento"
+                  description: "Nome visualizzato, può essere il nome di una persona o un'organizzazione"
                 cognome:
                   type: string
                   example: "Rossi"
                   description: "Obbligatorio per user_type='privato'"
-                nome_org:
-                  type: string
-                  example: "Comune di Roma"
-                  description: "Obbligatorio per user_type='ente'"
                 codiceFiscale:
                   type: string
                   example: "RSSMRA80A01H501U"
@@ -878,15 +740,12 @@ paths:
               properties:
                 nome:
                   type: string
-                  example: "Mario"
+                  example: "Mario - Comune di Trento"
+                  description: "Nome visualizzato, può essere il nome di una persona o un'organizzazione"
                 cognome:
                   type: string
                   example: "Rossi"
                   description: "Solo per utenti privati"
-                nome_org:
-                  type: string
-                  example: "Comune di Milano"
-                  description: "Solo per enti"
                 biografia:
                   type: string
                   example: "Nuova biografia"
@@ -943,7 +802,7 @@ paths:
       operationId: searchUsers
       summary: Cerca utenti
       description: |
-        Cerca utenti per nome, cognome, nome_org o biografia.
+        Cerca utenti per nome, cognome o biografia.
         
         **Sicurezza**: 
         - Endpoint pubblico accessibile senza autenticazione
@@ -953,7 +812,7 @@ paths:
         **Esempi di ricerca:**
         - `?q=Mario` - Cerca "Mario" in tutti i campi
         - `?q=Comune&user_type=ente` - Cerca "Comune" solo negli enti
-        - `?q=sviluppatore&limit=20` - Cerca "sviluppatore" con limite 20 risultati
+        - `?q=sviluppatore` - Cerca "sviluppatore" in tutti i campi
       security: []
       parameters:
         - name: q
@@ -971,21 +830,7 @@ paths:
             enum: [privato, ente]
           example: "privato"
           description: "Filtra per tipo utente"
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 50
-            default: 10
-          example: 10
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          example: 1
+
       responses:
         '200':
           description: Risultati ricerca
@@ -1004,12 +849,6 @@ paths:
                       total:
                         type: integer
                         example: 25
-                      page:
-                        type: integer
-                        example: 1
-                      limit:
-                        type: integer
-                        example: 10
                   message:
                     type: string
                     example: "Ricerca completata"
@@ -1027,10 +866,9 @@ paths:
                           email: "mario.rossi@email.com"
                         - _id: "64a1b2c3d4e5f678901235"
                           user_type: "ente"
-                          nome_org: "Comune di Roma"
-                          nome: "Mario"
+                          nome: "Comune di Trento"
                           biografia: "Amministrazione comunale"
-                          email: "mario.bianchi@comune.roma.it"
+                          email: "info@comune.trento.it"
                       total: 2
                     message: "Ricerca completata"
         '400':
@@ -1117,10 +955,9 @@ paths:
                       user:
                         _id: "64a1b2c3d4e5f678901235"
                         user_type: "ente"
-                        nome_org: "Comune di Roma"
-                        nome: "Mario Bianchi"
+                        nome: "Comune di Trento"
                         biografia: "Amministrazione comunale"
-                        email: "mario.bianchi@comune.roma.it"
+                        email: "info@comune.trento.it"
                         fotoProfilo:
                           data: "image/png"
                         createdAt: "2024-02-20T14:15:00.000Z"
@@ -1133,8 +970,7 @@ paths:
                       user:
                         _id: "64a1b2c3d4e5f678901235"
                         user_type: "ente"
-                        nome_org: "Comune di Roma"
-                        nome: "Mario Bianchi"
+                        nome: "Comune di Trento"
                         biografia: "Amministrazione comunale"
                         fotoProfilo:
                           data: "image/png"
@@ -1281,16 +1117,16 @@ paths:
                   properties:
                     via:
                       type: string
-                      example: "Via Roma, 123"
+                      example: "Via Belenzani, 1"
                     citta:
                       type: string
-                      example: "Roma"
+                      example: "Trento"
                     cap:
                       type: string
-                      example: "00100"
+                      example: "38121"
                     provincia:
                       type: string
-                      example: "RM"
+                      example: "TN"
                 dataIpotetica:
                   type: string
                   format: date-time
@@ -1525,7 +1361,7 @@ paths:
           in: query
           schema:
             type: string
-          example: "Roma"
+          example: "Gardolo"
           description: "Città specifica"
         - name: stato
           in: query
@@ -2500,10 +2336,6 @@ components:
               type: string
               example: "Rossi"
               description: "Cognome dell'utente. Presente solo per user_type='privato'"
-            nome_org:
-              type: string
-              example: "Comune di Roma" 
-              description: "Nome dell'organizzazione. Presente solo per user_type='ente'"
             email:
               type: string
               format: email
@@ -2583,10 +2415,6 @@ components:
               type: string
               example: "Rossi"
               description: "Cognome dell'utente. Presente solo per user_type='privato'"
-            nome_org:
-              type: string
-              example: "Comune di Roma" 
-              description: "Nome dell'organizzazione. Presente solo per user_type='ente'"
             userType:
               type: string
               enum: [privato, ente]
@@ -2643,17 +2471,17 @@ components:
           example: "64a1b2c3d4e5f678901234"
         titolo:
           type: string
-          example: "Nuovo parco cittadino"
+          example: "Corso di cucina molecolare"
         descrizione:
           type: string
-          example: "Proposta per la creazione di un parco"
+          example: "Proposta per la creazione di un corso di cucina molecolare"
         proponenteID:
           type: string
           example: "64a1b2c3d4e5f678901235"
           description: "ID del proponente (può essere privato o ente)"
         categoria:
           type: string
-          example: "Ambiente"
+          example: "Corsi e workshop"
         foto:
           $ref: '#/components/schemas/Allegato'
           description: "Immagine della proposta (max 5MB)"
@@ -2690,24 +2518,24 @@ components:
 
     StatoProposta:
       type: string
-      enum: [bozza, pubblicata, in_corso, completata, respinta]
-      example: "pubblicata"
+      enum: [in_approvazione, approvata, rifiutata]
+      example: "approvata"
 
     Indirizzo:
       type: object
       properties:
         via:
           type: string
-          example: "Via Roma, 123"
+          example: "Via Belenzani, 1"
         citta:
           type: string
-          example: "Roma"
+          example: "Trento"
         cap:
           type: string
-          example: "00100"
+          example: "38121"
         provincia:
           type: string
-          example: "RM"
+          example: "TN"
 
   responses:
     BadRequest:

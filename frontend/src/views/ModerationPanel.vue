@@ -154,10 +154,16 @@
             <div class="info-item">
               <span class="label">📍 Luogo:</span>
               <span class="value">
-                {{ detailsProposal.indirizzo?.citta || 'Non specificato' }}
-                <span v-if="detailsProposal.indirizzo?.via">
-                  , {{ detailsProposal.indirizzo.via }}
-                  <span v-if="detailsProposal.indirizzo?.civico">{{ detailsProposal.indirizzo.civico }}</span>
+                {{ detailsProposal.luogo?.citta || 'Non specificato' }}
+                <span v-if="detailsProposal.luogo?.via">
+                  , {{ detailsProposal.luogo.via }}
+                  <span v-if="detailsProposal.luogo?.civico">{{ detailsProposal.luogo.civico }}</span>
+                </span>
+                <span v-if="detailsProposal.luogo?.cap">
+                  , {{ detailsProposal.luogo.cap }}
+                </span>
+                <span v-if="detailsProposal.luogo?.provincia">
+                  ({{ detailsProposal.luogo.provincia }})
                 </span>
               </span>
             </div>
@@ -238,8 +244,9 @@ const changeState = async (propostaId: string, stato: string, commento: string =
 
 const approveProposal = async (proposta: any) => {
   const result = await showConfirm(
-    "Approva proposta",
-    `Sei sicuro di voler approvare "${proposta.titolo}"?`
+    `Sei sicuro di voler approvare "${proposta.titolo}"?`,
+    "Approva Proposta",
+    "Approva"
   );
   
   if (result) {
@@ -249,9 +256,9 @@ const approveProposal = async (proposta: any) => {
 
 const rejectProposal = async (proposta: any) => {
   const result = await showConfirm(
-    "⚠️", 
+    `Stai per rifiutare la proposta: "${proposta.titolo}". Questa azione non può essere annullata.`, 
     "Rifiuta Proposta", 
-    `Stai per rifiutare la proposta: "${proposta.titolo}". Questa azione non può essere annullata.`
+    "Rifiuta"
   )
   
   if (result) {

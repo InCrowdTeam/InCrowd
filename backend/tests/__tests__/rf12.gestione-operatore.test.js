@@ -10,7 +10,7 @@ describe('RF12 - Gestione operatore', () => {
   });
 
   test('RF12.1 - Admin crea operatore', async () => {
-    const email = `rf12.${Date.now()}@incrowd.com`;
+    const email = `rf12.${Date.now()}@test.com`;
     const res = await makeRequest('POST', '/operatori', { email, nome: 'Operatore', cognome: 'RF12', password: 'Operatore123!' }, adminToken);
     createdId = res.data?.data?._id;
     expect([200, 201]).toContain(res.status);
@@ -28,7 +28,7 @@ describe('RF12 - Gestione operatore', () => {
   });
 
   test('RF12.4 - Creazione operatore con email duplicata -> 409', async () => {
-    const email = `rf12.dup.${Date.now()}@incrowd.com`;
+    const email = `rf12.dup.${Date.now()}@test.com`;
     await makeRequest('POST', '/operatori', { email, nome: 'Op', cognome: 'Dup', password: 'Operatore123!' }, adminToken);
     const res = await makeRequest('POST', '/operatori', { email, nome: 'Op', cognome: 'Dup', password: 'Operatore123!' }, adminToken);
     expect(res.success).toBe(false);
