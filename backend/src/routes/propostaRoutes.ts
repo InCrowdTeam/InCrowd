@@ -140,9 +140,10 @@ router.post("/", authMiddleware, requireRole("privato", "ente"), upload.single("
  * - id: string (obbligatorio) - ID della proposta
  * 
  * Risposta: Dettagli completi della proposta con proponente e commenti
- * Accesso: Pubblico (senza autenticazione)
+ * Accesso: Pubblico (senza autenticazione) o proprietario autenticato
  * 
- * NOTA: Solo proposte approvate sono visibili pubblicamente
+ * NOTA: Solo proposte approvate sono visibili pubblicamente.
+ * Il proprietario può vedere le proprie proposte indipendentemente dallo stato.
  */
 router.get("/:id", getPropostaById);
 

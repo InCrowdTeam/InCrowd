@@ -163,11 +163,29 @@ export async function deleteCommento(propostaId: string, commentoId: string, tok
   return body.data ?? body;
 }
 
-export async function getPropostaById(id: string) {
-  const res = await fetch(`${BASE_URL}/${id}`);
+export async function getPropostaById(id: string, token?: string) {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const res = await fetch(`${BASE_URL}/${id}`, { headers });
   
   if (!res.ok) {
     const error = await res.json();
+
+    // Gestione specifica per errori di accesso negato
+    if (res.status === 403 && error.message && error.message.includes('Accesso negato')) {
+      throw new Error(error.message);
+    }
+
+    // Gestione per proposte non trovate
+    if (res.status === 404) {
+      throw new Error('Proposta non trovata');
+    }
+
+    // Gestione per altri errori
     throw new Error(error.message || 'Errore nel recupero della proposta');
   }
 

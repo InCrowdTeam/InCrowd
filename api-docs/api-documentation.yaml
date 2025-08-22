@@ -1697,9 +1697,10 @@ paths:
       description: |
         Recupera i dettagli completi di una proposta specifica.
         
-        **Accesso**: Pubblico senza autenticazione
+        **Accesso**: Pubblico senza autenticazione O proprietario autenticato
         **Dati inclusi**: Tutti i campi della proposta, proponente, commenti
         **Stato**: Solo proposte approvate sono visibili pubblicamente
+        **Sicurezza**: Il proprietario può vedere le proprie proposte indipendentemente dallo stato (in_approvazione, rifiutata, etc.)
       security: []
       parameters:
         - name: id
@@ -1725,6 +1726,16 @@ paths:
                   message:
                     type: string
                     example: "Proposta recuperata con successo"
+        '403':
+          description: Accesso negato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Accesso negato: proposta non ancora approvata o rifiutata"
         '404':
           $ref: '#/components/responses/NotFound'
     delete:

@@ -21,7 +21,7 @@ describe('RF1 - Registrazione', () => {
       nome: 'Comune Test', // nome is now the organization name
       codiceFiscale: 'RSSMRA85C03H501U',
       email: uniqueEmail(),
-      oauthCode: 'fake-oauth-code'
+      oauthCode: 'codice-oauth'
     });
     expect([201, 200]).toContain(res.status);
   });
@@ -51,7 +51,7 @@ describe('RF1 - Registrazione', () => {
   test('Email duplicata -> 409', async () => {
     const email = uniqueEmail();
     await makeRequest('POST', '/user', {
-      user_type: 'privato', nome: 'Dup', cognome: 'Case', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!'
+      user_type: 'privato', nome: 'First', cognome: 'Case', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!'
     });
     const res = await makeRequest('POST', '/user', {
       user_type: 'privato', nome: 'Dup', cognome: 'Case', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!'

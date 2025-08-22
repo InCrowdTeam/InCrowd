@@ -668,7 +668,8 @@ onMounted(async () => {
   if (propostaId) {
     try {
       // Carica la proposta usando il service
-      proposta.value = await PropostaService.loadProposta(propostaId);
+      // Passa il token se l'utente è autenticato per vedere proposte non approvate
+      proposta.value = await PropostaService.loadProposta(propostaId, userStore.token);
       
       // Carica il proponente se presente
       if (proposta.value && proposta.value.proponenteID) {
@@ -682,9 +683,23 @@ onMounted(async () => {
       
       // Carica i commenti
       await caricaCommenti();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Errore nel caricamento della proposta:", error);
-      showError("Errore nel caricamento della proposta", "Riprova più tardi.");
+
+      // Gestione specifica per errori di accesso negato
+      if (error.message && error.message.includes('non è ancora stata approvata') || error.message.includes('è stata rifiutata')) {
+        showError(
+          "Proposta non visibile pubblicamente",
+          "Questa proposta non è ancora stata approvata o è stata rifiutata e non è visibile pubblicamente. Se sei il proprietario, effettua il login per visualizzarla."
+        );
+      } else if (error.message && error.message.includes('Proposta non trovata')) {
+        showError(
+          "Proposta non trovata",
+          "La proposta richiesta non esiste o è stata rimossa."
+        );
+      } else {
+        showError("Errore nel caricamento della proposta", "Riprova più tardi.");
+      }
     }
   }
 });
