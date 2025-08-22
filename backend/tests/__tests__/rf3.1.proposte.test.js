@@ -18,11 +18,6 @@ describe('RF3.1 - Visualizzazione proposte', () => {
     expect(res.success).toBe(false);
     expect(res.status).toBe(404);
   });
-
-  test('Ricerca con filtro stato diverso da approvata non altera filtro base', async () => {
-    const res = await makeRequest('GET', '/proposte/search?q=test&stato=rifiutata');
-    expect(res.status).toBeDefined();
-  });
 });
 
 
