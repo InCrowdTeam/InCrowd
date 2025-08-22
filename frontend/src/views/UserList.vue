@@ -33,7 +33,7 @@
           class="search-input"
           type="text"
           v-model="search"
-          placeholder="Cerca utenti ed enti per nome, cognome o email..."
+          placeholder="Cerca utenti ed enti per nome e biografia..."
         />
         <div v-if="search" class="clear-search" @click="search = ''">✕</div>
       </div>
@@ -47,7 +47,6 @@
         
         <select v-model="sortBy" class="filter-select">
           <option value="name">Ordina per nome</option>
-          <option value="email">Ordina per email</option>
           <option value="date">Ordina per data registrazione</option>
         </select>
       </div>
@@ -329,7 +328,6 @@ const filteredUsers = computed(() => {
     filtered = filtered.filter(user =>
   user.nome.toLowerCase().includes(searchLower) ||
   (user.cognome && user.cognome.toLowerCase().includes(searchLower)) ||
-  user.email.toLowerCase().includes(searchLower) ||
   (user.biografia && user.biografia.toLowerCase().includes(searchLower))
     )
   }
@@ -339,8 +337,7 @@ const filteredUsers = computed(() => {
     switch (sortBy.value) {
       case 'name':
         return `${a.nome} ${a.cognome || ''}`.localeCompare(`${b.nome} ${b.cognome || ''}`)
-      case 'email':
-        return a.email.localeCompare(b.email)
+
       case 'date': {
         const dateA = new Date(a.createdAt || 0).getTime()
         const dateB = new Date(b.createdAt || 0).getTime()

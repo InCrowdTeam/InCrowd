@@ -22,7 +22,7 @@ describe('RF11.1 - Approvazione conformità', () => {
     const propostaData = {
       titolo: 'Proposta RF11 Test',
       descrizione: 'Proposta di test per conformità RF11',
-      categoria: 'Test',
+      categoria: 'cultura',
       proponenteID: login.data?.data?.user?._id,
       indirizzo_citta: 'Roma',
       indirizzo_cap: '00100',

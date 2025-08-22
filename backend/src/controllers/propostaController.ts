@@ -302,6 +302,15 @@ export const addProposta = async (req: Request, res: Response): Promise<void> =>
       stato.commento = "Nessun commento";
     }
 
+    // Validazione categoria obbligatoria
+    const categorieValide = ['cultura', 'concerti', 'mostreInstallazioni', 'sport', 'workshopCorsi', 'conferenze'];
+    if (!req.body.categoria || !categorieValide.includes(req.body.categoria)) {
+      res.status(400).json(apiResponse({ 
+        message: "Categoria obbligatoria. Valori ammessi: " + categorieValide.join(', ')
+      }));
+      return;
+    }
+
     const newProposta = new Proposta({
       titolo: req.body.titolo,
       descrizione: req.body.descrizione,

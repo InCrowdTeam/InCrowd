@@ -29,7 +29,7 @@ describe('RF8 - Inserimento proposta', () => {
     const propostaData = {
       titolo: 'Nuova Proposta Test',
       descrizione: 'Descrizione della proposta di test',
-      categoria: 'Test',
+      categoria: 'cultura',
       proponenteID: userId,
       indirizzo_citta: 'Milano',
       indirizzo_cap: '20100',
@@ -72,6 +72,7 @@ describe('RF8 - Inserimento proposta', () => {
   test('RF8.2 - Creazione proposta senza descrizione -> 400', async () => {
     const res = await makeRequest('POST', '/proposte', {
       titolo: 'Senza descrizione',
+      categoria: 'cultura',
       proponenteID: userId
     }, userToken);
 
@@ -83,7 +84,7 @@ describe('RF8 - Inserimento proposta', () => {
     const res = await makeRequest('POST', '/proposte', {
       titolo: 'X',
       descrizione: 'Y',
-      categoria: 'Z',
+      categoria: 'sport',
       proponenteID: userId
     });
 

@@ -9,7 +9,11 @@ const propostaSchema = new mongoose.Schema({
   proponenteID: {type: mongoose.Schema.Types.ObjectId, required: true}, // Riferimento generico - può essere Privato o Ente
   descrizione: {type: String, required: true},
   foto: {type: allegatoSchema},
-  categoria: {type: String},
+  categoria: {
+    type: String, 
+    required: true,
+    enum: ['cultura', 'concerti', 'mostreInstallazioni', 'sport', 'workshopCorsi', 'conferenze']
+  },
   luogo: {type: indirizzoSchema},
   dataIpotetica: {type: Date},
   listaHyper: [{ type: mongoose.Schema.Types.ObjectId }] // Array di ObjectId - il campo calcolato hype sarà length di questo array

@@ -34,7 +34,7 @@ describe('RF5 - Profilo personale', () => {
     const propostaData = {
       titolo: 'Proposta Test RF5',
       descrizione: 'Descrizione della proposta di test per RF5',
-      categoria: 'Test',
+      categoria: 'workshopCorsi',
       proponenteID: userId, // Imposta l'ID dell'utente autenticato
       indirizzo_citta: 'Milano',
       indirizzo_cap: '20100',

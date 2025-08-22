@@ -1099,6 +1099,7 @@ paths:
               required:
                 - titolo
                 - descrizione
+                - categoria
               properties:
                 titolo:
                   type: string
@@ -1110,8 +1111,15 @@ paths:
                   description: "Descrizione dettagliata"
                 categoria:
                   type: string
-                  example: "Ambiente"
-                  description: "Categoria della proposta"
+                  example: "cultura"
+                  description: "Categoria della proposta (obbligatoria)"
+                  enum:
+                    - cultura
+                    - concerti
+                    - mostreInstallazioni
+                    - sport
+                    - workshopCorsi
+                    - conferenze
                 luogo:
                   type: object
                   properties:

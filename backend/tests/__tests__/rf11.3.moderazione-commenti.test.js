@@ -25,7 +25,7 @@ describe('RF11.3 - Moderazione commenti', () => {
     const propostaData = {
       titolo: 'Moderazione Commenti Test',
       descrizione: 'Proposta di test per moderazione commenti RF11.3',
-      categoria: 'Test',
+      categoria: 'sport',
       proponenteID: login.data?.data?.user?._id,
       indirizzo_citta: 'Roma',
       indirizzo_cap: '00100',
@@ -107,7 +107,7 @@ describe('RF11.3 - Moderazione commenti', () => {
     const propostaData = {
       titolo: 'Proposta Non Approvata',
       descrizione: 'Test per verificare restrizioni',
-      categoria: 'Test',
+      categoria: 'sport',
       proponenteID: login.data?.data?.user?._id,
       indirizzo_citta: 'Milano',
       indirizzo_cap: '20100',

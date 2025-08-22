@@ -43,6 +43,7 @@
                 <label for="titolo" class="form-label">
                   <span class="label-icon">🎯</span>
                   Titolo della proposta
+                  <span class="required-asterisk">*</span>
                 </label>
                 <input 
                   type="text" 
@@ -58,6 +59,7 @@
                 <label for="categoria" class="form-label">
                   <span class="label-icon">🏷️</span>
                   Categoria
+                  <span class="required-asterisk">*</span>
                 </label>
                 <select id="categoria-select" v-model="form.categoria" class="form-select" required>
                   <option value="">Seleziona una categoria</option>
@@ -76,6 +78,7 @@
                 <label for="descrizione" class="form-label">
                   <span class="label-icon">📋</span>
                   Descrizione dettagliata
+                  <span class="required-asterisk">*</span>
                 </label>
                 <textarea 
                   id="descrizione" 
@@ -138,8 +141,7 @@
                   id="citta" 
                   v-model="form.indirizzo.citta" 
                   class="form-input"
-                  placeholder="Es: Milano"
-                  required 
+                  placeholder="Es: Milano" 
                 />
               </div>
               
@@ -153,8 +155,7 @@
                   id="cap" 
                   v-model="form.indirizzo.cap" 
                   class="form-input"
-                  placeholder="20100"
-                  required 
+                  placeholder="20100" 
                 />
               </div>
               
@@ -168,8 +169,7 @@
                   id="via" 
                   v-model="form.indirizzo.via" 
                   class="form-input"
-                  placeholder="Es: Via Roma"
-                  required 
+                  placeholder="Es: Via Roma" 
                 />
               </div>
               
@@ -183,8 +183,7 @@
                   id="civico" 
                   v-model="form.indirizzo.civico" 
                   class="form-input"
-                  placeholder="42"
-                  required 
+                  placeholder="42" 
                 />
               </div>
             </div>
@@ -199,8 +198,7 @@
                   type="date" 
                   id="data" 
                   v-model="form.dataIpotetica" 
-                  class="form-input"
-                  required 
+                  class="form-input" 
                 />
               </div>
 

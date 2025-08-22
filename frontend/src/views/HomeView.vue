@@ -208,20 +208,19 @@ const executeSearch = async () => {
     } else {
       // Ricerca utenti
       if (searchQuery.value) {
-        const response: SearchUsersResponse = await searchUsers(searchQuery.value)
-        let filteredUsers = response.data.users
+        const userType = userTypeFilter.value === 'all' ? undefined : userTypeFilter.value as ('privato' | 'ente')
+        const response: SearchUsersResponse = await searchUsers(searchQuery.value, userType)
         
-        // Applica il filtro per tipo utente
-        if (userTypeFilter.value !== 'all') {
-          filteredUsers = filteredUsers.filter(user => user.userType === userTypeFilter.value)
-        }
-        
-        searchUsersResults.value = filteredUsers
+        // Mappa user_type a userType per compatibilità
+        searchUsersResults.value = response.data.users.map(user => ({
+          ...user,
+          userType: user.user_type || user.userType || 'privato'
+        }))
         searchResults.value = []
 
         // Carica gli status di follow per tutti gli utenti trovati se l'utente è loggato e non è operatore/admin
         if (userStore.user && !userStore.isOperatore) {
-          const followPromises = filteredUsers
+          const followPromises = searchUsersResults.value
             .filter(user => user._id !== userStore.user?._id)
             .map(user => followStore.loadFollowStatus(user._id))
           
@@ -396,7 +395,7 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
             type="text"
             :placeholder="searchType === 'proposte' 
               ? 'Cerca proposte per titolo o descrizione...' 
-              : 'Cerca utenti per nome, cognome o email...'"
+              : 'Cerca utenti per nome e biografia...'"
             class="search-input"
             @input="onSearch"
           />
@@ -480,7 +479,7 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
               <label class="filter-label">Tipo Utente</label>
               <select v-model="userTypeFilter" @change="onSearch" class="filter-select">
                 <option value="all">Tutti</option>
-                <option value="user">👤 Utenti Privati</option>
+                <option value="privato">👤 Utenti Privati</option>
                 <option value="ente">🏢 Enti</option>
               </select>
             </div>
@@ -842,7 +841,7 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
             <div v-else-if="!searchExecuted" class="empty-utenti">
               <div class="empty-icon">👥</div>
               <h3>Inizia a cercare</h3>
-              <p>Inserisci nome, cognome o email per trovare utenti nella community</p>
+              <p>Inserisci nome o biografia per trovare utenti nella community</p>
             </div>
             
             <div v-else-if="searchUsersResults.length === 0" class="empty-utenti">
@@ -878,7 +877,7 @@ watch([() => userStore.isOperatore, () => selected.value], ([isOp, selectedValue
                     <h3 class="utente-nome">
                       {{ `${utente.nome || ''} ${utente.cognome || ''}`.trim() || 'Utente' }}
                     </h3>
-                    <p v-if="utente.credenziali?.email" class="utente-email">{{ utente.credenziali.email }}</p>
+
                     <p v-if="utente.biografia" class="utente-bio">{{ utente.biografia.substring(0, 100) }}{{ utente.biografia.length > 100 ? '...' : '' }}</p>
 
                     <!-- Bottone Follow nella card -->
@@ -1917,12 +1916,7 @@ ul {
   line-height: 1.3;
 }
 
-.utente-email {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  margin: 0 0 0.5rem 0;
-  word-break: break-all;
-}
+
 
 .utente-bio {
   color: var(--color-text);

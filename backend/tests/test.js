@@ -466,7 +466,7 @@ describe('InCrowd API Tests - Requisiti Funzionali', () => {
           const propostaResponse = await makeRequest('POST', '/proposte', {
             titolo: 'Integration Test Proposta',
             descrizione: 'Proposta creata durante il test di integrazione',
-            categoria: 'Test'
+            categoria: 'cultura'
           }, integrationUserToken);
 
           // 4. View public proposte (sempre dovrebbe funzionare)
@@ -494,7 +494,7 @@ describe('InCrowd API Tests - Requisiti Funzionali', () => {
       const maliciousData = {
         titolo: '<script>alert("xss")</script>',
         descrizione: 'Descrizione normale',
-        categoria: 'Test'
+        categoria: 'cultura'
       };
       const response = await makeRequest('POST', '/proposte', maliciousData, userToken);
       expect(response.status).toBeDefined();

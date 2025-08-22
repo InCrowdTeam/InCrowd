@@ -2,6 +2,9 @@ import 'dotenv/config'
 import { Request, Response } from "express";
 import Privato from "../models/Privato";
 import Ente from "../models/Ente";
+import Proposta from "../models/Proposta";
+import Commento from "../models/Commento";
+import Follow from "../models/Follow";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import fetch from 'node-fetch';
@@ -183,7 +186,8 @@ export const createUser = async (req: Request, res: Response) => {
       );
     }
 
-    if (!isValidCodiceFiscale(codiceFiscale)) {
+    // Validazione codice fiscale solo per privati
+    if (user_type === 'privato' && !isValidCodiceFiscale(codiceFiscale)) {
       return res.status(400).json(
         apiResponse({ message: "Codice fiscale non valido" })
       );
@@ -472,12 +476,34 @@ export const updateProfile = async (req: any, res: Response) => {
 };
 
 /**
- * DELETE /api/user/account - Elimina account utente
+ * DELETE /api/user/account - Elimina account utente e tutti i dati associati
  */
 export const deleteAccount = async (req: any, res: Response) => {
   try {
     const { userId, userType } = req.user;
 
+    // Prima elimina tutti i dati associati all'utente
+    // 1. Elimina tutte le proposte dell'utente
+    await Proposta.deleteMany({ proponenteID: userId });
+    
+    // 2. Elimina tutti i commenti dell'utente
+    await Commento.deleteMany({ utente: userId });
+    
+    // 3. Elimina tutti i follow dove l'utente è coinvolto (follower o followed)
+    await Follow.deleteMany({ 
+      $or: [
+        { follower: userId },
+        { followed: userId }
+      ]
+    });
+
+    // 4. Rimuovi l'utente da tutte le liste di hype delle proposte
+    await Proposta.updateMany(
+      { listaHyper: userId },
+      { $pull: { listaHyper: userId } }
+    );
+
+    // 5. Infine elimina l'account utente
     let deleted: any;
     if (userType === 'ente') {
       deleted = await Ente.findByIdAndDelete(userId);
@@ -492,7 +518,7 @@ export const deleteAccount = async (req: any, res: Response) => {
     }
 
     res.json(
-      apiResponse({ message: "Account eliminato con successo" })
+      apiResponse({ message: "Account e tutti i dati associati eliminati con successo" })
     );
 
   } catch (err: any) {
