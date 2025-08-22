@@ -30,7 +30,7 @@ export interface CreateUserData {
   user_type: 'privato' | 'ente';
   nome: string;
   cognome?: string; // Obbligatorio per privati
-  nome_org?: string; // Obbligatorio per enti
+  // nome is now the organization name for enti
   codiceFiscale: string;
   biografia?: string;
   email: string;
