@@ -12,14 +12,26 @@ export class PropostaService {
   /**
    * Carica una proposta specifica tramite ID
    * @param propostaId - ID della proposta da caricare
+   * @param token - Token di autenticazione opzionale (per vedere proposte non approvate)
    * @returns Promise<IProposta> - Dati della proposta
    */
-  static async loadProposta(propostaId: string): Promise<IProposta> {
+  static async loadProposta(propostaId: string, token?: string): Promise<IProposta> {
     try {
-      return await getPropostaById(propostaId);
-    } catch (error) {
+      return await getPropostaById(propostaId, token);
+    } catch (error: any) {
       console.error('Errore nel caricamento della proposta:', error);
-      throw new Error('Impossibile caricare la proposta');
+
+      // Gestione specifica per errori di accesso negato
+      if (error.message && error.message.includes('Accesso negato: proposta non ancora approvata')) {
+        throw new Error('Questa proposta non è ancora stata approvata o è stata rifiutata e non è visibile pubblicamente.');
+      }
+
+      // Gestione per altri errori
+      if (error.message && error.message.includes('Proposta non trovata')) {
+        throw new Error('Proposta non trovata. Potrebbe essere stata rimossa o l\'ID non è corretto.');
+      }
+
+      throw new Error('Impossibile caricare la proposta. Riprova più tardi.');
     }
   }
 

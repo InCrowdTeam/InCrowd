@@ -2,6 +2,7 @@
 
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import Proposta from "../models/Proposta";
 import Privato from "../models/Privato"; // Rinominato da User
@@ -406,6 +407,11 @@ export const hyperProposta = async (req: AuthenticatedRequest, res: Response) =>
     const proposta = await Proposta.findById(id);
     if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     
+    // Controllo che la proposta sia approvata prima di permettere hype
+    if (proposta.stato?.stato !== 'approvata') {
+      return res.status(403).json(apiResponse({ message: "Non è possibile hypare proposte non approvate" }));
+    }
+    
     // Inizializza listaHyper se non esiste
     if (!proposta.listaHyper) {
       proposta.listaHyper = [];
@@ -464,12 +470,18 @@ export const aggiungiCommento = async (req: AuthenticatedRequest, res: Response)
       return res.status(400).json(apiResponse({ message: "Il commento non può superare i 500 caratteri" }));
     }
 
-    // Crea il commento
+    // Verifica che la proposta esista e sia approvata
     const proposta = await Proposta.findById(propostaId);
     if (!proposta) {
       return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     }
+    
+    // Controllo che la proposta sia approvata prima di permettere commenti
+    if (proposta.stato?.stato !== 'approvata') {
+      return res.status(403).json(apiResponse({ message: "Non è possibile commentare proposte non approvate" }));
+    }
 
+    // Crea il commento
     const nuovoCommento = new Commento({
       proposta: propostaId,
       utente: req.user.userId,
@@ -553,21 +565,53 @@ export const getCommentiProposta = async (req: Request, res: Response) => {
 };
 
 /**
- * Recupera una singola proposta tramite il suo ID
- * @param req - Richiesta HTTP con id proposta nel parametro
- * @param res - Risposta HTTP con i dettagli della proposta
+ * Recupera una proposta specifica per ID
+ * @param req - Richiesta HTTP (pubblica o autenticata)
+ * @param res - Risposta HTTP con dettagli della proposta
+ *
+ * NOTA: Solo proposte approvate sono visibili pubblicamente.
+ * Il proprietario può vedere le proprie proposte indipendentemente dallo stato.
  */
 export const getPropostaById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const proposta = await Proposta.findById(id);
-    if (!proposta) return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
+
+    if (!proposta) {
+      return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
+    }
+
+    // Verifica se l'utente è autenticato e se è il proprietario
+    const authHeader = req.headers.authorization;
+    let isOwner = false;
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+
+        // Verifica se l'utente è il proprietario della proposta
+        if (payload.userId && payload.userId === proposta.proponenteID?.toString()) {
+          isOwner = true;
+        }
+      } catch (error) {
+        // Token non valido, continua come utente non autenticato
+      }
+    }
+
+    // Se non è il proprietario, verifica che la proposta sia approvata
+    if (!isOwner && proposta.stato?.stato !== 'approvata') {
+      return res.status(403).json(apiResponse({
+        message: "Accesso negato: proposta non ancora approvata o rifiutata"
+      }));
+    }
 
     const propostaObj = proposta.toObject();
     // se per qualche motivo fosse ancora Buffer lo converto
     if (propostaObj.foto?.data && Buffer.isBuffer(propostaObj.foto.data)) {
       propostaObj.foto.data = propostaObj.foto.data.toString('base64');
     }
+
     res.json(apiResponse({ data: propostaObj, message: "Proposta" }));
   } catch (error) {
     console.error("Errore nel recupero proposta:", error);

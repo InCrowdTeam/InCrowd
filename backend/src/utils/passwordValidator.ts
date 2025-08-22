@@ -26,7 +26,7 @@ export function validatePassword(password: string): PasswordValidationResult {
   }
   
   // Controlli di sicurezza (abilitabili/disabilitabili)
-  // Requisiti minimi: 8 caratteri, 1 maiuscola, 1 minuscola, 1 carattere speciale
+  // Requisiti minimi: 8 caratteri, 1 maiuscola, 1 minuscola, 1 numero, 1 carattere speciale
   if (password.length < 8) {
     errors.push('La password deve contenere almeno 8 caratteri');
   }
@@ -37,6 +37,10 @@ export function validatePassword(password: string): PasswordValidationResult {
   
   if (!/[A-Z]/.test(password)) {
     errors.push('La password deve contenere almeno una lettera maiuscola');
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    errors.push('La password deve contenere almeno un numero');
   }
   
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
@@ -69,16 +73,17 @@ export function validatePassword(password: string): PasswordValidationResult {
     length: password.length >= 8,
     lowercase: /[a-z]/.test(password),
     uppercase: /[A-Z]/.test(password),
+    numbers: /[0-9]/.test(password),
     special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
   };
   
   const score = Object.values(checks).filter(Boolean).length;
   
-  if (score >= 4 && password.length >= 12) {
+  if (score >= 5 && password.length >= 12) {
     strength = 'strong';
-  } else if (score >= 4) {
+  } else if (score >= 5) {
     strength = 'good';
-  } else if (score >= 3) {
+  } else if (score >= 4) {
     strength = 'medium';
   }
   

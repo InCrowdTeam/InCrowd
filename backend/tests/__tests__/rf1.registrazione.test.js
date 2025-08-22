@@ -3,7 +3,7 @@ const { makeRequest } = require('./rf-helpers');
 const uniqueEmail = () => `rf1.${Date.now()}@test.com`;
 
 describe('RF1 - Registrazione', () => {
-  test('Creazione privato con password', async () => {
+  test('RF1.1 - Creazione privato con password', async () => {
     const res = await makeRequest('POST', '/user', {
       user_type: 'privato',
       nome: 'Mario',
@@ -15,18 +15,18 @@ describe('RF1 - Registrazione', () => {
     expect([201, 200]).toContain(res.status);
   });
 
-  test('Creazione ente con oauthCode (senza password)', async () => {
+  test('RF1.2 - Creazione ente con oauthCode (senza password)', async () => {
     const res = await makeRequest('POST', '/user', {
       user_type: 'ente',
       nome: 'Comune Test', // nome is now the organization name
       codiceFiscale: 'RSSMRA85C03H501U',
       email: uniqueEmail(),
-      oauthCode: 'fake-oauth-code'
+      oauthCode: 'codice-oauth'
     });
     expect([201, 200]).toContain(res.status);
   });
 
-  test('Validazione: mancano campi obbligatori', async () => {
+  test('RF1.3 - Validazione: mancano campi obbligatori', async () => {
     const res = await makeRequest('POST', '/user', {
       user_type: 'privato',
       nome: 'SoloNome'
@@ -35,7 +35,7 @@ describe('RF1 - Registrazione', () => {
     expect(res.status).toBe(400);
   });
 
-  test('Formato email non valido -> 400', async () => {
+  test('RF1.4 - Formato email non valido -> 400', async () => {
     const res = await makeRequest('POST', '/user', {
       user_type: 'privato',
       nome: 'Mario',
@@ -48,10 +48,10 @@ describe('RF1 - Registrazione', () => {
     expect(res.status).toBe(400);
   });
 
-  test('Email duplicata -> 409', async () => {
+  test('RF1.5 - Email duplicata -> 409', async () => {
     const email = uniqueEmail();
     await makeRequest('POST', '/user', {
-      user_type: 'privato', nome: 'Dup', cognome: 'Case', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!'
+      user_type: 'privato', nome: 'First', cognome: 'Case', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!'
     });
     const res = await makeRequest('POST', '/user', {
       user_type: 'privato', nome: 'Dup', cognome: 'Case', codiceFiscale: 'RSSMRA85C03H501U', email, password: 'Password123!'
