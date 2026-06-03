@@ -28,7 +28,7 @@ export function ProposalCard({ proposta, count, hyped, onHype, onOpen, hypeDisab
   const place = proposta.luogo?.citta
 
   return (
-    <div className="fade-in">
+    <div className="fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {rank != null && (
         <div
           style={{
@@ -49,6 +49,7 @@ export function ProposalCard({ proposta, count, hyped, onHype, onOpen, hypeDisab
         style={{
           display: 'flex',
           flexDirection: 'column',
+          flex: 1,
           borderRadius: 'var(--r-lg)',
           overflow: 'hidden',
           cursor: 'pointer',
