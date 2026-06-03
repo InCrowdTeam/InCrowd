@@ -329,7 +329,7 @@ export function ProfileScreen({ userId, isMe }: ProfileScreenProps) {
             }}
           />
         </div>
-        <div style={{ padding: '0 clamp(18px,3vw,28px) 24px', marginTop: mobile ? -36 : -46 }}>
+        <div style={{ padding: '0 clamp(18px,3vw,28px) 24px', marginTop: mobile ? -36 : -46, position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap' }}>
             <div
               style={{
