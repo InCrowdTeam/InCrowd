@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   InCrowd Design System — token + temi
+   Copiato verbatim dal prototipo (incrowd/project/index.html),
+   rimossa solo l'impalcatura di preview (pchrome/stage/device).
+   ============================================================ */
+:root {
+  /* Brand / accent — coral */
+  --brand: #ff4d5e;
+  --brand-600: #f0354a;
+  --brand-700: #d41f3b;
+  --brand-300: #ff9aa6;
+  --brand-100: #ffe3e6;
+  --brand-soft: #fff1f2;
+
+  /* Category palette — vibrant, harmonious */
+  --cat-cultura: #7c5cff;
+  --cat-cultura-soft: #efeaff;
+  --cat-concerti: #ff4d8d;
+  --cat-concerti-soft: #ffe7f0;
+  --cat-mostre: #ff8a3d;
+  --cat-mostre-soft: #fff0e3;
+  --cat-sport: #1fb46a;
+  --cat-sport-soft: #e2f6ec;
+  --cat-workshop: #2e8bff;
+  --cat-workshop-soft: #e4f0ff;
+  --cat-conferenze: #0fb5ba;
+  --cat-conferenze-soft: #ddf6f6;
+
+  /* hype */
+  --hype: #ffb01f;
+  --hype-deep: #f59000;
+
+  /* radii */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 30px;
+  --r-pill: 999px;
+
+  /* spacing scale */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px;
+  --s-9: 56px; --s-10: 72px;
+
+  /* fonts */
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --maxw: 1180px;
+  --nav-h: 68px;
+
+  --ease: cubic-bezier(.22,.61,.36,1);
+  --ease-back: cubic-bezier(.34,1.56,.64,1);
+}
+
+/* ---------- LIGHT THEME (warm neutrals) ---------- */
+[data-theme="light"] {
+  --bg: #fbf8f6;
+  --bg-tint: #f4efeb;
+  --surface: #ffffff;
+  --surface-2: #faf6f3;
+  --surface-3: #f1ece8;
+  --border: #ece4de;
+  --border-strong: #ddd2ca;
+  --ink: #211c1a;
+  --ink-2: #5c534e;
+  --ink-3: #8b817b;
+  --ink-inv: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(40,25,20,.06), 0 2px 6px rgba(40,25,20,.05);
+  --shadow-md: 0 4px 14px rgba(40,25,20,.08), 0 2px 4px rgba(40,25,20,.05);
+  --shadow-lg: 0 18px 48px rgba(40,25,20,.14), 0 4px 12px rgba(40,25,20,.07);
+  --nav-bg: rgba(255,255,255,.82);
+  --img-a: #f0e7e1;
+  --img-b: #e7dcd4;
+}
+
+/* ---------- DARK THEME (warm-tinted) ---------- */
+[data-theme="dark"] {
+  --bg: #16110f;
+  --bg-tint: #1d1614;
+  --surface: #221a17;
+  --surface-2: #2a201c;
+  --surface-3: #33271f;
+  --border: #34281f;
+  --border-strong: #463528;
+  --ink: #f7efe9;
+  --ink-2: #c3b4aa;
+  --ink-3: #8f8077;
+  --ink-inv: #1a1310;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+  --shadow-lg: 0 22px 54px rgba(0,0,0,.6);
+  --nav-bg: rgba(28,21,18,.82);
+  --img-a: #2c211b;
+  --img-b: #372a22;
+  --brand-soft: #2a1a1b;
+  --brand-100: #3a2023;
+  --cat-cultura-soft: #251f3a;
+  --cat-concerti-soft: #34202b;
+  --cat-mostre-soft: #332419;
+  --cat-sport-soft: #16301f;
+  --cat-workshop-soft: #15263a;
+  --cat-conferenze-soft: #103030;
+}
+
+/* fallback se data-theme non è ancora applicato: usa il light */
+:root:not([data-theme]) {
+  --bg: #fbf8f6;
+  --bg-tint: #f4efeb;
+  --surface: #ffffff;
+  --surface-2: #faf6f3;
+  --surface-3: #f1ece8;
+  --border: #ece4de;
+  --border-strong: #ddd2ca;
+  --ink: #211c1a;
+  --ink-2: #5c534e;
+  --ink-3: #8b817b;
+  --ink-inv: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(40,25,20,.06), 0 2px 6px rgba(40,25,20,.05);
+  --shadow-md: 0 4px 14px rgba(40,25,20,.08), 0 2px 4px rgba(40,25,20,.05);
+  --shadow-lg: 0 18px 48px rgba(40,25,20,.14), 0 4px 12px rgba(40,25,20,.07);
+  --nav-bg: rgba(255,255,255,.82);
+  --img-a: #f0e7e1;
+  --img-b: #e7dcd4;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background .3s var(--ease), color .3s var(--ease);
+}
+h1,h2,h3,h4,h5 { font-family: var(--font-display); margin: 0; letter-spacing: -.02em; line-height: 1.05; }
+p { margin: 0; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea, select { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--brand); color: #fff; }
+
+/* scrollbar */
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+#root { min-height: 100vh; }
+
+/* utility */
+.mono { font-family: var(--font-mono); }
+.fade-in { animation: fadeIn .45s var(--ease) both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+
+/* ---- shared interactive bits portati dai componenti del prototipo (UI_CSS) ---- */
+.ic-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.04); }
+.ic-btn:active:not(:disabled) { transform: translateY(0); }
+.ic-card-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--border-strong); }
+.ic-input { width:100%; padding:12px 15px; border-radius:var(--r-sm); border:1.5px solid var(--border);
+  background:var(--surface-2); color:var(--ink); font-size:14.5px; transition:all .18s var(--ease); }
+.ic-input::placeholder { color:var(--ink-3); }
+.ic-input:focus { outline:none; border-color:var(--brand); background:var(--surface);
+  box-shadow:0 0 0 4px var(--brand-soft); }
+.ic-label { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:var(--ink-2); margin-bottom:8px; }
+
+.hype-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.hype-btn[data-active="false"]:not(:disabled):hover { border-color: var(--hype); color: var(--hype-deep); }
+.hype-btn:disabled { cursor: not-allowed; opacity: .55; }
+.hype-burst { position:absolute; inset:-7px; border-radius:50%; pointer-events:none;
+  background: radial-gradient(circle, var(--hype) 0%, transparent 60%);
+  animation: hypeBurst .55s var(--ease) forwards; }
+@keyframes hypeBurst { 0%{ transform:scale(.4); opacity:.9 } 100%{ transform:scale(2.2); opacity:0 } }
+
+.menu-row { display:flex; align-items:center; gap:11px; width:100%; padding:10px 11px; border-radius:10px;
+  font-size:14px; font-weight:600; color:var(--ink-2); transition:background .14s; }
+.menu-row:hover { background:var(--surface-3); }
+
+/* ---- Navbar responsive: desktop links vs riga di pillole su mobile ---- */
+.nav-mobile { display: none; }
+@media (max-width: 760px) {
+  .nav-links { display: none !important; }
+  .nav-rolebadge { display: none !important; }
+  .nav-username { display: none !important; }
+  .nav-mobile { display: flex; }
+}
