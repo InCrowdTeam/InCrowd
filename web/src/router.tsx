@@ -17,10 +17,13 @@ import PannelloOperatore from '@/pages/PannelloOperatore'
 import UltimiCommenti from '@/pages/UltimiCommenti'
 import NotFound from '@/pages/NotFound'
 import NotLogged from '@/pages/NotLogged'
+import Forbidden from '@/pages/Forbidden'
 
 /**
- * Guard equivalenti a router.beforeEach del frontend Vue.
- * L'ORDINE dei controlli replica esattamente quello originale.
+ * Guard equivalenti a router.beforeEach del frontend Vue, con la regola richiesta:
+ * - utente NON loggato su pagina protetta → /not-logged (deve accedere)
+ * - utente loggato ma SENZA il ruolo richiesto → 403 in-place (Forbidden), NON /login
+ * - utente già loggato su pagina "ospite" (login/registrazione) → redirect alla sua home
  */
 interface GuardFlags {
   requiresAdmin?: boolean
@@ -28,19 +31,39 @@ interface GuardFlags {
   requiresOperator?: boolean
   requiresAuth?: boolean
   hideFromOperators?: boolean
+  /** Solo per ospiti: i loggati vengono reindirizzati (login, registrazione). */
+  guestOnly?: boolean
+}
+
+function homeForRole(userType: string): string {
+  if (userType === 'admin') return '/admin/operatori'
+  if (userType === 'operatore') return '/pannello-operatore'
+  return '/'
 }
 
 function Guard({ children, ...flags }: GuardFlags & { children: ReactNode }) {
   const token = useUserStore((s) => s.token)
   const userType = useUserStore((s) => s.userType)
+  const loggedIn = !!token
   const isAdmin = userType === 'admin'
   const isOperatore = userType === 'operatore'
 
-  if (flags.requiresAdmin && !isAdmin) return <Navigate to="/login" replace />
-  if (flags.requiresOperatorOrAdmin && !isOperatore && !isAdmin) return <Navigate to="/login" replace />
-  if (flags.requiresOperator && !isOperatore) return <Navigate to="/login" replace />
-  if (flags.requiresAuth && !token) return <Navigate to="/not-logged" replace />
+  // Pagine per soli ospiti: se sei già loggato non puoi andare su login/registrati.
+  if (flags.guestOnly && loggedIn) return <Navigate to={homeForRole(userType)} replace />
+
+  // Autenticazione richiesta.
+  if (flags.requiresAuth && !loggedIn) return <Navigate to="/not-logged" replace />
+
+  // Controlli di ruolo: non loggato → "devi accedere"; loggato col ruolo errato → 403.
+  const needsRole = !!(flags.requiresAdmin || flags.requiresOperator || flags.requiresOperatorOrAdmin)
+  if (needsRole && !loggedIn) return <Navigate to="/not-logged" replace />
+  if (flags.requiresAdmin && !isAdmin) return <Forbidden />
+  if (flags.requiresOperator && !isOperatore) return <Forbidden />
+  if (flags.requiresOperatorOrAdmin && !isOperatore && !isAdmin) return <Forbidden />
+
+  // Pagine nascoste agli operatori (profilo personale, creazione proposta).
   if (flags.hideFromOperators && isOperatore) return <Navigate to="/pannello-operatore" replace />
+
   return <>{children}</>
 }
 
@@ -65,11 +88,11 @@ export const router = createBrowserRouter([
       },
       {
         path: '/addProposta',
-        element: <Guard requiresAuth><AddProposta /></Guard>,
+        element: <Guard requiresAuth hideFromOperators><AddProposta /></Guard>,
       },
-      { path: '/login', element: <Login /> },
-      { path: '/addUser', element: <Signup /> },
-      { path: '/completeGoogleSignup', element: <CompleteGoogleSignup /> },
+      { path: '/login', element: <Guard guestOnly><Login /></Guard> },
+      { path: '/addUser', element: <Guard guestOnly><Signup /></Guard> },
+      { path: '/completeGoogleSignup', element: <Guard guestOnly><CompleteGoogleSignup /></Guard> },
       {
         path: '/admin/operatori',
         element: <Guard requiresAdmin><AdminOperatori /></Guard>,
