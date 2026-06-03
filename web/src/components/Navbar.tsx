@@ -290,7 +290,7 @@ export function Navbar() {
 
       {/* nav a pillole su mobile */}
       {items.length > 1 && (
-        <div className="nav-mobile" style={{ gap: 4, padding: '0 14px 12px', overflowX: 'auto' }}>
+        <div className="nav-mobile" style={{ gap: 8, padding: '2px 14px 14px', overflowX: 'auto' }}>
           {items.map((it) => {
             const on = location.pathname === it.path
             return (
@@ -300,14 +300,16 @@ export function Navbar() {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 6,
-                  padding: '8px 13px',
+                  gap: 7,
+                  padding: '10px 16px',
                   whiteSpace: 'nowrap',
                   borderRadius: 'var(--r-pill)',
-                  fontSize: 13.5,
-                  fontWeight: on ? 700 : 600,
+                  fontSize: 14,
+                  fontWeight: 700,
                   color: on ? '#fff' : 'var(--ink-2)',
-                  background: on ? 'var(--brand)' : 'var(--surface-3)',
+                  background: on ? 'var(--brand)' : 'var(--surface)',
+                  border: on ? '1px solid transparent' : '1px solid var(--border)',
+                  boxShadow: on ? '0 3px 10px rgba(255,77,94,.3)' : 'none',
                 }}
               >
                 <Icon name={it.icon} size={15} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Google Identity Services (GIS) — porting della logica OAuth del frontend Vue
@@ -82,7 +82,9 @@ export function useGoogleSignIn(
   onCredential: (idToken: string) => void,
   options: GoogleButtonOptions = {},
 ) {
-  const ref = useRef<HTMLDivElement | null>(null)
+  // Il contenitore è tracciato in stato: così il pulsante viene (ri)renderizzato
+  // anche quando il div compare DOPO il mount (es. step 2 del wizard di registrazione).
+  const [node, setNode] = useState<HTMLDivElement | null>(null)
   const cb = useRef(onCredential)
   useEffect(() => {
     cb.current = onCredential
@@ -92,15 +94,15 @@ export function useGoogleSignIn(
 
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
-    const el = ref.current
-    if (!clientId || !el) {
-      if (!clientId) console.warn('VITE_GOOGLE_CLIENT_ID non configurato: pulsante Google non disponibile.')
+    if (!clientId) {
+      console.warn('VITE_GOOGLE_CLIENT_ID non configurato: pulsante Google non disponibile.')
       return
     }
+    if (!node) return
     let cancelled = false
     loadGoogleScript()
       .then(() => {
-        if (cancelled || !ref.current) return
+        if (cancelled || !node) return
         const google = window.google
         if (!google?.accounts?.id) return
         google.accounts.id.initialize({
@@ -111,8 +113,8 @@ export function useGoogleSignIn(
           use_fedcm_for_prompt: true,
           itp_support: true,
         })
-        ref.current.innerHTML = ''
-        google.accounts.id.renderButton(ref.current, {
+        node.innerHTML = ''
+        google.accounts.id.renderButton(node, {
           theme,
           size,
           shape: 'pill',
@@ -125,11 +127,11 @@ export function useGoogleSignIn(
     return () => {
       cancelled = true
     }
-  }, [text, theme, size, width])
+  }, [node, text, theme, size, width])
 
   /** Aggancia questo callback al `<div ref={setRef}>` dove montare il pulsante. */
-  const setRef = useCallback((node: HTMLDivElement | null) => {
-    ref.current = node
+  const setRef = useCallback((n: HTMLDivElement | null) => {
+    setNode(n)
   }, [])
 
   return setRef

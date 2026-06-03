@@ -146,8 +146,9 @@ export default function Home() {
   return (
     <div style={{ maxWidth: 'var(--maxw)', margin: '0 auto', padding: 'clamp(18px,3vw,30px) clamp(14px,4vw,28px) 80px' }}>
       {/* ricerca */}
-      <Card pad="22px 24px" style={{ marginBottom: 'var(--s-5)', borderRadius: 'var(--r-lg)' }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Card pad="clamp(14px,3vw,20px)" style={{ marginBottom: 'var(--s-5)', borderRadius: 'var(--r-lg)' }}>
+        {/* tipo di ricerca */}
+        <div style={{ marginBottom: 12 }}>
           <PillTabs
             tabs={[
               { id: 'proposte', label: 'Proposte', icon: 'sparkle' },
@@ -159,12 +160,31 @@ export default function Home() {
               clearSearch()
             }}
           />
-          <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-            <Icon
-              name="search"
-              size={19}
-              style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)' }}
-            />
+        </div>
+        {/* barra di ricerca: input a pillola + Filtri (responsive) */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={runSearch}
+              aria-label="Cerca"
+              className="ic-btn"
+              style={{
+                position: 'absolute',
+                left: 7,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--ink-3)',
+                background: 'transparent',
+              }}
+            >
+              <Icon name="search" size={19} />
+            </button>
             <input
               className="ic-input"
               value={query}
@@ -173,7 +193,7 @@ export default function Home() {
               placeholder={
                 searchType === 'proposte' ? 'Cerca proposte per titolo, luogo o descrizione…' : 'Cerca utenti per nome…'
               }
-              style={{ paddingLeft: 44, borderRadius: 'var(--r-pill)' }}
+              style={{ paddingLeft: 46, borderRadius: 'var(--r-pill)' }}
             />
           </div>
           {searchType === 'proposte' && (
@@ -181,9 +201,6 @@ export default function Home() {
               Filtri
             </Button>
           )}
-          <Button icon="search" onClick={runSearch}>
-            Cerca
-          </Button>
           {showingSearch && (
             <Button variant="ghost" icon="x" onClick={clearSearch}>
               Pulisci
