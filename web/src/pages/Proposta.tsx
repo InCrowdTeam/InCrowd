@@ -181,7 +181,7 @@ export default function Proposta() {
   }
 
   /* ---- commenti: invio / eliminazione ---- */
-  const canComment = !!user && !isOperatore
+  const canComment = canHype // solo privato/ente (come il backend per hype/commenti)
 
   const post = async () => {
     const testo = draft.trim()
@@ -530,6 +530,12 @@ export default function Proposta() {
             title="Funzione commenti non disponibile"
             text="Gli operatori non possono aggiungere commenti alle proposte per mantenere la neutralità della moderazione."
           />
+        ) : token ? (
+          <GateCard
+            icon="shield"
+            title="Funzione non disponibile"
+            text="Solo gli utenti e gli enti possono commentare le proposte."
+          />
         ) : (
           <GateCard
             icon="user"
@@ -639,7 +645,8 @@ function CommentRow({ c, canDelete, onDelete }: { c: ICommento; canDelete: boole
         <div style={{ background: 'var(--surface-3)', borderRadius: 'var(--r-md)', padding: '11px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>{UserService.getCommentUserName(c)}</span>
-            {isEnte(u) && (
+            {((u as { user_type?: string; userType?: string })?.user_type === 'ente' ||
+              (u as { user_type?: string; userType?: string })?.userType === 'ente') && (
               <Badge color="var(--cat-cultura)" bg="var(--cat-cultura-soft)">
                 Ente
               </Badge>

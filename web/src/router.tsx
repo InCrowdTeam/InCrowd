@@ -61,8 +61,8 @@ function Guard({ children, ...flags }: GuardFlags & { children: ReactNode }) {
   if (flags.requiresOperator && !isOperatore) return <Forbidden />
   if (flags.requiresOperatorOrAdmin && !isOperatore && !isAdmin) return <Forbidden />
 
-  // Pagine nascoste agli operatori (profilo personale, creazione proposta).
-  if (flags.hideFromOperators && isOperatore) return <Navigate to="/pannello-operatore" replace />
+  // Pagine senza senso per operatore/admin (profilo personale, creazione proposta).
+  if (flags.hideFromOperators && (isOperatore || isAdmin)) return <Navigate to={homeForRole(userType)} replace />
 
   return <>{children}</>
 }
@@ -84,7 +84,7 @@ export const router = createBrowserRouter([
       { path: '/users/:id', element: <UserProfile /> },
       {
         path: '/users',
-        element: <Guard requiresOperatorOrAdmin><UserList /></Guard>,
+        element: <Guard requiresOperator><UserList /></Guard>,
       },
       {
         path: '/addProposta',

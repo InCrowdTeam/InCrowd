@@ -55,7 +55,7 @@ export const selectIsAdmin = (s: UserState) => s.userType === 'admin'
 export const selectIsOperatore = (s: UserState) => s.userType === 'operatore'
 export const selectIsEnte = (s: UserState) => s.userType === 'ente'
 export const selectIsUser = (s: UserState) => s.userType === 'privato'
-export const selectCanHype = (s: UserState) => !!s.user && s.userType !== 'operatore'
+export const selectCanHype = (s: UserState) => !!s.user && (s.userType === 'privato' || s.userType === 'ente')
 
 /** Helper non-reattivo per uso fuori dai componenti (es. nelle pagine). */
 export const userStore = {

@@ -42,15 +42,16 @@ export default function CompleteGoogleSignup() {
   // nome/cognome importati da Google (eventualmente splittati come nel Vue)
   const nomeGoogle = useMemo(() => {
     const n = state?.nome || ''
-    return n.includes(' ') ? n.split(' ')[0] : n
-  }, [state?.nome])
+    // Split nome/cognome solo per privati: per gli enti il nome (anche con spazi) resta intero.
+    return state?.type !== 'ente' && n.includes(' ') ? n.split(' ')[0] : n
+  }, [state?.nome, state?.type])
   const cognomeGoogle = useMemo(() => {
     const n = state?.nome || ''
     const c = state?.cognome || ''
     if (c) return c
-    if (n.includes(' ')) return n.split(' ').slice(1).join(' ')
+    if (state?.type !== 'ente' && n.includes(' ')) return n.split(' ').slice(1).join(' ')
     return ''
-  }, [state?.nome, state?.cognome])
+  }, [state?.nome, state?.cognome, state?.type])
 
   // Foto profilo importata da Google (allegato JSON nello state) — derivata, non in un effetto.
   const fotoProfiloRaw = state?.fotoProfilo

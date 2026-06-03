@@ -148,7 +148,7 @@ export default function Signup() {
         setToken(data.token)
         setUser(data.user)
         if (data.userType) setUserType(data.userType)
-        navigate('/')
+        navByRole(data.userType)
       } else {
         // Fallback: vai al login
         navigate('/login')
@@ -158,6 +158,12 @@ export default function Signup() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const navByRole = (ut?: string) => {
+    if (ut === 'admin') navigate('/admin/operatori')
+    else if (ut === 'operatore') navigate('/pannello-operatore')
+    else navigate('/')
   }
 
   /* ---- Google sign-up (porting handleGoogle/redirectToCompleteSignup) ---- */
@@ -205,7 +211,7 @@ export default function Signup() {
       setUser(res.data.user)
       setToken(res.data.token)
       setUserType(res.data.userType)
-      navigate('/')
+      navByRole(res.data.userType)
     } catch (err) {
       setMessage((err as Error)?.message || 'Errore durante la registrazione con Google')
     }
