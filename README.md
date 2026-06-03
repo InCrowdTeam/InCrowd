@@ -65,27 +65,27 @@ backend/
 - **Testing**: Jest con MongoDB Memory Server
 - **Validazione**: Custom validators per password e codice fiscale
 
-### **Frontend (Vue.js 3 + TypeScript)**
+### **Frontend (React + Vite + TypeScript)**
 ```
-frontend/
+web/
 ├── src/
-│   ├── views/           # Pagine principali (Home, Login, Profilo, etc.)
-│   ├── components/      # Componenti riutilizzabili (Modal, Search, etc.)
-│   ├── stores/          # State management con Pinia (user, follow)
-│   ├── api/             # Client HTTP per comunicazione con backend
+│   ├── pages/           # Pagine principali (Home, Proposta, Profilo, Login, ...)
+│   ├── components/      # Componenti riutilizzabili + libreria UI (components/ui)
+│   ├── stores/          # State management con Zustand (user, follow)
+│   ├── api/             # Client HTTP (fetch) per comunicazione con backend
 │   ├── services/        # Servizi business logic (Date, Follow, Proposta, User)
-│   ├── composables/     # Logica riutilizzabile Vue 3
+│   ├── hooks/ · lib/    # Hook (useAuthor, useMediaQuery) e helper (tema, Google)
 │   └── types/           # Definizioni TypeScript condivise
 ```
 
 **Stack Frontend:**
-- **Framework**: Vue.js 3.5.13 con Composition API
-- **Build Tool**: Vite 6.3.5
-- **State Management**: Pinia 3.0.2
-- **Routing**: Vue Router 4.5.1
-- **HTTP Client**: Axios 1.9.0
-- **Styling**: CSS custom con design system coerente
-- **TypeScript**: Supporto completo con vue-tsc
+- **Framework**: React 19 con function components + hooks
+- **Build Tool**: Vite 8
+- **State Management**: Zustand 5
+- **Routing**: React Router 7
+- **HTTP Client**: fetch nativo
+- **Styling**: Tailwind + design system a CSS variables (tema chiaro/scuro automatico)
+- **TypeScript**: Supporto completo (tsc -b + ESLint)
 
 ### **Database Schema**
 ```javascript
@@ -144,8 +144,8 @@ cd backend
 npm install
 npm run dev          # Sviluppo con nodemon
 
-# Frontend  
-cd frontend
+# Frontend (React)
+cd web
 npm install
 npm run dev          # Sviluppo con Vite HMR
 ```
@@ -167,8 +167,13 @@ npm run preview      # Preview build locale
 docker build -t incrowd-backend ./backend
 docker run -p 3000:3000 incrowd-backend
 
-# Frontend (Nginx Alpine)
-docker build -t incrowd-frontend ./frontend  
+# Frontend (build statico React servito da Nginx Alpine)
+# Le variabili VITE_* sono "inlinate" a build-time → vanno passate come --build-arg
+docker build -t incrowd-frontend \
+  --build-arg VITE_BACKEND_URL=https://api.example.com \
+  --build-arg VITE_GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com \
+  --build-arg VITE_ENABLE_SECURITY_CONTROLS=true \
+  ./web
 docker run -p 80:80 incrowd-frontend
 ```
 
@@ -329,6 +334,6 @@ Per domande, bug report o richieste di feature, utilizza il sistema di issue del
 
 ### Crediti Tecnici
 - **Backend**: Node.js + Express + MongoDB + TypeScript
-- **Frontend**: Vue.js 3 + Pinia + Vite + TypeScript  
+- **Frontend**: React 19 + Zustand + Vite + TypeScript  
 - **Testing**: Jest + MongoDB Memory Server
 - **Deployment**: Docker + Alpine Linux + Nginx
