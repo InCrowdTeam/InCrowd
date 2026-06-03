@@ -590,9 +590,10 @@ export const getPropostaById = async (req: Request, res: Response) => {
       return res.status(404).json(apiResponse({ message: "Proposta non trovata" }));
     }
 
-    // Verifica se l'utente è autenticato e se è il proprietario
+    // Verifica se l'utente è autenticato: proprietario oppure operatore/admin.
     const authHeader = req.headers.authorization;
     let isOwner = false;
+    let isPrivileged = false; // operatore/admin: possono vedere proposte non approvate
 
     if (authHeader) {
       try {
@@ -603,13 +604,17 @@ export const getPropostaById = async (req: Request, res: Response) => {
         if (payload.userId && payload.userId === proposta.proponenteID?.toString()) {
           isOwner = true;
         }
+        // Operatori e admin hanno visibilità completa (es. moderazione)
+        if (payload.userType === 'operatore' || payload.userType === 'admin') {
+          isPrivileged = true;
+        }
       } catch (error) {
         // Token non valido, continua come utente non autenticato
       }
     }
 
-    // Se non è il proprietario, verifica che la proposta sia approvata
-    if (!isOwner && proposta.stato?.stato !== 'approvata') {
+    // Solo proprietario, operatore o admin possono vedere proposte non approvate
+    if (!isOwner && !isPrivileged && proposta.stato?.stato !== 'approvata') {
       return res.status(403).json(apiResponse({
         message: "Accesso negato: proposta non ancora approvata o rifiutata"
       }));
