@@ -3,7 +3,20 @@ import type { ReactNode } from 'react'
 import { Layout } from '@/components/Layout'
 import { useUserStore } from '@/stores/userStore'
 import Home from '@/pages/Home'
-import Placeholder from '@/pages/Placeholder'
+import Proposta from '@/pages/Proposta'
+import Profilo from '@/pages/Profilo'
+import UserProfile from '@/pages/UserProfile'
+import UserList from '@/pages/UserList'
+import AddProposta from '@/pages/AddProposta'
+import Login from '@/pages/Login'
+import Signup from '@/pages/Signup'
+import CompleteGoogleSignup from '@/pages/CompleteGoogleSignup'
+import AdminOperatori from '@/pages/AdminOperatori'
+import ModerationPanel from '@/pages/ModerationPanel'
+import PannelloOperatore from '@/pages/PannelloOperatore'
+import UltimiCommenti from '@/pages/UltimiCommenti'
+import NotFound from '@/pages/NotFound'
+import NotLogged from '@/pages/NotLogged'
 
 /**
  * Guard equivalenti a router.beforeEach del frontend Vue.
@@ -31,52 +44,50 @@ function Guard({ children, ...flags }: GuardFlags & { children: ReactNode }) {
   return <>{children}</>
 }
 
-// Helper per le pagine ancora da ridisegnare (Fasi 2-6).
-const ph = (title: string, icon?: string) => <Placeholder title={title} icon={icon} />
-
 export const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
       { path: '/', element: <Home /> },
-      { path: '/proposte/:id', element: ph('Dettaglio proposta', 'sparkle') },
+      { path: '/proposte/:id', element: <Proposta /> },
       {
         path: '/profilo',
         element: (
           <Guard requiresAuth hideFromOperators>
-            {ph('Il mio profilo', 'user')}
+            <Profilo />
           </Guard>
         ),
       },
-      { path: '/users/:id', element: ph('Profilo utente', 'user') },
+      { path: '/users/:id', element: <UserProfile /> },
       {
         path: '/users',
-        element: (
-          <Guard requiresOperatorOrAdmin>{ph('Lista utenti', 'users')}</Guard>
-        ),
+        element: <Guard requiresOperatorOrAdmin><UserList /></Guard>,
       },
       {
         path: '/addProposta',
-        element: <Guard requiresAuth>{ph('Aggiungi proposta', 'plus')}</Guard>,
+        element: <Guard requiresAuth><AddProposta /></Guard>,
       },
-      { path: '/login', element: ph('Accedi', 'user') },
-      { path: '/addUser', element: ph('Registrati', 'user') },
-      { path: '/completeGoogleSignup', element: ph('Completa registrazione', 'user') },
+      { path: '/login', element: <Login /> },
+      { path: '/addUser', element: <Signup /> },
+      { path: '/completeGoogleSignup', element: <CompleteGoogleSignup /> },
       {
         path: '/admin/operatori',
-        element: <Guard requiresAdmin>{ph('Gestione operatori', 'shield')}</Guard>,
+        element: <Guard requiresAdmin><AdminOperatori /></Guard>,
       },
       {
         path: '/moderation',
-        element: <Guard requiresOperator>{ph('Moderazione', 'shield')}</Guard>,
+        element: <Guard requiresOperator><ModerationPanel /></Guard>,
       },
       {
         path: '/pannello-operatore',
-        element: <Guard requiresOperator>{ph('Pannello operatore', 'shield')}</Guard>,
+        element: <Guard requiresOperator><PannelloOperatore /></Guard>,
       },
-      { path: '/comments', element: ph('Ultimi commenti', 'comment') },
-      { path: '/not-logged', element: <Placeholder title="Devi accedere" note="Accedi per visualizzare questa pagina." icon="user" /> },
-      { path: '*', element: <Placeholder title="Pagina non trovata" note="La pagina che cerchi non esiste." icon="search" /> },
+      {
+        path: '/comments',
+        element: <Guard requiresOperator><UltimiCommenti /></Guard>,
+      },
+      { path: '/not-logged', element: <NotLogged /> },
+      { path: '*', element: <NotFound /> },
     ],
   },
 ])
