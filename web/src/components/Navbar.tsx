@@ -159,24 +159,6 @@ export function Navbar() {
 
         <div style={{ flex: 1 }} />
 
-        <button
-          onClick={toggle}
-          title="Cambia tema"
-          className="ic-btn"
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            display: 'grid',
-            placeItems: 'center',
-            color: 'var(--ink-2)',
-          }}
-        >
-          <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} />
-        </button>
-
         {loggedIn ? (
           <div style={{ position: 'relative' }}>
             <button
