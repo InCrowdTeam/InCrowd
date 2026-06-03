@@ -4,6 +4,7 @@ import { useUserStore } from '@/stores/userStore'
 import { login as loginApi, googleLogin as googleLoginApi } from '@/api/authApi'
 import { useGoogleSignIn, isGoogleConfigured } from '@/lib/googleSignin'
 import { Card, Button, Icon } from '@/components/ui'
+import incrowdLogo from '@/assets/incrowd-logo.png'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -84,31 +85,13 @@ export default function Login() {
       <Card className="fade-in" pad="clamp(26px,4vw,38px)" style={{ borderRadius: 'var(--r-lg)' }}>
         {/* Header con brand mark */}
         <div style={{ textAlign: 'center', marginBottom: 'var(--s-6)' }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              background: 'var(--brand)',
-              position: 'relative',
-              margin: '0 auto 16px',
-              boxShadow: '0 6px 18px rgba(255,77,94,.4)',
-            }}
-          >
-            <div style={{ position: 'absolute', inset: 56 * 0.2, borderRadius: '50%', background: 'var(--ink)' }} />
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: 56 * 0.17,
-                height: 56 * 0.17,
-                borderRadius: '50%',
-                background: 'var(--brand)',
-                transform: 'translate(-50%,-50%)',
-              }}
-            />
-          </div>
+          <img
+            src={incrowdLogo}
+            alt="InCrowd"
+            width={60}
+            height={60}
+            style={{ display: 'block', margin: '0 auto 16px' }}
+          />
           <h2 style={{ fontSize: 'clamp(24px,5vw,30px)', fontWeight: 800, color: 'var(--ink)' }}>
             Accedi a InCrowd
           </h2>

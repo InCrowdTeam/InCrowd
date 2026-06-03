@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/theme'
 import { UserService } from '@/services/UserService'
 import { clearAuthorCache } from '@/hooks/useAuthor'
 import { Avatar, Icon } from '@/components/ui'
+import incrowdLogo from '@/assets/incrowd-logo.png'
 
 interface NavItem {
   label: string
@@ -38,39 +39,15 @@ const ROLE_META: Record<string, { label: string; icon: string; color: string }> 
   admin: { label: 'Admin', icon: 'shield', color: 'var(--brand)' },
 }
 
-function Logo({ size = 30 }: { size?: number }) {
+function Logo({ size = 32 }: { size?: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          background: 'var(--brand)',
-          position: 'relative',
-          flexShrink: 0,
-          boxShadow: '0 3px 10px rgba(255,77,94,.4)',
-        }}
-      >
-        <div style={{ position: 'absolute', inset: size * 0.2, borderRadius: '50%', background: 'var(--ink)' }} />
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            width: size * 0.17,
-            height: size * 0.17,
-            borderRadius: '50%',
-            background: 'var(--brand)',
-            transform: 'translate(-50%,-50%)',
-          }}
-        />
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <img src={incrowdLogo} alt="InCrowd" width={size} height={size} style={{ display: 'block', flexShrink: 0 }} />
       <span
         style={{
           fontFamily: 'var(--font-display)',
           fontWeight: 800,
-          fontSize: size * 0.66,
+          fontSize: size * 0.62,
           letterSpacing: '-.03em',
           color: 'var(--ink)',
         }}
