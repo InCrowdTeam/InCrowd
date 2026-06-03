@@ -33,7 +33,10 @@ export function Badge({ children, color = 'var(--ink-2)', bg = 'var(--surface-3)
   )
 }
 
-/** Badge ruolo: ente (cultura) vs utente privato (workshop). */
+/**
+ * Badge ruolo. L'utente privato NON ha badge (ridondante): si mostra solo per
+ * Ente, Operatore e Admin.
+ */
 export function RoleBadge({ type }: { type?: string }) {
   if (type === 'ente')
     return (
@@ -41,9 +44,17 @@ export function RoleBadge({ type }: { type?: string }) {
         Ente
       </Badge>
     )
-  return (
-    <Badge color="var(--cat-workshop)" bg="var(--cat-workshop-soft)" icon="user">
-      Utente
-    </Badge>
-  )
+  if (type === 'operatore')
+    return (
+      <Badge color="var(--ink-2)" bg="var(--surface-3)" icon="tool">
+        Operatore
+      </Badge>
+    )
+  if (type === 'admin')
+    return (
+      <Badge color="var(--brand-700)" bg="var(--brand-soft)" icon="shield">
+        Admin
+      </Badge>
+    )
+  return null
 }
