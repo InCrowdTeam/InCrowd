@@ -32,8 +32,8 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
   admin: [{ label: 'Gestione Operatori', icon: 'users', path: '/admin/operatori' }],
 }
 
+// Niente badge per l'utente privato (ridondante): solo Ente/Operatore/Admin.
 const ROLE_META: Record<string, { label: string; icon: string; color: string }> = {
-  privato: { label: 'Utente', icon: 'user', color: 'var(--cat-workshop)' },
   ente: { label: 'Ente', icon: 'building', color: 'var(--cat-cultura)' },
   operatore: { label: 'Operatore', icon: 'tool', color: 'var(--ink-2)' },
   admin: { label: 'Admin', icon: 'shield', color: 'var(--brand)' },
