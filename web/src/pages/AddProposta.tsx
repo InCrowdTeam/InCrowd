@@ -23,7 +23,7 @@ const STEPS: StepDef[] = [
   { id: 3, label: 'Luogo & Data' },
 ]
 
-const MAX_FOTO_BYTES = 5 * 1024 * 1024 // 5MB
+const MAX_FOTO_BYTES = 2 * 1024 * 1024 // 2MB (limite effettivo del backend)
 
 interface FormState {
   titolo: string
@@ -160,7 +160,7 @@ export default function AddProposta() {
       return
     }
     if (file.size > MAX_FOTO_BYTES) {
-      setError('Immagine troppo grande. Dimensione massima 5MB.')
+      setError('Immagine troppo grande. Dimensione massima 2MB.')
       return
     }
     setError('')
@@ -480,7 +480,7 @@ export default function AddProposta() {
                   <div style={{ fontWeight: 700, fontSize: 16 }}>
                     Trascina un&apos;immagine o clicca per caricare
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 5 }}>JPG o PNG &middot; max 5MB</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 5 }}>JPG o PNG &middot; max 2MB</div>
                 </>
               )}
             </label>
