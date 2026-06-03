@@ -12,7 +12,7 @@ export interface IProposta {
     categoria?: string;
     luogo?: IIndirizzo;
     dataIpotetica?: Date;
-    listaHyper: [string];
+    listaHyper: string[];
     createdAt: Date;
     updatedAt: Date;
   };
